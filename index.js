@@ -23,11 +23,13 @@ app.get('/', (req, res) => {
 app.get('/generate-pdf', async (req, res) => {
   try {
     const browser = await puppeteer.launch({
+      // Render環境で必要となるChrome起動オプション
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
     const page = await browser.newPage();
     
+    // ダミーとしてGoogleのページをPDF化
     await page.goto('https://www.google.com'); 
     const pdf = await page.pdf({ format: 'A4' });
 

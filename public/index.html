@@ -163,6 +163,9 @@
   </div>
 
 <script>
+  // ★★★ ここのJavaScriptは、GAS (google.script.run) から
+  // Node.js (fetch) へ書き換える必要があります ★★★
+
   let selectedPeriod = {};
   let issuedReports = {};
   let currentClinicForModal = '';
@@ -240,6 +243,7 @@
 
   function loadClinics() {
     showLoading(true);
+    // ★★★ GAS版のコード (要修正) ★★★
     google.script.run
       .withSuccessHandler(clinics => {
         const container = document.getElementById('clinic-list-container');
@@ -276,6 +280,7 @@
     showLoading(true);
     const selectedClinics = Array.from(document.querySelectorAll('#clinic-list-container input:checked')).map(cb => cb.value);
     
+    // ★★★ GAS版のコード (要修正) ★★★
     google.script.run
       .withSuccessHandler(data => {
         const timestamp = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -690,6 +695,10 @@
    */
   async function generatePdf() {
       showLoading(true, 'PDF生成の準備中...');
+
+      // ★★★ このPDF生成ロジックは、Node.jsサーバーサイド (index.js) に
+      // 移植し、ブラウザからは '/generate-pdf' を呼び出すように変更する必要があります ★★★
+
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('p', 'mm', 'a4');
       const a4Width = 210;
@@ -724,7 +733,10 @@
 
               if (slidesData.length > 0) {
                   // コメント系 (複数ページ)
-                  for (let j = 0; j < slidesData.length; j++) {
+                  // ★★★ PDFサイズ制限対策 (10ページ) ★★★
+                  const pageLimit = Math.min(slidesData.length, 10); 
+                  
+                  for (let j = 0; j < pageLimit; j++) {
                       renderSlide(j + 1);
                       await new Promise(resolve => setTimeout(resolve, 150)); // スライド描画待ち
 
@@ -735,6 +747,14 @@
                       if (!isFirstPage) doc.addPage();
                       doc.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
                       isFirstPage = false;
+                      
+                      // もし10ページ目で、かつ省略がある場合
+                      if (j === 9 && slidesData.length > 10) {
+                         doc.setFont('Noto Sans JP', 'normal');
+                         doc.setFontSize(10);
+                         doc.setTextColor(150);
+                         doc.text(`...他 ${slidesData.length - 10} ページ分のコメントは省略されました`, margin, imgHeight + margin + 5);
+                      }
                   }
               } else {
                   // グラフ系 (1ページ)
@@ -748,7 +768,7 @@
               }
           }
 
-          // 5. PDFをGASに送信
+          // 5. PDFをGASに送信 (★★★ 要修正 ★★★)
           showLoading(true, 'PDFをDriveに保存中...');
           const pdfBase64 = doc.output('datauristring').split(',')[1];
           const fileName = `${clinicName}_${periodText.replace(/～/g, '-')}_レポート.pdf`;
