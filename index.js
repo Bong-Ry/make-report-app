@@ -50,7 +50,11 @@ app.get('/generate-pdf', async (req, res) => {
     await browser.close();
     res.contentType('application/pdf');
     res.send(pdf);
-  } catch (error {
+  
+  // --- ▼▼▼ 修正点 1/2 ▼▼▼ ---
+  // 閉じ括弧 ')' を追加
+  } catch (error) { 
+  // --- ▲▲▲ 修正点 1/2 ▲▲▲ ---
     console.error('PDF generation failed:', error);
     res.status(500).send('PDFの生成に失敗しました。');
   }
@@ -93,6 +97,36 @@ app.get('/api/getClinicList', async (req, res) => {
     res.status(500).send('スプレッドシートの読み込みに失敗しました。Renderのシークレットファイルやスプレッドシートの共有設定を確認してください。');
   }
 });
+
+// --- ▼▼▼ 修正点 2/2 ▼▼▼ ---
+// /api/getReportData を呼び出すPOSTエンドポイント（ダミー）を追加
+// (index.html からの呼び出しに対応するため)
+app.post('/api/getReportData', async (req, res) => {
+  const { period, selectedClinics } = req.body;
+  console.log('POST /api/getReportData called');
+  console.log('Period:', period);
+  console.log('Clinics:', selectedClinics);
+
+  // TODO: 本来はここで period と selectedClinics を使って
+  // スプレッドシートから集計データを取得するロジックを実装します。
+
+  // (現在はダミーデータを返します)
+  // (index.html が期待する形式: { "クリニック名": { ...データ... } })
+  const dummyReportData = {};
+  selectedClinics.forEach(name => {
+    dummyReportData[name] = {
+      npsData: { totalCount: 2, results: { 10: ['素晴らしい (ダミー)'], 1: ['良くない (ダミー)'] } },
+      feedbackData: { i_column: { totalCount: 1, results: ['良かった (ダミー)'] }, j_column: { totalCount: 0, results: [] }, m_column: { totalCount: 0, results: [] } },
+      satisfactionData: { b_column: { results: [['評価', '件数'], ['5', 10], ['4', 5]] } },
+      ageData: { results: [['年代', '件数'], ['30代', 15]] },
+      childrenCountData: { results: [['人数', '件数'], ['1人', 15]] },
+      incomeData: { totalCount: 1, results: [['年収', '割合', { role: 'annotation' }], ['1000万', 100, '100%']] }
+    };
+  });
+
+  res.json(dummyReportData);
+});
+// --- ▲▲▲ 修正点 2/2 ▲▲▲ ---
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
