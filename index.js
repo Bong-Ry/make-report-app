@@ -2,16 +2,16 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const path = require('path');
 const { google } = require('googleapis');
-const OpenAI = require('openai'); // ★ OpenAIライブラリを追加
+const OpenAI = require('openai'); // OpenAIライブラリ
 
 const app = express();
-app.use(express.json({ limit: '10mb' })); // ★ JSONリクエストのサイズ上限を上げる (大量テキスト対策)
+app.use(express.json({ limit: '10mb' })); // JSONリクエストのサイズ上限を上げる
 const PORT = process.env.PORT || 3000;
 
 // --- Render環境設定読み込み ---
 const KEYFILEPATH = '/etc/secrets/credentials.json';
-const MASTER_SPREADSHEET_ID = process.env.MASTER_SHEET_ID;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // ★ OpenAI APIキーを読み込む
+const MASTER_SPREADSHEET_ID = process.env.MASTER_SHEET_ID; // マスターシートのID
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // OpenAI APIキー
 // ------------------------------
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
@@ -27,7 +27,7 @@ try {
 }
 // ------------------------------------
 
-// --- ★ OpenAIクライアント初期化 ---
+// --- OpenAIクライアント初期化 ---
 let openai;
 if (OPENAI_API_KEY) {
   try {
@@ -42,29 +42,77 @@ if (OPENAI_API_KEY) {
 // ------------------------------------
 
 // --- ヘルパー関数: URLからSpreadsheet IDを抽出 ---
-function getSpreadsheetIdFromUrl(url) { /* (変更なし) */
+function getSpreadsheetIdFromUrl(url) {
     if (!url || typeof url !== 'string') return null;
     const match = url.match(/\/d\/(.+?)\//);
     return match ? match[1] : null;
 }
 // --------------------------------------------------
 
-app.get('/', (req, res) => { /* (変更なし) */
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// --- 静的ファイルとルートハンドラ ---
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/generate-pdf', async (req, res) => { /* (変更なし - ダミーのまま) */
-    try {
-        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--executablePath=/usr/bin/google-chrome'] });
-        const page = await browser.newPage();
-        await page.goto('https://www.google.com');
-        const pdf = await page.pdf({ format: 'A4' });
-        await browser.close();
-        res.contentType('application/pdf');
-        res.send(pdf);
-    } catch (error) { console.error('PDF generation failed:', error); res.status(500).send('PDFの生成に失敗しました。'); }
+// -----------------------------------
+
+// --- PDF生成エンドポイント (サーバーサイドHTML生成) ---
+app.post('/generate-pdf', async (req, res) => {
+  console.log("POST /generate-pdf called");
+  const { clinicName, periodText, reportData } = req.body;
+
+  if (!clinicName || !periodText || !reportData) {
+      return res.status(400).send('PDF生成に必要なデータが不足しています。');
+  }
+
+  // PDF用HTML生成 (簡略版)
+  let pdfHtml = `
+    <!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>レポート: ${clinicName}</title>
+    <style>body{font-family:'Noto Sans JP',sans-serif;padding:20px;} h1,h2{border-bottom:1px solid #ccc;padding-bottom:5px;} .chart-container{text-align:center;margin-bottom:20px;} .comment-list{margin-top:10px;padding-left:20px;white-space:pre-wrap;font-size:10pt;}</style>
+    </head><body><h1>レポート: ${clinicName}</h1><p>集計期間: ${periodText}</p><hr>`;
+
+  // NPS理由を追加 (例)
+  pdfHtml += `<h2>NPS推奨度 理由 (全${reportData.npsData?.totalCount || 0}件)</h2>`;
+  if (reportData.npsData?.results) {
+      const scores = Object.keys(reportData.npsData.results).map(Number).sort((a, b) => b - a);
+      scores.forEach(score => {
+          const reasons = reportData.npsData.results[score];
+          if (reasons && reasons.length > 0) {
+              pdfHtml += `<h3>推奨度 ${score} (${reasons.length}人)</h3><ul class="comment-list">`;
+              reasons.forEach(reason => {
+                  const escapedReason = reason.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                  pdfHtml += `<li>${escapedReason}</li>`;
+              });
+              pdfHtml += `</ul>`;
+          }
+      });
+  } else { pdfHtml += `<p>データがありません。</p>`; }
+  pdfHtml += `<hr>`;
+  // TODO: 他のレポートタイプもここに追加
+
+  pdfHtml += `</body></html>`;
+
+  try {
+    console.log("Launching Puppeteer for PDF...");
+    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--executablePath=/usr/bin/google-chrome'] });
+    const page = await browser.newPage();
+    console.log("Setting HTML content...");
+    await page.setContent(pdfHtml, { waitUntil: 'networkidle0' });
+    console.log("Generating PDF...");
+    const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20mm', right: '10mm', bottom: '20mm', left: '10mm' } });
+    await browser.close();
+    console.log("Puppeteer closed. Sending PDF.");
+    res.contentType('application/pdf');
+    const fileName = `${clinicName}_${periodText.replace(/～/g, '-')}_レポート.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+    res.send(pdf);
+  } catch (error) {
+    console.error('PDF generation failed:', error);
+    res.status(500).send(`PDFの生成に失敗しました: ${error.message}`);
+  }
 });
-app.get('/api/getClinicList', async (req, res) => { /* (変更なし) */
+// ---------------------------------------------
+
+// --- クリニック一覧取得 API ---
+app.get('/api/getClinicList', async (req, res) => {
     console.log('GET /api/getClinicList called');
     if (!sheets) return res.status(500).send('Google Sheets APIクライアントが初期化されていません。');
     if (!MASTER_SPREADSHEET_ID) { console.error('MASTER_SHEET_ID 環境変数が未設定'); return res.status(500).send('サーバー設定エラー: マスターシートIDがありません。'); }
@@ -77,7 +125,10 @@ app.get('/api/getClinicList', async (req, res) => { /* (変更なし) */
         res.json(clinics);
     } catch (err) { console.error('Master Sheet API error:', err); res.status(500).send('マスターシートの読み込みに失敗しました。'); }
 });
-app.post('/api/getReportData', async (req, res) => { /* (変更なし - 実際の集計ロジック) */
+// ---------------------------
+
+// --- レポートデータ取得 API (実際の集計) ---
+app.post('/api/getReportData', async (req, res) => {
     const { period, selectedClinics } = req.body;
     console.log('POST /api/getReportData called'); console.log('Period:', period); console.log('Clinics:', selectedClinics);
     if (!sheets) return res.status(500).send('Google Sheets APIクライアントが初期化されていません。');
@@ -131,7 +182,7 @@ app.post('/api/getReportData', async (req, res) => { /* (変更なし - 実際�
             const incomeChartData = [['評価', '割合', { role: 'annotation' }]]; const totalIncomeCount = Object.values(incomeCounts).reduce((a, b) => a + b, 0);
             if (totalIncomeCount > 0) { for (let i = 1; i <= 10; i++) { const percentage = (incomeCounts[i] / totalIncomeCount) * 100; incomeChartData.push([String(i), percentage, `${Math.round(percentage)}%`]); } }
             reportData[clinicName] = {
-                npsData: { totalCount: allNpsReasons.length, results: groupedByScore, rawText: allNpsReasons.map(r => r.reason) }, // ★ 元テキストも追加
+                npsData: { totalCount: allNpsReasons.length, results: groupedByScore, rawText: allNpsReasons.map(r => r.reason) }, // rawText を含める
                 feedbackData: { i_column: { totalCount: allFeedbacks_I.length, results: allFeedbacks_I }, j_column: { totalCount: allFeedbacks_J.length, results: allFeedbacks_J }, m_column: { totalCount: allFeedbacks_M.length, results: allFeedbacks_M } },
                 satisfactionData: { b_column: { results: createChartData(satisfactionCounts_B, satisfactionKeys) }, c_column: { results: createChartData(satisfactionCounts_C, satisfactionKeys) }, d_column: { results: createChartData(satisfactionCounts_D, satisfactionKeys) }, e_column: { results: createChartData(satisfactionCounts_E, satisfactionKeys) }, f_column: { results: createChartData(satisfactionCounts_F, satisfactionKeys) }, g_column: { results: createChartData(satisfactionCounts_G, satisfactionKeys) }, h_column: { results: createChartData(satisfactionCounts_H, satisfactionKeys) } },
                 ageData: { results: createChartData(ageCounts_O, ageKeys) }, childrenCountData: { results: createChartData(childrenCounts_P, childrenKeys) }, incomeData: { results: incomeChartData, totalCount: totalIncomeCount }
@@ -140,123 +191,16 @@ app.post('/api/getReportData', async (req, res) => { /* (変更なし - 実際�
         }
         console.log('Finished all clinics. Sending report data.');
         res.json(reportData);
-    } catch (err) { console.error('Error in /api/getReportData:', err); res.status(500).send('レポートデータの取得中にエラーが発生しました。'); }
+    } catch (err) { console.error('Error in /api/getReportData:', err); res.status(500).send('レポートデータ取得エラー'); }
 });
+// ------------------------------------------
 
-
-// --- ★★★ 新しいAPIエンドポイント: テキスト解析 ★★★ ---
+// --- テキスト分析 API ---
 app.post('/api/analyzeText', async (req, res) => {
-    console.log('POST /api/analyzeText called');
-    const { textList } = req.body; // フロントからテキストの配列を受け取る
-
-    if (!openai) {
-        return res.status(500).send('OpenAIクライアントが初期化されていません。APIキーを確認してください。');
-    }
-    if (!textList || !Array.isArray(textList) || textList.length === 0) {
-        return res.status(400).send('解析対象のテキストリストが必要です。');
-    }
-
-    // 簡単な単語分割とフィルタリング（日本語の基本的な助詞、助動詞、記号などを除外）
-    // より正確な処理にはMeCabやSudachiPyなどが必要だが、まずは簡易的に実装
-    const unwantedChars = /[、「」。、？！・（）()\[\]{}【】『』<>]+/g;
-    const stopWords = new Set([
-        'の', 'に', 'は', 'を', 'が', 'と', 'へ', 'や', 'も', 'で', 'から', 'まで', 'より', 'です', 'ます', 'でした', 'ました', 'する', 'し', 'さ', 'れ', 'いる', 'い', 'あり', 'ある', 'ない', 'なく', 'なる', 'なっ', '思う', '思い', '感じ', '感じた', 'いう', '言っ', 'こと', 'もの', 'よう', 'ため', 'とき', '中', '等', '的', '的', 'まし', 'ので', 'から', 'けど', 'また', 'そして', 'しかし', 'とても', 'すごく', '特に', '非常', '私', '方', 'これ', 'それ', 'あれ', 'ここ', 'そこ', 'あそこ', 'どの', 'この', 'その', 'あの'
-        // 必要に応じてストップワードを追加
-    ]);
-
-    // OpenAIに投げるテキストは結合する（APIコール回数を減らすため）
-    const combinedText = textList.join('\n');
-    console.log(`Analyzing ${textList.length} texts (combined length: ${combinedText.length})`);
-
-    try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-                {
-                    role: "system",
-                    content: `以下の日本語テキストから、重要な「名詞」「動詞」「形容詞」「感動詞」を抽出し、それぞれの単語と品詞のペアをJSON形式でリストアップしてください。一般的な単語（例：「こと」「もの」「する」「思う」「です」「ます」）や助詞、助動詞、記号は除外してください。同じ単語が複数回出現しても、リストには一度だけ含めてください。
-例: [{"word": "病院", "pos": "名詞"}, {"word": "綺麗", "pos": "形容詞"}, {"word": "感謝", "pos": "名詞"}, {"word": "ありがとう", "pos": "感動詞"}, {"word": "診る", "pos": "動詞"}]`
-                },
-                {
-                    role: "user",
-                    content: combinedText.substring(0, 15000) // ★ トークン数制限のため、長すぎる場合は切り詰める
-                }
-            ],
-            response_format: { type: "json_object" }, // ★ JSONモードを指示
-        });
-
-        console.log("OpenAI API response received.");
-        let wordsWithPos = [];
-        try {
-            // contentがJSON文字列として返ってくることを想定
-            const jsonResponse = JSON.parse(completion.choices[0].message.content);
-            // 想定する形式は {"words": [{"word": "単語", "pos": "品詞"}, ...]} のようなものかもしれないし、
-            // プロンプト例のように直接配列かもしれないので、両方に対応してみる
-            if (Array.isArray(jsonResponse)) {
-                wordsWithPos = jsonResponse;
-            } else if (jsonResponse && Array.isArray(jsonResponse.words)) {
-                 wordsWithPos = jsonResponse.words;
-            } else {
-                 console.error("Unexpected JSON structure from OpenAI:", jsonResponse);
-                 throw new Error("OpenAIからの応答が予期しない形式です。");
-            }
-
-            // 念のため、形式チェック
-            if (!wordsWithPos.every(item => item && typeof item.word === 'string' && typeof item.pos === 'string')) {
-                 console.error("Invalid item format in OpenAI response:", wordsWithPos);
-                 throw new Error("OpenAIからの応答データ形式が不正です。");
-            }
-
-        } catch (parseError) {
-            console.error("Failed to parse OpenAI response:", parseError);
-            console.error("Raw content:", completion.choices[0].message.content); // 生の応答内容をログに出力
-            throw new Error("OpenAIからの応答の解析に失敗しました。");
-        }
-
-
-        // 出現頻度をカウント
-        const wordCounts = {};
-        const posMap = {}; // 単語と品詞のマップ
-
-        textList.forEach(text => {
-            // 簡易的な単語分割（より精度が必要なら形態素解析ライブラリを使う）
-             const tokens = text.toLowerCase().replace(unwantedChars, ' ').split(/\s+/).filter(Boolean);
-            tokens.forEach(token => {
-                if (!stopWords.has(token) && token.length > 1) { // ストップワードと1文字を除外
-                    // OpenAIのリストにある単語かチェック
-                    const matchedWord = wordsWithPos.find(w => w.word === token);
-                    if (matchedWord) {
-                        wordCounts[token] = (wordCounts[token] || 0) + 1;
-                        posMap[token] = matchedWord.pos; // 品詞情報を保存
-                    }
-                }
-            });
-        });
-
-        // 結果を整形 (word, score(frequency), pos)
-        const analysisResult = Object.entries(wordCounts).map(([word, count]) => ({
-            word: word,
-            score: count, // スコア = 出現頻度
-            pos: posMap[word] || '不明' // 品詞情報
-        }));
-
-        // スコア（頻度）で降順ソート
-        analysisResult.sort((a, b) => b.score - a.score);
-
-        console.log(`Analysis complete. Found ${analysisResult.length} significant words.`);
-        res.json({
-            totalDocs: textList.length,
-            results: analysisResult
-        });
-
-    } catch (error) {
-        console.error("Error calling OpenAI API or processing results:", error);
-        res.status(500).send(`テキスト解析中にエラーが発生しました: ${error.message}`);
-    }
+    console.log('POST /api/analyzeText called');const{textList}=req.body;if(!openai){return res.status(500).send('OpenAI client not initialized.');} if(!textList||!Array.isArray(textList)||textList.length===0){return res.status(400).send('Text list required.');} const unwantedChars=/[、「」。、？！・（）()\[\]{}【】『』<>]+/g;const stopWords=new Set(['の','に','は','を','が','と','へ','や','も','で','から','まで','より','です','ます','でした','ました','する','し','さ','れ','いる','い','あり','ある','ない','なく','なる','なっ','思う','思い','感じ','感じた','いう','言っ','こと','もの','よう','ため','とき','中','等','的','まし','ので','けど','また','そして','しかし','とても','すごく','特に','非常','私','方','これ','それ','あれ','ここ','そこ','あそこ','どの','この','その','あの']);const combinedText=textList.join('\n');console.log(`Analyzing ${textList.length} texts (len: ${combinedText.length})`);try{const completion=await openai.chat.completions.create({model:"gpt-4o-mini",messages:[{role:"system",content:`以下の日本語テキストから、重要な「名詞」「動詞」「形容詞」「感動詞」を抽出し、それぞれの単語と品詞のペアをJSON形式でリストアップしてください。一般的な単語（例：「こと」「もの」「する」「思う」「です」「ます」）や助詞、助動詞、記号は除外してください。同じ単語が複数回出現しても、リストには一度だけ含めてください。\n例: [{"word": "病院", "pos": "名詞"}, {"word": "綺麗", "pos": "形容詞"}, {"word": "感謝", "pos": "名詞"}, {"word": "ありがとう", "pos": "感動詞"}, {"word": "診る", "pos": "動詞"}]`},{role:"user",content:combinedText.substring(0,15000)}],response_format:{type:"json_object"},});console.log("OpenAI response received.");let wordsWithPos=[];try{const jsonResponse=JSON.parse(completion.choices[0].message.content);if(Array.isArray(jsonResponse)){wordsWithPos=jsonResponse;}else if(jsonResponse&&Array.isArray(jsonResponse.words)){wordsWithPos=jsonResponse.words;}else{console.error("Unexpected JSON structure:",jsonResponse);throw new Error("予期しない形式");} if(!wordsWithPos.every(item=>item&&typeof item.word==='string'&&typeof item.pos==='string')){console.error("Invalid item format:",wordsWithPos);throw new Error("データ形式不正");}}catch(parseError){console.error("Parse OpenAI response failed:",parseError);console.error("Raw content:",completion.choices[0].message.content);throw new Error("応答解析失敗");} const wordCounts={},posMap={};textList.forEach(text=>{const tokens=text.toLowerCase().replace(unwantedChars,' ').split(/\s+/).filter(Boolean);tokens.forEach(token=>{if(!stopWords.has(token)&&token.length>1){const matchedWord=wordsWithPos.find(w=>w.word===token);if(matchedWord){wordCounts[token]=(wordCounts[token]||0)+1;posMap[token]=matchedWord.pos;}}});});const analysisResult=Object.entries(wordCounts).map(([word,count])=>({word:word,score:count,pos:posMap[word]||'不明'}));analysisResult.sort((a,b)=>b.score-a.score);console.log(`Analysis complete. Found ${analysisResult.length} words.`);res.json({totalDocs:textList.length,results:analysisResult});}catch(error){console.error("Error in analyzeText:",error);res.status(500).send(`テキスト解析エラー: ${error.message}`);}
 });
-// --- ▲▲▲ APIエンドポイント ▲▲▲ ---
+// --------------------
 
-
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+// --- サーバー起動 ---
+app.listen(PORT, () => { console.log(`Server listening on port ${PORT}`); });
+// ------------------
