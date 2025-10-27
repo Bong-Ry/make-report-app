@@ -36,105 +36,24 @@
 
   <div id="screen2" class="screen hidden"> <header class="flex justify-between items-center mb-6 pb-4 border-b"> <button id="back-to-period" class="btn">&lt; 期間選択へ戻る</button> <div id="period-display" class="text-base font-semibold text-gray-700 bg-white py-2 px-4 rounded-lg shadow-sm border"></div> </header> <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:px-8"> <section class="card"> <h2 class="text-xl font-bold mb-5">1. クリニックを選択</h2> <div id="clinic-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2 border rounded-lg p-4 bg-gray-50"> <p class="text-sm text-gray-500 text-center py-4">読み込み中...</p> </div> <div class="mt-6 text-right"> <button id="issue-btn" class="btn bg-gray-800 text-white hover:bg-gray-700" disabled>レポート発行</button> </div> </section> <section class="card"> <h2 class="text-xl font-bold mb-5">2. 発行済みレポートを閲覧</h2> <div id="issued-list-container" class="space-y-3"> <p class="text-sm text-gray-500 text-center py-8">まだ発行されたレポートはありません。</p> </div> </section> </main> </div>
 
-  <div id="screen3" class="screen hidden">
-      <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
-        <div id="report-nav" class="flex flex-wrap justify-center items-center gap-2">
-            <button data-report-type="nps" class="btn">NPS理由</button>
-            <button data-report-type="feedback_i" class="btn">良かった点</button>
-            <button data-report-type="feedback_j" class="btn">印象スタッフ</button>
-            <button data-report-type="feedback_m" class="btn">お産意見</button>
-            <button data-report-type="satisfaction_b" class="btn">満足度</button>
-            <button data-report-type="satisfaction_c" class="btn">施設</button>
-            <button data-report-type="satisfaction_d" class="btn">アクセス</button>
-            <button data-report-type="satisfaction_e" class="btn">価格</button>
-            <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
-            <button data-report-type="satisfaction_g" class="btn">スタッフ対応</button>
-            <button data-report-type="satisfaction_h" class="btn">先生説明</button>
-            <button data-report-type="age" class="btn">年代</button>
-            <button data-report-type="children" class="btn">お子様数</button>
-            <button data-report-type="income" class="btn">世帯年収</button>
-            <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-NPS</button>
-            <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-良い点</button>
-            <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-スタッフ</button>
-            <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-お産</button>
-        </div>
-        <div class="flex items-center gap-4">
-            <button id="pdf-export-btn" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button>
-            <button id="back-to-clinics" class="btn">院一覧へ戻る</button>
-        </div>
-      </header>
-      <main class="card">
-        <div class="text-center mb-8 pb-4 border-b">
-            <h1 id="report-title" class="text-2xl font-bold"></h1>
-            <p id="report-subtitle" class="text-sm text-gray-600 mt-2" style="white-space: pre-wrap;"></p>
-        </div>
-        <div id="slider-container" class="relative"> <div id="slide-content" class="bg-gray-50 border p-6 md:p-8 rounded-lg min-h-[500px]"> <h2 id="slide-header" class="text-xl font-bold mb-5 text-gray-800"></h2> <div id="slide-body" class="text-base leading-relaxed text-gray-700" style="white-space: pre-wrap;"></div> </div> <div id="pagination" class="flex items-center justify-center mt-6"> <button id="prev-slide" class="btn">&lt; 前へ</button> <span id="page-indicator" class="mx-6 text-base font-semibold text-gray-600"></span> <button id="next-slide" class="btn">次へ &gt;</button> </div> </div>
-      </main>
-  </div>
-  <div id="screen4" class="screen hidden">
-      <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
-         <div class="flex items-center gap-4 ml-auto"> <button id="back-to-clinics-from-analysis" class="btn">院一覧へ戻る</button>
-         </div>
-      </header>
-      <main class="card">
-         <div class="text-center mb-8 pb-4 border-b">
-             <h1 id="analysis-title" class="text-2xl font-bold"></h1>
-             <p class="text-sm text-gray-500 mt-2">
-                 文章中に出現する単語の頻出度を表しています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。<br>
-                 通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。
-             </p>
-         </div>
-         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-             <div class="space-y-4">
-                 <div id="noun-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-blue-600">名詞</h3> <div id="noun-chart"></div> </div>
-                 <div id="verb-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-red-600">動詞</h3> <div id="verb-chart"></div> </div>
-                 <div id="adj-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-green-600">形容詞</h3> <div id="adj-chart"></div> </div>
-                 <div id="int-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-gray-600">感動詞</h3> <div id="int-chart"></div> </div>
-             </div>
-             <div class="space-y-6">
-                 <div> <p class="text-sm text-gray-600"> ワードクラウドスコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br> 単語の色は品詞の種類で異なる。<br> <span class="text-blue-600 font-semibold">青色=名詞</span>、 <span class="text-red-600 font-semibold">赤色=動詞</span>、 <span class="text-green-600 font-semibold">緑色=形容詞</span>、 <span class="text-gray-600 font-semibold">灰色=感動詞</span> </p> </div>
-                 <div id="word-cloud-container"> <canvas id="word-cloud-canvas"></canvas> </div>
-                 <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
-             </div>
-         </div>
-      </main>
-  </div>
+  <div id="screen3" class="screen hidden"> <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200"> <div id="report-nav" class="flex flex-wrap justify-center items-center gap-2"> <button data-report-type="nps" class="btn">NPS理由</button> <button data-report-type="feedback_i" class="btn">良かった点</button> <button data-report-type="feedback_j" class="btn">印象スタッフ</button> <button data-report-type="feedback_m" class="btn">お産意見</button> <button data-report-type="satisfaction_b" class="btn">満足度</button> <button data-report-type="satisfaction_c" class="btn">施設</button> <button data-report-type="satisfaction_d" class="btn">アクセス</button> <button data-report-type="satisfaction_e" class="btn">価格</button> <button data-report-type="satisfaction_f" class="btn">雰囲気</button> <button data-report-type="satisfaction_g" class="btn">スタッフ対応</button> <button data-report-type="satisfaction_h" class="btn">先生説明</button> <button data-report-type="age" class="btn">年代</button> <button data-report-type="children" class="btn">お子様数</button> <button data-report-type="income" class="btn">世帯年収</button> <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-NPS</button> <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-良い点</button> <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-スタッフ</button> <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-お産</button> </div> <div class="flex items-center gap-4"> <button id="pdf-export-btn" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button> <button id="back-to-clinics" class="btn">院一覧へ戻る</button> </div> </header> <main class="card"> <div class="text-center mb-8 pb-4 border-b"> <h1 id="report-title" class="text-2xl font-bold"></h1> <p id="report-subtitle" class="text-sm text-gray-600 mt-2" style="white-space: pre-wrap;"></p> </div> <div id="slider-container" class="relative"> <div id="slide-content" class="bg-gray-50 border p-6 md:p-8 rounded-lg min-h-[500px]"> <h2 id="slide-header" class="text-xl font-bold mb-5 text-gray-800"></h2> <div id="slide-body" class="text-base leading-relaxed text-gray-700" style="white-space: pre-wrap;"></div> </div> <div id="pagination" class="flex items-center justify-center mt-6"> <button id="prev-slide" class="btn">&lt; 前へ</button> <span id="page-indicator" class="mx-6 text-base font-semibold text-gray-600"></span> <button id="next-slide" class="btn">次へ &gt;</button> </div> </div> </main> </div>
+
+  <div id="screen4" class="screen hidden"> <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200"> <div class="flex items-center gap-4 ml-auto"> <button id="back-to-clinics-from-analysis" class="btn">院一覧へ戻る</button> </div> </header> <main class="card"> <div class="text-center mb-8 pb-4 border-b"> <h1 id="analysis-title" class="text-2xl font-bold"></h1> <p class="text-sm text-gray-500 mt-2"> 文章中に出現する単語の頻出度を表しています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。<br> 通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。 </p> </div> <div class="grid grid-cols-1 md:grid-cols-2 gap-8"> <div class="space-y-4"> <div id="noun-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-blue-600">名詞</h3> <div id="noun-chart"></div> </div> <div id="verb-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-red-600">動詞</h3> <div id="verb-chart"></div> </div> <div id="adj-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-green-600">形容詞</h3> <div id="adj-chart"></div> </div> <div id="int-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-gray-600">感動詞</h3> <div id="int-chart"></div> </div> </div> <div class="space-y-6"> <div> <p class="text-sm text-gray-600"> ワードクラウドスコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br> 単語の色は品詞の種類で異なる。<br> <span class="text-blue-600 font-semibold">青色=名詞</span>、 <span class="text-red-600 font-semibold">赤色=動詞</span>、 <span class="text-green-600 font-semibold">緑色=形容詞</span>、 <span class="text-gray-600 font-semibold">灰色=感動詞</span> </p> </div> <div id="word-cloud-container"> <canvas id="word-cloud-canvas"></canvas> </div> <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div> </div> </div> </main> </div>
+
   <div id="report-type-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden"><div class="bg-white p-8 shadow-xl w-full max-w-md rounded-xl transform transition-all duration-300 scale-95 opacity-0"><h2 class="text-xl font-bold mb-6 text-center">表示するレポートを選択</h2><div class="flex flex-wrap justify-center gap-3"><button data-report-type="nps" class="btn">NPS推奨度 理由</button><button data-report-type="feedback_i" class="btn">良かった点・悪かった点</button><button data-report-type="feedback_j" class="btn">印象に残ったスタッフ</button><button data-report-type="feedback_m" class="btn">お産にかかわるご意見</button><button data-report-type="satisfaction_b" class="btn">満足度</button><button data-report-type="satisfaction_c" class="btn">施設</button><button data-report-type="satisfaction_d" class="btn">アクセス</button><button data-report-type="satisfaction_e" class="btn">価格</button><button data-report-type="satisfaction_f" class="btn">雰囲気</button><button data-report-type="satisfaction_g" class="btn">スタッフ対応</button><button data-report-type="satisfaction_h" class="btn">先生の説明</button><button data-report-type="age" class="btn">年代</button><button data-report-type="children" class="btn">お子様の数</button><button data-report-type="income" class="btn">世帯年収</button></div><div class="mt-8 text-center"><button id="cancel-report-selection" class="text-sm text-gray-600 hover:underline">キャンセル</button></div></div></div>
 
 <script>
-  let selectedPeriod = {};
-  let issuedReports = {};
-  let currentClinicForModal = '';
-  let slidesData = [];
-  let currentPage = 1;
-  let currentAnalysisTarget = 'L'; // デフォルトはNPS理由
+  // --- グローバル変数 (変更なし) ---
+  let selectedPeriod = {}; let issuedReports = {}; let currentClinicForModal = ''; let slidesData = []; let currentPage = 1; let currentAnalysisTarget = 'L';
 
-  const googleChartsLoaded = new Promise(resolve => {
-    google.charts.load('current', {'packages':['corechart', 'bar']});
-    google.charts.setOnLoadCallback(resolve);
-  });
+  // --- Google Charts ロード (変更なし) ---
+  const googleChartsLoaded = new Promise(resolve => { google.charts.load('current', {'packages':['corechart', 'bar']}); google.charts.setOnLoadCallback(resolve); });
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOM Loaded.'); populateDateSelectors();
-    try { await googleChartsLoaded; console.log('Charts loaded.'); } catch (err) { console.error('Chart load fail:', err); alert('グラフライブラリ読込失敗'); return; }
-    setupEventListeners(); console.log('Listeners setup.');
-  });
+  // --- 初期化 (変更なし) ---
+  document.addEventListener('DOMContentLoaded', async () => { console.log('DOM Loaded.'); populateDateSelectors(); try { await googleChartsLoaded; console.log('Charts loaded.'); } catch (err) { console.error('Chart load fail:', err); alert('グラフライブラリ読込失敗'); return; } setupEventListeners(); console.log('Listeners setup.'); });
 
-  function setupEventListeners() {
-    document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics);
-    document.getElementById('issue-btn').addEventListener('click', handleIssueReport);
-    document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClick);
-    document.getElementById('report-type-modal').addEventListener('click', handleReportModalClick);
-    document.getElementById('report-nav').addEventListener('click', handleReportNavClick); // ★ 統合ナビゲーション用
-    document.getElementById('cancel-report-selection').addEventListener('click', () => showReportModal(false));
-    document.getElementById('prev-slide').addEventListener('click', handlePrevSlide);
-    document.getElementById('next-slide').addEventListener('click', handleNextSlide);
-    document.getElementById('back-to-clinics').addEventListener('click', () => showScreen('screen2'));
-    document.getElementById('back-to-period').addEventListener('click', () => showScreen('screen1'));
-    document.getElementById('pdf-export-btn').addEventListener('click', generatePdf);
-    // document.getElementById('analysis-nav').removeEventListener('click', handleAnalysisNavClick); // 不要になったリスナー削除
-    document.getElementById('back-to-clinics-from-analysis').addEventListener('click', () => showScreen('screen2'));
-  }
+  // --- イベントリスナー設定 (変更なし) ---
+  function setupEventListeners() { document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); document.getElementById('issue-btn').addEventListener('click', handleIssueReport); document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClick); document.getElementById('report-type-modal').addEventListener('click', handleReportModalClick); document.getElementById('report-nav').addEventListener('click', handleReportNavClick); document.getElementById('cancel-report-selection').addEventListener('click', () => showReportModal(false)); document.getElementById('prev-slide').addEventListener('click', handlePrevSlide); document.getElementById('next-slide').addEventListener('click', handleNextSlide); document.getElementById('back-to-clinics').addEventListener('click', () => showScreen('screen2')); document.getElementById('back-to-period').addEventListener('click', () => showScreen('screen1')); document.getElementById('pdf-export-btn').addEventListener('click', generatePdf); document.getElementById('back-to-clinics-from-analysis').addEventListener('click', () => showScreen('screen2')); }
 
   // --- 画面1 (変更なし) ---
   function populateDateSelectors() { /* (変更なし) */ const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sm.value=String(now.getMonth()+1).padStart(2,'0'); }
@@ -148,24 +67,8 @@
 
   // --- 画面3 & 4 (レポート/分析表示) ---
   function handleIssuedListClick(e){ /* (変更なし) */ const t=e.target.closest('[data-clinic-name]');if(t){currentClinicForModal=t.dataset.clinicName;if(issuedReports[currentClinicForModal]){showReportModal(true);}} }
-  function handleReportModalClick(e){ /* (変更なし) */ const rt=e.target.dataset.reportType;if(rt){showReportModal(false);setTimeout(()=>prepareAndShowReport(rt),300);} } // まずは通常レポートを表示
-
-  // ▼▼▼ 統合ナビゲーションクリック処理 ▼▼▼
-  function handleReportNavClick(e) {
-      const reportType = e.target.dataset.reportType;
-      const analysisType = e.target.dataset.analysisType;
-
-      if (reportType) {
-          console.log(`Report nav clicked: ${reportType}`);
-          prepareAndShowReport(reportType); // 通常レポート表示
-      } else if (analysisType) {
-          console.log(`Analysis nav clicked: ${analysisType}`);
-          currentAnalysisTarget = analysisType; // 分析対象を更新
-          prepareAndShowAnalysis(analysisType); // 分析結果表示
-      }
-  }
-  // ▲▲▲ 統合ナビゲーションクリック処理 ▲▲▲
-
+  function handleReportModalClick(e){ /* (変更なし) */ const rt=e.target.dataset.reportType;if(rt){showReportModal(false);setTimeout(()=>prepareAndShowReport(rt),300);} }
+  function handleReportNavClick(e) { /* (変更なし - 統合ナビゲーション) */ const rt=e.target.dataset.reportType,at=e.target.dataset.analysisType;if(rt){console.log(`Report nav: ${rt}`);prepareAndShowReport(rt);}else if(at){console.log(`Analysis nav: ${at}`);currentAnalysisTarget=at;prepareAndShowAnalysis(at);} }
   function prepareAndShowReport(reportType){ /* (変更なし - 既存レポート表示) */ console.log(`Prepare report: ${reportType}`); showLoading(true,'レポート準備中...');updateNavActiveState(reportType, null); const cd=issuedReports[currentClinicForModal];if(!cd){showLoading(false);return;} slidesData=[];document.getElementById('pagination').style.display='flex';document.getElementById('slide-body').style.whiteSpace='pre-wrap';document.getElementById('slide-header').innerHTML='';document.getElementById('slide-body').innerHTML='';let isChart=false,isBar=false; if (reportType === 'nps'){const{totalCount,results}=cd.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);} else if (reportType === 'feedback_i'){prepareCommentSlides(cd.feedbackData.i_column,'良かった点悪かった点');} else if (reportType === 'feedback_j'){prepareCommentSlides(cd.feedbackData.j_column,'印象に残ったスタッフ');} else if (reportType === 'feedback_m'){prepareCommentSlides(cd.feedbackData.m_column,'お産意見感想');} else if (reportType === 'satisfaction_b'){prepareChartShell('満足度','5段階評価');isChart=true;} else if (reportType === 'satisfaction_c'){prepareChartShell('施設','5段階評価');isChart=true;} else if (reportType === 'satisfaction_d'){prepareChartShell('アクセス','5段階評価');isChart=true;} else if (reportType === 'satisfaction_e'){prepareChartShell('価格','5段階評価');isChart=true;} else if (reportType === 'satisfaction_f'){prepareChartShell('雰囲気','5段階評価');isChart=true;} else if (reportType === 'satisfaction_g'){prepareChartShell('スタッフ対応','5段階評価');isChart=true;} else if (reportType === 'satisfaction_h'){prepareChartShell('先生説明','5段階評価');isChart=true;} else if (reportType === 'age'){prepareChartShell('年代','');isChart=true;} else if (reportType === 'children'){prepareChartShell('お子様数','1人, 2人, 3人, 4人, 5人以上');isChart=true;} else if (reportType === 'income'){prepareChartShell('世帯年収','',true);isChart=true;isBar=true;} if(slidesData.length>0){currentPage=1;renderSlide(currentPage);}else if(slidesData.length===0&&(reportType.startsWith('nps')||reportType.startsWith('feedback'))){document.getElementById('slide-header').innerHTML='';document.getElementById('slide-body').innerHTML='<p class="text-center text-gray-500">該当データなし</p>';document.getElementById('pagination').style.display='none';} showScreen('screen3'); if(isChart){setTimeout(()=>{try{let data;if(reportType.startsWith('satisfaction')){data=cd.satisfactionData[reportType.split('_')[1]+'_column'];drawSatisfactionCharts(data.results);}else if(reportType==='age'){data=cd.ageData;drawSatisfactionCharts(data.results);}else if(reportType==='children'){data=cd.childrenCountData;drawSatisfactionCharts(data.results);}else if(reportType==='income'){data=cd.incomeData;drawIncomeCharts(data);}}catch(e){console.error('Chart draw error:',e);document.getElementById('slide-body').innerHTML='<p class="text-center text-red-500">グラフ描画失敗</p>';}finally{showLoading(false);}},100);}else{showLoading(false);} }
   function prepareNpsSlides(results, title){ /* (変更なし) */ document.getElementById('report-title').textContent=title;document.getElementById('report-subtitle').textContent='';const ml=20;if(!results)return;const sc=Object.keys(results).map(Number).sort((a,b)=>b-a);sc.forEach(s=>{const rs=results[s];if(!rs||rs.length===0)return;let clc=0,cpb='';rs.forEach((r,i)=>{const rt=`・ ${r}`;const rl=(rt.match(/\n/g)||[]).length+1;if(clc>0&&(clc+rl)>ml){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});cpb=rt;clc=rl;}else{cpb+=(clc===0?'':'\n')+rt;clc+=rl;}});if(cpb){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});}}); }
   function prepareCommentSlides(data, title){ /* (変更なし) */ if(!data)data={totalCount:0,results:[]};const{totalCount,results}=data;document.getElementById('report-title').textContent=`${title}(全${totalCount}件)`;document.getElementById('report-subtitle').textContent='';const ml=20;if(results&&results.length>0){let clc=0,cpb='';results.forEach((it,i)=>{const itx=`・ ${it}`;const il=(itx.match(/\n/g)||[]).length+1;if(clc>0&&(clc+il)>ml){slidesData.push({header:'',body:cpb});cpb=itx;clc=il;}else{cpb+=(clc===0?'':'\n')+itx;clc+=il;}});if(cpb){slidesData.push({header:'',body:cpb});}} }
@@ -176,25 +79,61 @@
   function handlePrevSlide(){ /* (変更なし) */ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
   function handleNextSlide(){ /* (変更なし) */ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
 
-  // --- テキスト分析関連 (変更なし) ---
+  // --- テキスト分析関連 (修正あり) ---
   async function prepareAndShowAnalysis(columnType) { /* (変更なし) */ showLoading(true,`テキスト分析中(${getColumnName(columnType)})...`);showScreen('screen4');document.getElementById('analysis-error').classList.add('hidden');clearAnalysisCharts();updateNavActiveState(null, columnType); const cd=issuedReports[currentClinicForModal];if(!cd){console.error("No report data for analysis.");showLoading(false);return;} let tl=[],td=0;try{switch(columnType){case'L':tl=cd.npsData.rawText||[];td=cd.npsData.totalCount||0;break;case'I':tl=cd.feedbackData.i_column.results||[];td=cd.feedbackData.i_column.totalCount||0;break;case'J':tl=cd.feedbackData.j_column.results||[];td=cd.feedbackData.j_column.totalCount||0;break;case'M':tl=cd.feedbackData.m_column.results||[];td=cd.feedbackData.m_column.totalCount||0;break;default:console.error("Invalid column:",columnType);showLoading(false);return;}}catch(e){console.error("Error accessing text data:",e,"Data:",cd);alert("レポートデータアクセスエラー");showLoading(false);return;} document.getElementById('analysis-title').textContent=getAnalysisTitle(columnType,td);if(tl.length===0){console.log("No text to analyze:",columnType);document.getElementById('analysis-error').textContent='分析対象テキストなし';document.getElementById('analysis-error').classList.remove('hidden');showLoading(false);return;} try{console.log(`Sending ${tl.length} texts`);const r=await fetch('/api/analyzeText',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({textList:tl})});if(!r.ok){const et=await r.text();console.error(`Analyze API error(${r.status}):`,et);throw new Error(`分析APIエラー(${r.status}): ${et}`);} const ad=await r.json();console.log("Received analysis:",ad);drawAnalysisCharts(ad.results);}catch(error){console.error('!!! Analyze fail:',error);document.getElementById('analysis-error').textContent=`分析失敗: ${error.message}`;document.getElementById('analysis-error').classList.remove('hidden');}finally{showLoading(false);}}
-  function drawAnalysisCharts(results) { /* (変更なし) */ if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0},vAxis:{title:'単語'},height:500,width:'100%'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',barOpt);drawSingleBarChart(verbs.slice(0,20),'verb-chart',barOpt);drawSingleBarChart(adjs.slice(0,20),'adj-chart',barOpt);drawSingleBarChart(ints.slice(0,20),'int-chart',barOpt);const wl=results.map(r=>[r.word,r.score,r.pos]).slice(0,100);const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){WordCloud(cv,{list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP, sans-serif',color:function(w,wt,fs,d,t,dt){const p=dt[2];switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'#f9fafb'});console.log("Word cloud drawn.");}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
-  function drawSingleBarChart(data, elementId, options) { /* (変更なし) */ const c=document.getElementById(elementId);if(!c)return;if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア']];data.reverse().forEach(item=>{cd.push([item.word,item.score]);});const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options); }
+  function drawAnalysisCharts(results) {
+      if (!results || results.length === 0) { console.log("No analysis results."); document.getElementById('analysis-error').textContent = '分析結果なし'; document.getElementById('analysis-error').classList.remove('hidden'); return; }
+
+      const nouns = results.filter(r => r.pos === '名詞');
+      const verbs = results.filter(r => r.pos === '動詞');
+      const adjs = results.filter(r => r.pos === '形容詞');
+      const ints = results.filter(r => r.pos === '感動詞');
+
+      const barOptions = { bars: 'horizontal', legend: { position: 'none' }, hAxis: { title: 'スコア(出現頻度)', minValue: 0 }, vAxis: { title: '単語' }, height: 500, width: '100%' };
+      drawSingleBarChart(nouns.slice(0, 20), 'noun-chart', { ...barOptions, colors: ['#3b82f6'] }); // ★ 色指定追加
+      drawSingleBarChart(verbs.slice(0, 20), 'verb-chart', { ...barOptions, colors: ['#ef4444'] }); // ★ 色指定追加
+      drawSingleBarChart(adjs.slice(0, 20), 'adj-chart', { ...barOptions, colors: ['#22c55e'] }); // ★ 色指定追加
+      drawSingleBarChart(ints.slice(0, 20), 'int-chart', { ...barOptions, colors: ['#6b7280'] }); // ★ 色指定追加
+
+      // --- ▼▼▼ ワードクラウド修正 ▼▼▼ ---
+      // wordcloud2.js 用のデータ形式 [ ['単語', スコア], ... ] を作成
+      const wordCloudList = results.map(r => [r.word, r.score]).slice(0, 100);
+      // 品詞情報を別途保持 (色分け用)
+      const posMapForCloud = results.reduce((map, item) => {
+          map[item.word] = item.pos;
+          return map;
+      }, {});
+      // --- ▲▲▲ ワードクラウド修正 ▲▲▲ ---
+
+      const canvas = document.getElementById('word-cloud-canvas');
+      if (WordCloud.isSupported && canvas) {
+          WordCloud(canvas, {
+              list: wordCloudList, // ★ 修正: [単語, スコア] のリスト
+              gridSize: Math.round(16 * canvas.width / 1024),
+              weightFactor: function (size) { return Math.pow(size, 0.8) * canvas.width / 250; },
+              fontFamily: 'Noto Sans JP, sans-serif',
+              // ▼▼▼ color 関数の修正 ▼▼▼
+              color: function (word, weight, fontSize, distance, theta) { // ★ data 引数は使わない
+                  const pos = posMapForCloud[word] || '不明'; // 別途保持した品詞情報を参照
+                  switch(pos) {
+                      case '名詞': return '#3b82f6';
+                      case '動詞': return '#ef4444';
+                      case '形容詞': return '#22c55e';
+                      case '感動詞': return '#6b7280';
+                      default: return '#a8a29e';
+                  }
+              },
+              // ▲▲▲ color 関数の修正 ▲▲▲
+              backgroundColor: '#f9fafb'
+          });
+          console.log("Word cloud drawn.");
+      } else { console.warn("WordCloud unsupported/canvas missing."); document.getElementById('word-cloud-container').innerHTML = '<p class="text-center text-gray-500">ワードクラウド非対応</p>'; }
+  }
+  function drawSingleBarChart(data, elementId, options) { /* (色指定を反映するように修正) */ const c=document.getElementById(elementId);if(!c)return;if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];data.reverse().forEach(item=>{cd.push([item.word,item.score, options.colors ? options.colors[0] : '#a8a29e']);});const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options); }
   function clearAnalysisCharts() { /* (変更なし) */ document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
   function getAnalysisTitle(columnType, count) { /* (変更なし) */ const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
   function getColumnName(columnType) { /* (変更なし) */ switch(columnType){case'L':return'NPS推奨度 理由';case'I':return'良かった点や悪かった点など';case'J':return'印象に残ったスタッフへのコメント';case'M':return'お産にかかわるご意見・ご感想';default:return'不明';} }
-
-  // ▼▼▼ ナビゲーションアクティブ表示更新 (修正) ▼▼▼
-  function updateNavActiveState(activeReportType, activeAnalysisType) {
-      document.querySelectorAll('#report-nav .btn').forEach(btn => {
-          if (btn.dataset.reportType === activeReportType || btn.dataset.analysisType === activeAnalysisType) {
-              btn.classList.add('btn-active');
-          } else {
-              btn.classList.remove('btn-active');
-          }
-      });
-  }
-  // ▲▲▲ ナビゲーションアクティブ表示更新 (修正) ▲▲▲
+  function updateNavActiveState(activeReportType, activeAnalysisType) { /* (変更なし) */ document.querySelectorAll('#report-nav .btn').forEach(btn=>{if(btn.dataset.reportType===activeReportType||btn.dataset.analysisType===activeAnalysisType){btn.classList.add('btn-active');}else{btn.classList.remove('btn-active');}}); }
 
   // --- 汎用関数 (変更なし) ---
   function showScreen(screenId){ /* (変更なし) */ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
