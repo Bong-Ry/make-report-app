@@ -24,8 +24,8 @@
     .screen{@apply w-full max-w-7xl mx-auto p-4 md:p-8;}
     .card{@apply bg-white p-6 md:p-8 shadow-lg rounded-xl border border-gray-200;}
     #loading-overlay > div > div { border-top-color: #333; border-bottom-color: #333; }
-    #word-cloud-canvas { width: 100%; height: 400px; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; /* カーソルを標準に */ }
-    .chart-container { min-height: 200px; /* 最小高さを設定 */ height: 500px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background-color: #f9fafb;}
+    #word-cloud-canvas { width: 100%; height: 400px; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
+    .chart-container { min-height: 200px; height: 500px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background-color: #f9fafb;}
   </style>
 </head>
 <body class="text-gray-900">
@@ -79,90 +79,10 @@
   function handlePrevSlide(){ /* (変更なし) */ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
   function handleNextSlide(){ /* (変更なし) */ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
 
-  // --- テキスト分析関連 (修正あり) ---
+  // --- テキスト分析関連 (ワードクラウド修正済み) ---
   async function prepareAndShowAnalysis(columnType) { /* (変更なし) */ showLoading(true,`テキスト分析中(${getColumnName(columnType)})...`);showScreen('screen4');document.getElementById('analysis-error').classList.add('hidden');clearAnalysisCharts();updateNavActiveState(null, columnType); const cd=issuedReports[currentClinicForModal];if(!cd){console.error("No report data for analysis.");showLoading(false);return;} let tl=[],td=0;try{switch(columnType){case'L':tl=cd.npsData.rawText||[];td=cd.npsData.totalCount||0;break;case'I':tl=cd.feedbackData.i_column.results||[];td=cd.feedbackData.i_column.totalCount||0;break;case'J':tl=cd.feedbackData.j_column.results||[];td=cd.feedbackData.j_column.totalCount||0;break;case'M':tl=cd.feedbackData.m_column.results||[];td=cd.feedbackData.m_column.totalCount||0;break;default:console.error("Invalid column:",columnType);showLoading(false);return;}}catch(e){console.error("Error accessing text data:",e,"Data:",cd);alert("レポートデータアクセスエラー");showLoading(false);return;} document.getElementById('analysis-title').textContent=getAnalysisTitle(columnType,td);if(tl.length===0){console.log("No text to analyze:",columnType);document.getElementById('analysis-error').textContent='分析対象テキストなし';document.getElementById('analysis-error').classList.remove('hidden');showLoading(false);return;} try{console.log(`Sending ${tl.length} texts`);const r=await fetch('/api/analyzeText',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({textList:tl})});if(!r.ok){const et=await r.text();console.error(`Analyze API error(${r.status}):`,et);throw new Error(`分析APIエラー(${r.status}): ${et}`);} const ad=await r.json();console.log("Received analysis:",ad);drawAnalysisCharts(ad.results);}catch(error){console.error('!!! Analyze fail:',error);document.getElementById('analysis-error').textContent=`分析失敗: ${error.message}`;document.getElementById('analysis-error').classList.remove('hidden');}finally{showLoading(false);}}
-
-  // ▼▼▼ グラフ描画関数修正 ▼▼▼
-  function drawAnalysisCharts(results) {
-      if (!results || results.length === 0) { console.log("No analysis results."); document.getElementById('analysis-error').textContent = '分析結果なし'; document.getElementById('analysis-error').classList.remove('hidden'); return; }
-
-      const nouns = results.filter(r => r.pos === '名詞');
-      const verbs = results.filter(r => r.pos === '動詞');
-      const adjs = results.filter(r => r.pos === '形容詞');
-      const ints = results.filter(r => r.pos === '感動詞');
-
-      // 共通オプションから colors を削除
-      const barOptions = { bars: 'horizontal', legend: { position: 'none' }, hAxis: { title: 'スコア(出現頻度)', minValue: 0 }, vAxis: { title: '単語' }, height: 500, width: '100%' };
-
-      // 各グラフ描画時に色を指定
-      drawSingleBarChart(nouns.slice(0, 20), 'noun-chart', { ...barOptions, colors: ['#3b82f6'] }); // 青
-      drawSingleBarChart(verbs.slice(0, 20), 'verb-chart', { ...barOptions, colors: ['#ef4444'] }); // 赤
-      drawSingleBarChart(adjs.slice(0, 20), 'adj-chart', { ...barOptions, colors: ['#22c55e'] }); // 緑
-      drawSingleBarChart(ints.slice(0, 20), 'int-chart', { ...barOptions, colors: ['#6b7280'] }); // グレー
-
-      const wordCloudList = results.map(r => [r.word, r.score]).slice(0, 100);
-      const posMapForCloud = results.reduce((map, item) => { map[item.word] = item.pos; return map; }, {});
-
-      console.log('WordCloud List:', wordCloudList); // ★ データ確認用ログ
-
-      const canvas = document.getElementById('word-cloud-canvas');
-      if (WordCloud.isSupported && canvas) {
-          try { // ★ エラーキャッチ追加
-              const options = {
-                  list: wordCloudList,
-                  gridSize: Math.round(16 * canvas.width / 1024),
-                  weightFactor: function (size) { return Math.pow(size, 0.8) * canvas.width / 250; },
-                  fontFamily: 'Noto Sans JP, sans-serif',
-                  color: function (word, weight, fontSize, distance, theta) {
-                      const pos = posMapForCloud[word] || '不明';
-                      switch(pos) {
-                          case '名詞': return '#3b82f6'; case '動詞': return '#ef4444';
-                          case '形容詞': return '#22c55e'; case '感動詞': return '#6b7280';
-                          default: return '#a8a29e';
-                      }
-                  },
-                  backgroundColor: '#f9fafb',
-                  clearCanvas: true // ★ 描画前にクリア
-              };
-              console.log('WordCloud Options:', options); // ★ オプション確認用ログ
-              WordCloud(canvas, options);
-              console.log("Word cloud drawn.");
-          } catch (wcError) {
-              console.error("Error drawing WordCloud:", wcError);
-              document.getElementById('word-cloud-container').innerHTML = `<p class="text-center text-red-500">ワードクラウド描画エラー: ${wcError.message}</p>`;
-          }
-      } else { console.warn("WordCloud unsupported/canvas missing."); document.getElementById('word-cloud-container').innerHTML = '<p class="text-center text-gray-500">ワードクラウド非対応</p>'; }
-  }
-
-  // ▼▼▼ 棒グラフ描画関数修正 ▼▼▼
-  function drawSingleBarChart(data, elementId, options) {
-      const container = document.getElementById(elementId);
-      if (!container) { console.error(`Element not found: ${elementId}`); return; } // エラーチェック
-
-      if (!data || data.length === 0) {
-          container.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">データなし</p>';
-          return;
-      }
-
-      // Google Charts用のデータ形式に変換 [単語, スコア, 色スタイル]
-      // 逆順にしてグラフの下から高スコアが表示されるようにする
-      const chartData = [['単語', 'スコア', { role: 'style' }]]; // ★ style ロールを追加
-      const color = options.colors && options.colors.length > 0 ? options.colors[0] : '#a8a29e'; // 色を取得
-      data.slice().reverse().forEach(item => { // slice() で元の配列を変更しないように
-          chartData.push([item.word, item.score, color]); // ★ 色情報を追加
-      });
-
-      try { // ★ エラーキャッチ追加
-          const dataTable = google.visualization.arrayToDataTable(chartData);
-          const chart = new google.visualization.BarChart(container);
-          chart.draw(dataTable, options);
-      } catch (chartError) {
-          console.error(`Error drawing bar chart for ${elementId}:`, chartError);
-          container.innerHTML = `<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;
-      }
-  }
-  // ▲▲▲ 棒グラフ描画関数修正 ▲▲▲
-
+  function drawAnalysisCharts(results) { /* (変更なし - ワードクラウド修正済み) */ if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0},vAxis:{title:'単語'},height:500,width:'100%'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});console.log('WordCloud List:',wl);const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'#f9fafb',clearCanvas:true};console.log('WordCloud Options:',options);WordCloud(cv,options);console.log("Word cloud drawn.");}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
+  function drawSingleBarChart(data, elementId, options) { /* (変更なし - 色指定修正済み) */ const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
   function clearAnalysisCharts() { /* (変更なし) */ document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
   function getAnalysisTitle(columnType, count) { /* (変更なし) */ const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
   function getColumnName(columnType) { /* (変更なし) */ switch(columnType){case'L':return'NPS推奨度 理由';case'I':return'良かった点や悪かった点など';case'J':return'印象に残ったスタッフへのコメント';case'M':return'お産にかかわるご意見・ご感想';default:return'不明';} }
@@ -172,7 +92,7 @@
   function showScreen(screenId){ /* (変更なし) */ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
   function showLoading(isLoading, message=''){ /* (変更なし) */ const o=document.getElementById('loading-overlay'),m=document.getElementById('loading-message');if(isLoading){m.textContent=message;o.classList.remove('hidden');}else{o.classList.add('hidden');m.textContent='';} }
   function showReportModal(show){ /* (変更なし) */ const m=document.getElementById('report-type-modal'),c=m.querySelector('div');if(show){m.classList.remove('hidden');setTimeout(()=>{c.classList.remove('scale-95','opacity-0');},10);}else{c.classList.add('scale-95','opacity-0');setTimeout(()=>{m.classList.add('hidden');},300);} }
-  async function generatePdf(){ /* (変更なし - POSTに変更済) */ console.log('PDF export clicked.');const cn=currentClinicForModal;const pt=document.getElementById('period-display').textContent.replace('集計期間：','');const rd=issuedReports[cn];if(!cn||!pt||!rd){alert('PDF生成に必要なレポートデータがありません。');return;} showLoading(true,'PDFを生成中...');try{const r=await fetch('/generate-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clinicName:cn,periodText:pt,reportData:rd})});if(!r.ok){let em=`サーバーエラー: ${r.status} ${r.statusText}`;try{const ed=await r.text();em+=`\n${ed}`;}catch(e){} throw new Error(em);} const b=await r.blob();const u=window.URL.createObjectURL(b);const a=document.createElement('a');a.style.display='none';a.href=u;document.body.appendChild(a);a.click();window.URL.revokeObjectURL(u);a.remove();showLoading(false);}catch(error){console.error('PDF gen error:',error);alert('PDF生成失敗\n'+error.message);showLoading(false);} }
+  async function generatePdf(){ /* (変更なし) */ console.log('PDF export clicked.');const cn=currentClinicForModal;const pt=document.getElementById('period-display').textContent.replace('集計期間：','');const rd=issuedReports[cn];if(!cn||!pt||!rd){alert('PDF生成に必要なレポートデータがありません。');return;} showLoading(true,'PDFを生成中...');try{const r=await fetch('/generate-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clinicName:cn,periodText:pt,reportData:rd})});if(!r.ok){let em=`サーバーエラー: ${r.status} ${r.statusText}`;try{const ed=await r.text();em+=`\n${ed}`;}catch(e){} throw new Error(em);} const b=await r.blob();const u=window.URL.createObjectURL(b);const a=document.createElement('a');a.style.display='none';a.href=u;document.body.appendChild(a);a.click();window.URL.revokeObjectURL(u);a.remove();showLoading(false);}catch(error){console.error('PDF gen error:',error);alert('PDF生成失敗\n'+error.message);showLoading(false);} }
 </script>
 </body>
 </html>
