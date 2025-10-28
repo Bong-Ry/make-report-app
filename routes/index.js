@@ -14,6 +14,7 @@ router.get('/api/getClinicList', reportController.getClinicList);
 router.post('/api/getReportData', reportController.getReportData);
 router.post('/api/analyzeText', analysisController.analyzeText);
 router.post('/api/generateDetailedAnalysis', analysisController.generateDetailedAnalysis); // 詳細分析ルート
+router.post('/api/generateMunicipalityReport', analysisController.generateMunicipalityReport); // ★ 市区町村集計ルート (追加)
 router.post('/generate-pdf', reportController.generatePdf); // PDF生成ルート
 
 module.exports = router;

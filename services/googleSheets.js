@@ -105,12 +105,14 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period) => {
         const childrenCounts_P = initializeCounts(childrenKeys);
         const ageCounts_O = initializeCounts(ageKeys);
         const incomeCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
+        const postalCodeCounts = {}; // ★ 郵便番号カウント用
         let processedRowCount = 0;
         let matchedRowCount = 0;
 
         try {
             // ★ シート名は半角 '1' を使用
-            const range = "'フォームの回答 1'!A:Q";
+            // ★ 範囲を A:R に変更
+            const range = "'フォームの回答 1'!A:R";
             console.log(`[googleSheetsService] Fetching clinic data: ID=${clinicSheetId}, Range=${range}`);
             const clinicDataResponse = await sheets.spreadsheets.values.get({ spreadsheetId: clinicSheetId, range: range, dateTimeRenderOption: 'SERIAL_NUMBER', valueRenderOption: 'UNFORMATTED_VALUE' });
             const clinicDataRows = clinicDataResponse.data.values;
@@ -122,7 +124,8 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period) => {
             console.log(`[googleSheetsService] Fetched ${clinicDataRows.length} rows (including header) for ${clinicName}`);
 
             const header = clinicDataRows.shift();
-            const timestampIndex = 0, satBIndex = 1, satCIndex = 2, satDIndex = 3, satEIndex = 4, satFIndex = 5, satGIndex = 6, satHIndex = 7, feedbackIIndex = 8, feedbackJIndex = 9, scoreKIndex = 10, reasonLIndex = 11, feedbackMIndex = 12, ageOIndex = 14, childrenPIndex = 15, incomeQIndex = 16;
+            // ★ R列(17)のインデックスを追加
+            const timestampIndex = 0, satBIndex = 1, satCIndex = 2, satDIndex = 3, satEIndex = 4, satFIndex = 5, satGIndex = 6, satHIndex = 7, feedbackIIndex = 8, feedbackJIndex = 9, scoreKIndex = 10, reasonLIndex = 11, feedbackMIndex = 12, ageOIndex = 14, childrenPIndex = 15, incomeQIndex = 16, postalCodeRIndex = 17;
 
             clinicDataRows.forEach((row, rowIndex) => {
                 processedRowCount++;
@@ -133,7 +136,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period) => {
 
                 if (timestamp.getTime() >= startDate.getTime() && timestamp.getTime() <= endDate.getTime()) {
                     matchedRowCount++;
-                    // 集計ロジック... (変更なし)
+                    // 集計ロジック...
                     const score = row[scoreKIndex], reason = row[reasonLIndex]; if (reason != null && String(reason).trim() !== '') { const scoreNum = parseInt(score, 10); if (!isNaN(scoreNum)) allNpsReasons.push({ score: scoreNum, reason: String(reason).trim() }); }
                     const feedbackI = row[feedbackIIndex]; if (feedbackI != null && String(feedbackI).trim() !== '') allFeedbacks_I.push(String(feedbackI).trim());
                     const feedbackJ = row[feedbackJIndex]; if (feedbackJ != null && String(feedbackJ).trim() !== '') allFeedbacks_J.push(String(feedbackJ).trim());
@@ -148,9 +151,21 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period) => {
                     const childrenP = row[childrenPIndex]; if (childrenP != null && childrenKeys.includes(String(childrenP))) childrenCounts_P[String(childrenP)]++;
                     const ageO = row[ageOIndex]; if (ageO != null && ageKeys.includes(String(ageO))) ageCounts_O[String(ageO)]++;
                     const income = row[incomeQIndex]; if (typeof income === 'number' && income >= 1 && income <= 10 && !isNaN(income)) incomeCounts[income]++;
+
+                    // ★ 郵便番号(R列)の集計ロジック
+                    const postalCodeRaw = row[postalCodeRIndex];
+                    if (postalCodeRaw) {
+                        // ハイフンを除去し、前後の空白を削除
+                        const postalCode = String(postalCodeRaw).replace(/-/g, '').trim();
+                        // 7桁の数字であるか正規表現でチェック
+                        if (/^\d{7}$/.test(postalCode)) {
+                            postalCodeCounts[postalCode] = (postalCodeCounts[postalCode] || 0) + 1;
+                        }
+                    }
                 }
             });
             console.log(`[googleSheetsService] For ${clinicName}: Processed ${processedRowCount} data rows, ${matchedRowCount} rows matched the period.`);
+            console.log(`[googleSheetsService] Found ${Object.keys(postalCodeCounts).length} unique postal codes.`); // ★ ログ追加
 
         } catch (e) {
              if (e.message && e.message.includes('Requested entity was not found')) {
@@ -163,10 +178,10 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period) => {
             continue; // 次のクリニックへ
         }
 
-        // NPS理由をスコアごとにグループ化 (変更なし)
+        // NPS理由をスコアごとにグループ化
         const groupedByScore = allNpsReasons.reduce((acc, item) => { if (typeof item.score === 'number' && !isNaN(item.score)) { if (!acc[item.score]) acc[item.score] = []; acc[item.score].push(item.reason); } return acc; }, {});
 
-        // 世帯年収グラフデータ作成 (変更なし)
+        // 世帯年収グラフデータ作成
         const incomeChartData = [['評価', '割合', { role: 'annotation' }]];
         const totalIncomeCount = Object.values(incomeCounts).reduce((a, b) => a + b, 0);
         console.log(`[googleSheetsService] Income counts for ${clinicName}:`, incomeCounts, `Total: ${totalIncomeCount}`);
@@ -180,7 +195,8 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period) => {
             satisfactionData: { b_column: { results: createChartData(satisfactionCounts_B, satisfactionKeys) }, c_column: { results: createChartData(satisfactionCounts_C, satisfactionKeys) }, d_column: { results: createChartData(satisfactionCounts_D, satisfactionKeys) }, e_column: { results: createChartData(satisfactionCounts_E, satisfactionKeys) }, f_column: { results: createChartData(satisfactionCounts_F, satisfactionKeys) }, g_column: { results: createChartData(satisfactionCounts_G, satisfactionKeys) }, h_column: { results: createChartData(satisfactionCounts_H, satisfactionKeys) } },
             ageData: { results: createChartData(ageCounts_O, ageKeys) },
             childrenCountData: { results: createChartData(childrenCounts_P, childrenKeys) },
-            incomeData: { results: incomeChartData, totalCount: totalIncomeCount }
+            incomeData: { results: incomeChartData, totalCount: totalIncomeCount },
+            postalCodeData: { counts: postalCodeCounts } // ★ 郵便番号データを追加
         };
         console.log(`[googleSheetsService] Finished processing data for ${clinicName}`);
     }

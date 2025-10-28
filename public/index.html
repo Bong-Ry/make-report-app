@@ -50,7 +50,7 @@
         <button data-report-type="feedback_i" class="btn">良かった点</button>
         <button data-report-type="feedback_j" class="btn">印象スタッフ</button>
         <button data-report-type="feedback_m" class="btn">お産意見</button>
-        <button data-report-type="satisfaction_b" class="btn">満足度</button>
+        <button data-report-type="municipality" class="btn">市区町村</button> <button data-report-type="satisfaction_b" class="btn">満足度</button>
         <button data-report-type="satisfaction_c" class="btn">施設</button>
         <button data-report-type="satisfaction_d" class="btn">アクセス</button>
         <button data-report-type="satisfaction_e" class="btn">価格</button>
@@ -186,18 +186,18 @@
   }
 
   // --- 画面1 (変更なし) ---
-  function populateDateSelectors() { /* (変更なし) */ const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sm.value=String(now.getMonth()+1).padStart(2,'0'); }
-  function handleNextToClinics() { /* (変更なし) */ console.log('Next clicked.');const sy=document.getElementById('start-year').value,sm=document.getElementById('start-month').value,ey=document.getElementById('end-year').value,em=document.getElementById('end-month').value;const sd=new Date(`${sy}-${sm}-01`),ed=new Date(`${ey}-${em}-01`);if(sd>ed){console.warn('Start>End.');alert('開始年月<=終了年月で設定');document.getElementById('start-year').classList.add('border-red-500');document.getElementById('start-month').classList.add('border-red-500');return;} document.getElementById('start-year').classList.remove('border-red-500');document.getElementById('start-month').classList.remove('border-red-500');selectedPeriod={start:`${sy}-${sm}`,end:`${ey}-${em}`};document.getElementById('period-display').textContent=`集計期間：${sy}年${sm}月～${ey}年${em}月`;console.log('Period:',selectedPeriod);showScreen('screen2');if(Object.keys(issuedReports).length===0){console.log('Loading clinics...');loadClinics();}else{console.log('Clinics already loaded.');} }
+  function populateDateSelectors() { const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sm.value=String(now.getMonth()+1).padStart(2,'0'); }
+  function handleNextToClinics() { console.log('Next clicked.');const sy=document.getElementById('start-year').value,sm=document.getElementById('start-month').value,ey=document.getElementById('end-year').value,em=document.getElementById('end-month').value;const sd=new Date(`${sy}-${sm}-01`),ed=new Date(`${ey}-${em}-01`);if(sd>ed){console.warn('Start>End.');alert('開始年月<=終了年月で設定');document.getElementById('start-year').classList.add('border-red-500');document.getElementById('start-month').classList.add('border-red-500');return;} document.getElementById('start-year').classList.remove('border-red-500');document.getElementById('start-month').classList.remove('border-red-500');selectedPeriod={start:`${sy}-${sm}`,end:`${ey}-${em}`};document.getElementById('period-display').textContent=`集計期間：${sy}年${sm}月～${ey}年${em}月`;console.log('Period:',selectedPeriod);showScreen('screen2');if(Object.keys(issuedReports).length===0){console.log('Loading clinics...');loadClinics();}else{console.log('Clinics already loaded.');} }
 
   // --- 画面2 (変更なし) ---
-  async function loadClinics() { /* (変更なし) */ console.log('loadClinics...');showLoading(true,'クリニック一覧読込中...');const c=document.getElementById('clinic-list-container');c.innerHTML='<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';try{console.log('Fetching list...');const r=await fetch('/api/getClinicList');console.log('Status:',r.status);if(!r.ok){const et=await r.text();console.error('Error:',r.status,et);throw new Error(`サーバーエラー(${r.status}): ${et}`);} const clinics=await r.json();console.log('Received:',clinics);c.innerHTML='';if(!Array.isArray(clinics)){console.error('Not array:',clinics);throw new Error('予期しないデータ形式');} if(clinics.length===0){console.log('None found.');c.innerHTML='<p class="text-sm text-gray-500 text-center py-4">対象なし</p>';}else{clinics.forEach(n=>{const d=document.createElement('div');d.className='flex items-center p-2 rounded-md hover:bg-gray-100';d.innerHTML=`<input type="checkbox" id="clinic-${n}" name="clinic" value="${n}" class="mr-3 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-800 cursor-pointer"><label for="clinic-${n}" class="text-sm select-none cursor-pointer">${n}</label>`;c.appendChild(d);});console.log('Populated.');c.removeEventListener('change',handleClinicCheckboxChange);c.addEventListener('change',handleClinicCheckboxChange);} showLoading(false);}catch(err){console.error('!!! Load failed:',err);c.innerHTML=`<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;showLoading(false);} }
-  function handleClinicCheckboxChange() { /* (変更なし) */ const checked=document.querySelectorAll('#clinic-list-container input:checked').length;document.getElementById('issue-btn').disabled=checked===0; }
-  async function handleIssueReport() { /* (変更なし) */ console.log('Issue report.');showLoading(true,'レポートデータ取得中...');const sc=Array.from(document.querySelectorAll('#clinic-list-container input:checked')).map(cb=>cb.value);console.log('Selected:',sc);try{console.log('Posting...');const r=await fetch('/api/getReportData',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({period:selectedPeriod,selectedClinics:sc})});console.log('Status:',r.status);if(!r.ok){const et=await r.text();console.error('Error:',r.status,et);throw new Error(`サーバーエラー(${r.status}): ${et}`);} const data=await r.json();console.log('Received data:',data);const ts=new Date().toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});let rg=false;Object.keys(data).forEach(cn=>{if(sc.includes(cn)){issuedReports[cn]={...data[cn],timestamp:ts};rg=true;console.log(`Stored for ${cn}`);}});if(rg){updateIssuedList();currentClinicForModal=sc[0];if(currentClinicForModal&&issuedReports[currentClinicForModal]){console.log(`Show modal for ${currentClinicForModal}`);showReportModal(true);}else{console.warn('Generated but no data for first selection:',currentClinicForModal);}}else{console.warn('Data received but empty/no match.');alert('データ取得失敗または対象なし');} showLoading(false);}catch(err){console.error('!!! Issue failed:',err);alert(`発行失敗\n${err.message}`);showLoading(false);} }
-  function updateIssuedList() { /* (変更なし) */ const c=document.getElementById('issued-list-container');c.innerHTML='';const cn=Object.keys(issuedReports);if(cn.length===0){c.innerHTML='<p class="text-sm text-gray-500 text-center py-8">発行済レポートなし</p>';return;} cn.forEach(n=>{const d=document.createElement('div');d.className='p-4 border rounded-lg cursor-pointer hover:bg-gray-50 hover:shadow-md transition-all duration-200';d.dataset.clinicName=n;d.innerHTML=`<p class="font-bold text-base">${n}</p><p class="text-xs text-gray-500 mt-1">発行日時: ${issuedReports[n].timestamp}</p>`;c.appendChild(d);});console.log('Issued list updated.'); }
+  async function loadClinics() { console.log('loadClinics...');showLoading(true,'クリニック一覧読込中...');const c=document.getElementById('clinic-list-container');c.innerHTML='<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';try{console.log('Fetching list...');const r=await fetch('/api/getClinicList');console.log('Status:',r.status);if(!r.ok){const et=await r.text();console.error('Error:',r.status,et);throw new Error(`サーバーエラー(${r.status}): ${et}`);} const clinics=await r.json();console.log('Received:',clinics);c.innerHTML='';if(!Array.isArray(clinics)){console.error('Not array:',clinics);throw new Error('予期しないデータ形式');} if(clinics.length===0){console.log('None found.');c.innerHTML='<p class="text-sm text-gray-500 text-center py-4">対象なし</p>';}else{clinics.forEach(n=>{const d=document.createElement('div');d.className='flex items-center p-2 rounded-md hover:bg-gray-100';d.innerHTML=`<input type="checkbox" id="clinic-${n}" name="clinic" value="${n}" class="mr-3 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-800 cursor-pointer"><label for="clinic-${n}" class="text-sm select-none cursor-pointer">${n}</label>`;c.appendChild(d);});console.log('Populated.');c.removeEventListener('change',handleClinicCheckboxChange);c.addEventListener('change',handleClinicCheckboxChange);} showLoading(false);}catch(err){console.error('!!! Load failed:',err);c.innerHTML=`<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;showLoading(false);} }
+  function handleClinicCheckboxChange() { const checked=document.querySelectorAll('#clinic-list-container input:checked').length;document.getElementById('issue-btn').disabled=checked===0; }
+  async function handleIssueReport() { console.log('Issue report.');showLoading(true,'レポートデータ取得中...');const sc=Array.from(document.querySelectorAll('#clinic-list-container input:checked')).map(cb=>cb.value);console.log('Selected:',sc);try{console.log('Posting...');const r=await fetch('/api/getReportData',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({period:selectedPeriod,selectedClinics:sc})});console.log('Status:',r.status);if(!r.ok){const et=await r.text();console.error('Error:',r.status,et);throw new Error(`サーバーエラー(${r.status}): ${et}`);} const data=await r.json();console.log('Received data:',data);const ts=new Date().toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});let rg=false;Object.keys(data).forEach(cn=>{if(sc.includes(cn)){issuedReports[cn]={...data[cn],timestamp:ts};rg=true;console.log(`Stored for ${cn}`);}});if(rg){updateIssuedList();currentClinicForModal=sc[0];if(currentClinicForModal&&issuedReports[currentClinicForModal]){console.log(`Show modal for ${currentClinicForModal}`);showReportModal(true);}else{console.warn('Generated but no data for first selection:',currentClinicForModal);}}else{console.warn('Data received but empty/no match.');alert('データ取得失敗または対象なし');} showLoading(false);}catch(err){console.error('!!! Issue failed:',err);alert(`発行失敗\n${err.message}`);showLoading(false);} }
+  function updateIssuedList() { const c=document.getElementById('issued-list-container');c.innerHTML='';const cn=Object.keys(issuedReports);if(cn.length===0){c.innerHTML='<p class="text-sm text-gray-500 text-center py-8">発行済レポートなし</p>';return;} cn.forEach(n=>{const d=document.createElement('div');d.className='p-4 border rounded-lg cursor-pointer hover:bg-gray-50 hover:shadow-md transition-all duration-200';d.dataset.clinicName=n;d.innerHTML=`<p class="font-bold text-base">${n}</p><p class="text-xs text-gray-500 mt-1">発行日時: ${issuedReports[n].timestamp}</p>`;c.appendChild(d);});console.log('Issued list updated.'); }
 
   // --- 画面3 & 4 (レポート/分析表示) ---
-  function handleIssuedListClick(e){ /* (変更なし) */ const t=e.target.closest('[data-clinic-name]');if(t){currentClinicForModal=t.dataset.clinicName;if(issuedReports[currentClinicForModal]){showReportModal(true);}} }
-  function handleReportModalClick(e){ /* (変更なし) */ const rt=e.target.dataset.reportType;if(rt){showReportModal(false);setTimeout(()=>prepareAndShowReport(rt),300);} }
+  function handleIssuedListClick(e){ const t=e.target.closest('[data-clinic-name]');if(t){currentClinicForModal=t.dataset.clinicName;if(issuedReports[currentClinicForModal]){showReportModal(true);}} }
+  function handleReportModalClick(e){ const rt=e.target.dataset.reportType;if(rt){showReportModal(false);setTimeout(()=>prepareAndShowReport(rt),300);} }
   
   // ▼▼▼ handleReportNavClick (変更あり) ▼▼▼
   function handleReportNavClick(e) {
@@ -210,7 +210,12 @@
 
     if (reportType) {
         console.log(`Report nav: ${reportType}`);
-        prepareAndShowReport(reportType);
+        // ★ 市区町村レポートの分岐を追加
+        if (reportType === 'municipality') {
+            prepareAndShowMunicipalityReport();
+        } else {
+            prepareAndShowReport(reportType);
+        }
     } else if (analysisType) {
         console.log(`Analysis nav: ${analysisType}`);
         currentAnalysisTarget = analysisType;
@@ -223,47 +228,201 @@
   }
   // ▲▲▲ handleReportNavClick (変更あり) ▲▲▲
 
-  function prepareAndShowReport(reportType){ /* (変更なし) */ console.log(`Prepare report: ${reportType}`); showLoading(true,'レポート準備中...');updateNavActiveState(reportType, null, null); const cd=issuedReports[currentClinicForModal];if(!cd){showLoading(false);return;} slidesData=[];document.getElementById('pagination').style.display='flex';document.getElementById('slide-body').style.whiteSpace='pre-wrap';document.getElementById('slide-header').innerHTML='';document.getElementById('slide-body').innerHTML='';let isChart=false,isBar=false; if (reportType === 'nps'){const{totalCount,results}=cd.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);} else if (reportType === 'feedback_i'){prepareCommentSlides(cd.feedbackData.i_column,'良かった点悪かった点');} else if (reportType === 'feedback_j'){prepareCommentSlides(cd.feedbackData.j_column,'印象に残ったスタッフ');} else if (reportType === 'feedback_m'){prepareCommentSlides(cd.feedbackData.m_column,'お産意見感想');} else if (reportType === 'satisfaction_b'){prepareChartShell('満足度','5段階評価');isChart=true;} else if (reportType === 'satisfaction_c'){prepareChartShell('施設','5段階評価');isChart=true;} else if (reportType === 'satisfaction_d'){prepareChartShell('アクセス','5段階評価');isChart=true;} else if (reportType === 'satisfaction_e'){prepareChartShell('価格','5段階評価');isChart=true;} else if (reportType === 'satisfaction_f'){prepareChartShell('雰囲気','5段階評価');isChart=true;} else if (reportType === 'satisfaction_g'){prepareChartShell('スタッフ対応','5段階評価');isChart=true;} else if (reportType === 'satisfaction_h'){prepareChartShell('先生説明','5段階評価');isChart=true;} else if (reportType === 'age'){prepareChartShell('年代','');isChart=true;} else if (reportType === 'children'){prepareChartShell('お子様数','1人, 2人, 3人, 4人, 5人以上');isChart=true;} else if (reportType === 'income'){prepareChartShell('世帯年収','',true);isChart=true;isBar=true;} if(slidesData.length>0){currentPage=1;renderSlide(currentPage);}else if(slidesData.length===0&&(reportType.startsWith('nps')||reportType.startsWith('feedback'))){document.getElementById('slide-header').innerHTML='';document.getElementById('slide-body').innerHTML='<p class="text-center text-gray-500">該当データなし</p>';document.getElementById('pagination').style.display='none';} showScreen('screen3'); if(isChart){setTimeout(()=>{try{let data;if(reportType.startsWith('satisfaction')){data=cd.satisfactionData[reportType.split('_')[1]+'_column'];drawSatisfactionCharts(data.results);}else if(reportType==='age'){data=cd.ageData;drawSatisfactionCharts(data.results);}else if(reportType==='children'){data=cd.childrenCountData;drawSatisfactionCharts(data.results);}else if(reportType==='income'){data=cd.incomeData;drawIncomeCharts(data);}}catch(e){console.error('Chart draw error:',e);document.getElementById('slide-body').innerHTML='<p class="text-center text-red-500">グラフ描画失敗</p>';}finally{showLoading(false);}},100);}else{showLoading(false);} }
-  function prepareNpsSlides(results, title){ /* (変更なし) */ document.getElementById('report-title').textContent=title;document.getElementById('report-subtitle').textContent='';const ml=20;if(!results)return;const sc=Object.keys(results).map(Number).sort((a,b)=>b-a);sc.forEach(s=>{const rs=results[s];if(!rs||rs.length===0)return;let clc=0,cpb='';rs.forEach((r,i)=>{const rt=`・ ${r}`;const rl=(rt.match(/\n/g)||[]).length+1;if(clc>0&&(clc+rl)>ml){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});cpb=rt;clc=rl;}else{cpb+=(clc===0?'':'\n')+rt;clc+=rl;}});if(cpb){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});}}); }
-  function prepareCommentSlides(data, title){ /* (変更なし) */ if(!data)data={totalCount:0,results:[]};const{totalCount,results}=data;document.getElementById('report-title').textContent=`${title}(全${totalCount}件)`;document.getElementById('report-subtitle').textContent='';const ml=20;if(results&&results.length>0){let clc=0,cpb='';results.forEach((it,i)=>{const itx=`・ ${it}`;const il=(itx.match(/\n/g)||[]).length+1;if(clc>0&&(clc+il)>ml){slidesData.push({header:'',body:cpb});cpb=itx;clc=il;}else{cpb+=(clc===0?'':'\n')+itx;clc+=il;}});if(cpb){slidesData.push({header:'',body:cpb});}} }
-  function prepareChartShell(title, subtitle, isBar=false){ /* (変更なし) */ document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;document.getElementById('report-subtitle').textContent=subtitle;document.getElementById('pagination').style.display='none';document.getElementById('slide-body').style.whiteSpace='normal';const cid=isBar?'bar-chart':'pie-chart',hc=isBar?'h-[350px]':'h-[400px]';document.getElementById('slide-body').innerHTML=`<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-${cid}" class="w-full ${hc}"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-${cid}" class="w-full ${hc}"></div></div></div>`; }
-  function renderSlide(page){ /* (変更なし) */ if(page<1||page>slidesData.length)return;const s=slidesData[page-1];document.getElementById('slide-header').innerHTML=s.header;document.getElementById('slide-body').innerHTML=s.body;document.getElementById('page-indicator').textContent=`${page} / ${slidesData.length}`;document.getElementById('prev-slide').disabled=(page===1);document.getElementById('next-slide').disabled=(page===slidesData.length); }
-  function drawSatisfactionCharts(chartData){ /* (変更なし) */ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:16,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:14}},tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};const cd=document.getElementById('clinic-pie-chart');if(chartData&&chartData.length>1&&chartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(chartData);const c=new google.visualization.PieChart(cd);c.draw(d,opt);}else{cd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['満足度','割合'],['非常に満足',73.5],['満足',24.2],['ふつう',2.0],['不満',0.3],['非常に不満',0]]);const avgC=new google.visualization.PieChart(document.getElementById('average-pie-chart'));avgC.draw(avgD,opt); }
-  function drawIncomeCharts({results,totalCount}){ /* (変更なし) */ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:'#'+'%\'',viewWindow:{min:0}},hAxis:{}};const ccd=document.getElementById('clinic-bar-chart');if(totalCount>0&&results&&results.length>1){const cd=google.visualization.arrayToDataTable(results);const cc=new google.visualization.ColumnChart(ccd);cc.draw(cd,opt);}else{ccd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['評価','割合',{role:'annotation'}],['1',1,'1%'],['2',2,'2%'],['3',7,'7%'],['4',12,'12%'],['5',16,'16%'],['6',16,'16%'],['7',13,'13%'],['8',12,'12%'],['9',8,'8%'],['10',15,'15%']]);const avgC=new google.visualization.ColumnChart(document.getElementById('average-bar-chart'));avgC.draw(avgD,opt); }
-  function handlePrevSlide(){ /* (変更なし) */ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
-  function handleNextSlide(){ /* (変更なし) */ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
+  // ▼▼▼ prepareAndShowReport (変更あり) ▼▼▼
+  // (municipality の分岐を削除)
+  function prepareAndShowReport(reportType){
+    console.log(`Prepare report: ${reportType}`); 
+    showLoading(true,'レポート準備中...');
+    updateNavActiveState(reportType, null, null); 
+    const cd=issuedReports[currentClinicForModal];
+    if(!cd){showLoading(false);return;} 
+    slidesData=[];
+    document.getElementById('pagination').style.display='flex';
+    document.getElementById('slide-body').style.whiteSpace='pre-wrap';
+    document.getElementById('slide-header').innerHTML='';
+    document.getElementById('slide-body').innerHTML='';
+    let isChart=false,isBar=false; 
+    
+    if (reportType === 'nps'){const{totalCount,results}=cd.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);}
+    else if (reportType === 'feedback_i'){prepareCommentSlides(cd.feedbackData.i_column,'良かった点悪かった点');}
+    else if (reportType === 'feedback_j'){prepareCommentSlides(cd.feedbackData.j_column,'印象に残ったスタッフ');}
+    else if (reportType === 'feedback_m'){prepareCommentSlides(cd.feedbackData.m_column,'お産意見感想');}
+    else if (reportType === 'satisfaction_b'){prepareChartShell('満足度','5段階評価');isChart=true;}
+    else if (reportType === 'satisfaction_c'){prepareChartShell('施設','5段階評価');isChart=true;}
+    else if (reportType === 'satisfaction_d'){prepareChartShell('アクセス','5段階評価');isChart=true;}
+    else if (reportType === 'satisfaction_e'){prepareChartShell('価格','5段階評価');isChart=true;}
+    else if (reportType === 'satisfaction_f'){prepareChartShell('雰囲気','5段階評価');isChart=true;}
+    else if (reportType === 'satisfaction_g'){prepareChartShell('スタッフ対応','5段階評価');isChart=true;}
+    else if (reportType === 'satisfaction_h'){prepareChartShell('先生説明','5段階評価');isChart=true;}
+    else if (reportType === 'age'){prepareChartShell('年代','');isChart=true;}
+    else if (reportType === 'children'){prepareChartShell('お子様数','1人, 2人, 3人, 4人, 5人以上');isChart=true;}
+    else if (reportType === 'income'){prepareChartShell('世帯年収','',true);isChart=true;isBar=true;}
+    
+    if(slidesData.length>0){currentPage=1;renderSlide(currentPage);}
+    else if(slidesData.length===0&&(reportType.startsWith('nps')||reportType.startsWith('feedback'))){
+        document.getElementById('slide-header').innerHTML='';
+        document.getElementById('slide-body').innerHTML='<p class="text-center text-gray-500">該当データなし</p>';
+        document.getElementById('pagination').style.display='none';
+    } 
+    
+    showScreen('screen3'); 
+    
+    if(isChart){
+        setTimeout(()=>{
+            try{
+                let data;
+                if(reportType.startsWith('satisfaction')){data=cd.satisfactionData[reportType.split('_')[1]+'_column'];drawSatisfactionCharts(data.results);}
+                else if(reportType==='age'){data=cd.ageData;drawSatisfactionCharts(data.results);}
+                else if(reportType==='children'){data=cd.childrenCountData;drawSatisfactionCharts(data.results);}
+                else if(reportType==='income'){data=cd.incomeData;drawIncomeCharts(data);}
+            }catch(e){
+                console.error('Chart draw error:',e);
+                document.getElementById('slide-body').innerHTML='<p class="text-center text-red-500">グラフ描画失敗</p>';
+            }finally{
+                showLoading(false);
+            }
+        },100);
+    } else {
+        showLoading(false);
+    } 
+  }
+  // ▲▲▲ prepareAndShowReport (変更あり) ▲▲▲
+
+  function prepareNpsSlides(results, title){ document.getElementById('report-title').textContent=title;document.getElementById('report-subtitle').textContent='';const ml=20;if(!results)return;const sc=Object.keys(results).map(Number).sort((a,b)=>b-a);sc.forEach(s=>{const rs=results[s];if(!rs||rs.length===0)return;let clc=0,cpb='';rs.forEach((r,i)=>{const rt=`・ ${r}`;const rl=(rt.match(/\n/g)||[]).length+1;if(clc>0&&(clc+rl)>ml){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});cpb=rt;clc=rl;}else{cpb+=(clc===0?'':'\n')+rt;clc+=rl;}});if(cpb){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});}}); }
+  function prepareCommentSlides(data, title){ if(!data)data={totalCount:0,results:[]};const{totalCount,results}=data;document.getElementById('report-title').textContent=`${title}(全${totalCount}件)`;document.getElementById('report-subtitle').textContent='';const ml=20;if(results&&results.length>0){let clc=0,cpb='';results.forEach((it,i)=>{const itx=`・ ${it}`;const il=(itx.match(/\n/g)||[]).length+1;if(clc>0&&(clc+il)>ml){slidesData.push({header:'',body:cpb});cpb=itx;clc=il;}else{cpb+=(clc===0?'':'\n')+itx;clc+=il;}});if(cpb){slidesData.push({header:'',body:cpb});}} }
+  function prepareChartShell(title, subtitle, isBar=false){ document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;document.getElementById('report-subtitle').textContent=subtitle;document.getElementById('pagination').style.display='none';document.getElementById('slide-body').style.whiteSpace='normal';const cid=isBar?'bar-chart':'pie-chart',hc=isBar?'h-[350px]':'h-[400px]';document.getElementById('slide-body').innerHTML=`<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-${cid}" class="w-full ${hc}"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-${cid}" class="w-full ${hc}"></div></div></div>`; }
+  function renderSlide(page){ if(page<1||page>slidesData.length)return;const s=slidesData[page-1];document.getElementById('slide-header').innerHTML=s.header;document.getElementById('slide-body').innerHTML=s.body;document.getElementById('page-indicator').textContent=`${page} / ${slidesData.length}`;document.getElementById('prev-slide').disabled=(page===1);document.getElementById('next-slide').disabled=(page===slidesData.length); }
+  function drawSatisfactionCharts(chartData){ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:16,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:14}},tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};const cd=document.getElementById('clinic-pie-chart');if(chartData&&chartData.length>1&&chartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(chartData);const c=new google.visualization.PieChart(cd);c.draw(d,opt);}else{cd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['満足度','割合'],['非常に満足',73.5],['満足',24.2],['ふつう',2.0],['不満',0.3],['非常に不満',0]]);const avgC=new google.visualization.PieChart(document.getElementById('average-pie-chart'));avgC.draw(avgD,opt); }
+  function drawIncomeCharts({results,totalCount}){ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:'#'+'%\'',viewWindow:{min:0}},hAxis:{}};const ccd=document.getElementById('clinic-bar-chart');if(totalCount>0&&results&&results.length>1){const cd=google.visualization.arrayToDataTable(results);const cc=new google.visualization.ColumnChart(ccd);cc.draw(cd,opt);}else{ccd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['評価','割合',{role:'annotation'}],['1',1,'1%'],['2',2,'2%'],['3',7,'7%'],['4',12,'12%'],['5',16,'16%'],['6',16,'16%'],['7',13,'13%'],['8',12,'12%'],['9',8,'8%'],['10',15,'15%']]);const avgC=new google.visualization.ColumnChart(document.getElementById('average-bar-chart'));avgC.draw(avgD,opt); }
+  function handlePrevSlide(){ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
+  function handleNextSlide(){ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
 
   // --- テキスト分析関連 (ワードクラウド修正済み) ---
-  async function prepareAndShowAnalysis(columnType) { /* (変更なし) */ showLoading(true,`テキスト分析中(${getColumnName(columnType)})...`);showScreen('screen4');document.getElementById('analysis-error').classList.add('hidden');clearAnalysisCharts();updateNavActiveState(null, columnType, null); const cd=issuedReports[currentClinicForModal];if(!cd){console.error("No report data for analysis.");showLoading(false);return;} let tl=[],td=0;try{switch(columnType){case'L':tl=cd.npsData.rawText||[];td=cd.npsData.totalCount||0;break;case'I':tl=cd.feedbackData.i_column.results||[];td=cd.feedbackData.i_column.totalCount||0;break;case'J':tl=cd.feedbackData.j_column.results||[];td=cd.feedbackData.j_column.totalCount||0;break;case'M':tl=cd.feedbackData.m_column.results||[];td=cd.feedbackData.m_column.totalCount||0;break;default:console.error("Invalid column:",columnType);showLoading(false);return;}}catch(e){console.error("Error accessing text data:",e,"Data:",cd);alert("レポートデータアクセスエラー");showLoading(false);return;} document.getElementById('analysis-title').textContent=getAnalysisTitle(columnType,td);if(tl.length===0){console.log("No text to analyze:",columnType);document.getElementById('analysis-error').textContent='分析対象テキストなし';document.getElementById('analysis-error').classList.remove('hidden');showLoading(false);return;} try{console.log(`Sending ${tl.length} texts`);const r=await fetch('/api/analyzeText',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({textList:tl})});if(!r.ok){const et=await r.text();console.error(`Analyze API error(${r.status}):`,et);throw new Error(`分析APIエラー(${r.status}): ${et}`);} const ad=await r.json();console.log("Received analysis:",ad);drawAnalysisCharts(ad.results);}catch(error){console.error('!!! Analyze fail:',error);document.getElementById('analysis-error').textContent=`分析失敗: ${error.message}`;document.getElementById('analysis-error').classList.remove('hidden');}finally{showLoading(false);}}
-  function drawAnalysisCharts(results) { /* (変更なし - ワードクラウド修正済み) */ if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0},vAxis:{title:'単語'},height:500,width:'100%'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});console.log('WordCloud List:',wl);const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'#f9fafb',clearCanvas:true};console.log('WordCloud Options:',options);WordCloud(cv,options);console.log("Word cloud drawn.");}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
-  function drawSingleBarChart(data, elementId, options) { /* (変更なし - 色指定修正済み) */ const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
-  function clearAnalysisCharts() { /* (変更なし) */ document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
-  function getAnalysisTitle(columnType, count) { /* (変更なし) */ const bt=`アンケート結果S`;return`${bt}　※全回答数${count}件ー`; }
-  function getColumnName(columnType) { /* (変更なし) */ switch(columnType){case'L':return'NPS推奨度 理由';case'I':return'良かった点や悪かった点など';case'J':return'印象に残ったスタッフへのコメント';case'M':return'お産にかかわるご意見・ご感想';default:return'不明';} }
+  async function prepareAndShowAnalysis(columnType) { showLoading(true,`テキスト分析中(${getColumnName(columnType)})...`);showScreen('screen4');document.getElementById('analysis-error').classList.add('hidden');clearAnalysisCharts();updateNavActiveState(null, columnType, null); const cd=issuedReports[currentClinicForModal];if(!cd){console.error("No report data for analysis.");showLoading(false);return;} let tl=[],td=0;try{switch(columnType){case'L':tl=cd.npsData.rawText||[];td=cd.npsData.totalCount||0;break;case'I':tl=cd.feedbackData.i_column.results||[];td=cd.feedbackData.i_column.totalCount||0;break;case'J':tl=cd.feedbackData.j_column.results||[];td=cd.feedbackData.j_column.totalCount||0;break;case'M':tl=cd.feedbackData.m_column.results||[];td=cd.feedbackData.m_column.totalCount||0;break;default:console.error("Invalid column:",columnType);showLoading(false);return;}}catch(e){console.error("Error accessing text data:",e,"Data:",cd);alert("レポートデータアクセスエラー");showLoading(false);return;} document.getElementById('analysis-title').textContent=getAnalysisTitle(columnType,td);if(tl.length===0){console.log("No text to analyze:",columnType);document.getElementById('analysis-error').textContent='分析対象テキストなし';document.getElementById('analysis-error').classList.remove('hidden');showLoading(false);return;} try{console.log(`Sending ${tl.length} texts`);const r=await fetch('/api/analyzeText',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({textList:tl})});if(!r.ok){const et=await r.text();console.error(`Analyze API error(${r.status}):`,et);throw new Error(`分析APIエラー(${r.status}): ${et}`);} const ad=await r.json();console.log("Received analysis:",ad);drawAnalysisCharts(ad.results);}catch(error){console.error('!!! Analyze fail:',error);document.getElementById('analysis-error').textContent=`分析失敗: ${error.message}`;document.getElementById('analysis-error').classList.remove('hidden');}finally{showLoading(false);}}
+  function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0},vAxis:{title:'単語'},height:500,width:'100%'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});console.log('WordCloud List:',wl);const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'#f9fafb',clearCanvas:true};console.log('WordCloud Options:',options);WordCloud(cv,options);console.log("Word cloud drawn.");}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
+  function drawSingleBarChart(data, elementId, options) { const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
+  function clearAnalysisCharts() { document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
+  function getAnalysisTitle(columnType, count) { const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
+  function getColumnName(columnType) { switch(columnType){case'L':return'NPS推奨度 理由';case'I':return'良かった点や悪かった点など';case'J':return'印象に残ったスタッフへのコメント';case'M':return'お産にかかわるご意見・ご感想';default:return'不明';} }
 
-  // ▼▼▼ updateNavActiveState (変更あり) ▼▼▼
-  function updateNavActiveState(activeReportType, activeAnalysisType, activeDetailedAnalysisType) {
-    document.querySelectorAll('#report-nav .btn').forEach(btn => {
-        if ((activeReportType && btn.dataset.reportType === activeReportType) ||
-            (activeAnalysisType && btn.dataset.analysisType === activeAnalysisType) ||
-            (activeDetailedAnalysisType && btn.dataset.detailedAnalysisType === activeDetailedAnalysisType)) {
-            btn.classList.add('btn-active');
-        } else {
-            btn.classList.remove('btn-active');
+
+  // --- ★ 市区町村レポート関数 (新規追加) ---
+  
+  /**
+   * 市区町村レポートの準備と表示 (API呼び出し)
+   */
+  async function prepareAndShowMunicipalityReport() {
+    console.log('Prepare municipality report');
+    const clinicName = currentClinicForModal;
+    const cd = issuedReports[clinicName];
+    
+    if (!cd || !cd.postalCodeData || !cd.postalCodeData.counts) {
+        alert('郵便番号データ(postalCodeData)がレポートデータに見つかりません。');
+        return;
+    }
+
+    showLoading(true, '市区町村データを集計中...');
+    showScreen('screen3');
+    updateNavActiveState('municipality', null, null);
+    
+    // --- レポートの静的タイトルなどを設定 ---
+    document.getElementById('report-title').textContent = `${clinicName} - 市区町村別 集計`;
+    document.getElementById('report-subtitle').textContent = 'アンケート回答者の郵便番号(R列)を元に集計';
+    document.getElementById('pagination').style.display = 'none'; // ページネーション不要
+    document.getElementById('slide-header').innerHTML = ''; // ヘッダー不要
+    const slideBody = document.getElementById('slide-body');
+    slideBody.style.whiteSpace = 'normal'; // pre-wrap解除
+    slideBody.innerHTML = '<p class="text-center text-gray-500">外部APIから住所データを取得・集計中...</p>'; // 待機メッセージ
+    
+    try {
+        // 1. クライアント側キャッシュ(issuedReports)を確認
+        // (issuedReports[clinicName].municipalityReportTable に保存する)
+        if (cd.municipalityReportTable) {
+            console.log('Using cached municipality report from issuedReports');
+            displayMunicipalityTable(cd.municipalityReportTable);
+            showLoading(false);
+            return;
         }
-    });
+
+        console.log(`Calling API /api/generateMunicipalityReport for ${clinicName}`);
+        
+        // 2. サーバーAPIを呼び出し
+        const response = await fetch('/api/generateMunicipalityReport', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                postalCodeCounts: cd.postalCodeData.counts, // R列から集計した { "1110001": 10, ... }
+                clinicName: clinicName // サーバー側キャッシュ用キー
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`集計APIエラー (${response.status}): ${errorText}`);
+        }
+
+        const tableData = await response.json(); // [ {prefecture, municipality, count, percentage}, ... ]
+        
+        // 3. クライアント側キャッシュに保存
+        cd.municipalityReportTable = tableData;
+
+        // 4. テーブル描画
+        displayMunicipalityTable(tableData);
+
+    } catch (err) {
+        console.error('Failed to get municipality report:', err);
+        slideBody.innerHTML = `<p class="text-center text-red-500">集計失敗: ${err.message}</p>`;
+    } finally {
+        showLoading(false);
+    }
   }
-  // ▲▲▲ updateNavActiveState (変更あり) ▲▲▲
+  
+  /**
+   * 市区町村テーブルをHTMLに描画
+   * @param {Array} data APIから取得したテーブルデータ
+   */
+  function displayMunicipalityTable(data) {
+    const slideBody = document.getElementById('slide-body');
+    if (!data || data.length === 0) {
+        slideBody.innerHTML = '<p class="text-center text-gray-500">集計データがありません。</p>';
+        return;
+    }
+
+    // スクロール可能なコンテナとテーブルを作成
+    let tableHtml = `
+        <div class="overflow-x-auto overflow-y-auto max-h-[600px] border border-gray-200 rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50 sticky top-0 z-10">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">A列: 都道府県</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">B列: 市区町村</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">C列: 件数</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">D列: 割合</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+    `;
+
+    // データをループして行を追加
+    data.forEach(row => {
+        tableHtml += `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.prefecture}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${row.municipality}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${row.count}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${row.percentage.toFixed(2)}%</td>
+            </tr>
+        `;
+    });
+
+    tableHtml += '</tbody></table></div>';
+    slideBody.innerHTML = tableHtml;
+  }
+  
+  // --- ▲▲▲ 市区町村レポート関数 (新規追加) ---
 
 
-  // --- 汎用関数 (変更なし) ---
-  function showScreen(screenId){ /* (変更なし) */ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
-  function showLoading(isLoading, message=''){ /* (変更なし) */ const o=document.getElementById('loading-overlay'),m=document.getElementById('loading-message');if(isLoading){m.textContent=message;o.classList.remove('hidden');}else{o.classList.add('hidden');m.textContent='';} }
-  function showReportModal(show){ /* (変更なし) */ const m=document.getElementById('report-type-modal'),c=m.querySelector('div');if(show){m.classList.remove('hidden');setTimeout(()=>{c.classList.remove('scale-95','opacity-0');},10);}else{c.classList.add('scale-95','opacity-0');setTimeout(()=>{m.classList.add('hidden');},300);} }
-  async function generatePdf(){ /* (変更なし) */ console.log('PDF export clicked.');const cn=currentClinicForModal;const pt=document.getElementById('period-display').textContent.replace('集計期間：','');const rd=issuedReports[cn];if(!cn||!pt||!rd){alert('PDF生成に必要なレポートデータがありません。');return;} showLoading(true,'PDFを生成中...');try{const r=await fetch('/generate-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clinicName:cn,periodText:pt,reportData:rd})});if(!r.ok){let em=`サーバーエラー: ${r.status} ${r.statusText}`;try{const ed=await r.text();em+=`\n${ed}`;}catch(e){} throw new Error(em);} const b=await r.blob();const u=window.URL.createObjectURL(b);const a=document.createElement('a');a.style.display='none';a.href=u;document.body.appendChild(a);a.click();window.URL.revokeObjectURL(u);a.remove();showLoading(false);}catch(error){console.error('PDF gen error:',error);alert('PDF生成失敗\n'+error.message);showLoading(false);} }
-
-
-  // --- ▼▼▼ 詳細分析関連 (JS関数追加) ▼▼▼ ---
+  // --- ▼▼▼ 詳細分析関連 (JS関数追加) ▼▼▼
 
   /**
    * 詳細分析(AI)の準備と表示
@@ -616,6 +775,24 @@
 
   // --- ▲▲▲ 詳細分析関連 (JS関数追加) ▲▲▲ ---
 
+  // --- 汎用関数 (変更なし) ---
+  // ▼▼▼ updateNavActiveState (変更あり) ▼▼▼
+  function updateNavActiveState(activeReportType, activeAnalysisType, activeDetailedAnalysisType) {
+    document.querySelectorAll('#report-nav .btn').forEach(btn => {
+        if ((activeReportType && btn.dataset.reportType === activeReportType) ||
+            (activeAnalysisType && btn.dataset.analysisType === activeAnalysisType) ||
+            (activeDetailedAnalysisType && btn.dataset.detailedAnalysisType === activeDetailedAnalysisType)) {
+            btn.classList.add('btn-active');
+        } else {
+            btn.classList.remove('btn-active');
+        }
+    });
+  }
+  // ▲▲▲ updateNavActiveState (変更あり) ▲▲▲
+  function showScreen(screenId){ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
+  function showLoading(isLoading, message=''){ const o=document.getElementById('loading-overlay'),m=document.getElementById('loading-message');if(isLoading){m.textContent=message;o.classList.remove('hidden');}else{o.classList.add('hidden');m.textContent='';} }
+  function showReportModal(show){ const m=document.getElementById('report-type-modal'),c=m.querySelector('div');if(show){m.classList.remove('hidden');setTimeout(()=>{c.classList.remove('scale-95','opacity-0');},10);}else{c.classList.add('scale-95','opacity-0');setTimeout(()=>{m.classList.add('hidden');},300);} }
+  async function generatePdf(){ console.log('PDF export clicked.');const cn=currentClinicForModal;const pt=document.getElementById('period-display').textContent.replace('集計期間：','');const rd=issuedReports[cn];if(!cn||!pt||!rd){alert('PDF生成に必要なレポートデータがありません。');return;} showLoading(true,'PDFを生成中...');try{const r=await fetch('/generate-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clinicName:cn,periodText:pt,reportData:rd})});if(!r.ok){let em=`サーバーエラー: ${r.status} ${r.statusText}`;try{const ed=await r.text();em+=`\n${ed}`;}catch(e){} throw new Error(em);} const b=await r.blob();const u=window.URL.createObjectURL(b);const a=document.createElement('a');a.style.display='none';a.href=u;document.body.appendChild(a);a.click();window.URL.revokeObjectURL(u);a.remove();showLoading(false);}catch(error){console.error('PDF gen error:',error);alert('PDF生成失敗\n'+error.message);showLoading(false);} }
 </script>
 </body>
 </html>
