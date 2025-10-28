@@ -26,6 +26,12 @@
     #loading-overlay > div > div { border-top-color: #333; border-bottom-color: #333; }
     #word-cloud-canvas { width: 100%; height: 400px; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
     .chart-container { min-height: 200px; height: 500px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background-color: #f9fafb;}
+    
+    /* ▼▼▼ 詳細分析タブ (CSS追加) ▼▼▼ */
+    .tab-button { @apply px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 hover:text-gray-700 whitespace-nowrap cursor-pointer; }
+    .tab-button.active { @apply border-indigo-500 text-indigo-600; }
+    .tab-content { @apply p-4 border border-t-0 rounded-b-md bg-gray-50;}
+    /* ▲▲▲ 詳細分析タブ (CSS追加) ▲▲▲ */
   </style>
 </head>
 <body class="text-gray-900">
@@ -36,15 +42,115 @@
 
   <div id="screen2" class="screen hidden"> <header class="flex justify-between items-center mb-6 pb-4 border-b"> <button id="back-to-period" class="btn">&lt; 期間選択へ戻る</button> <div id="period-display" class="text-base font-semibold text-gray-700 bg-white py-2 px-4 rounded-lg shadow-sm border"></div> </header> <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:px-8"> <section class="card"> <h2 class="text-xl font-bold mb-5">1. クリニックを選択</h2> <div id="clinic-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2 border rounded-lg p-4 bg-gray-50"> <p class="text-sm text-gray-500 text-center py-4">読み込み中...</p> </div> <div class="mt-6 text-right"> <button id="issue-btn" class="btn bg-gray-800 text-white hover:bg-gray-700" disabled>レポート発行</button> </div> </section> <section class="card"> <h2 class="text-xl font-bold mb-5">2. 発行済みレポートを閲覧</h2> <div id="issued-list-container" class="space-y-3"> <p class="text-sm text-gray-500 text-center py-8">まだ発行されたレポートはありません。</p> </div> </section> </main> </div>
 
-  <div id="screen3" class="screen hidden"> <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200"> <div id="report-nav" class="flex flex-wrap justify-center items-center gap-2"> <button data-report-type="nps" class="btn">NPS理由</button> <button data-report-type="feedback_i" class="btn">良かった点</button> <button data-report-type="feedback_j" class="btn">印象スタッフ</button> <button data-report-type="feedback_m" class="btn">お産意見</button> <button data-report-type="satisfaction_b" class="btn">満足度</button> <button data-report-type="satisfaction_c" class="btn">施設</button> <button data-report-type="satisfaction_d" class="btn">アクセス</button> <button data-report-type="satisfaction_e" class="btn">価格</button> <button data-report-type="satisfaction_f" class="btn">雰囲気</button> <button data-report-type="satisfaction_g" class="btn">スタッフ対応</button> <button data-report-type="satisfaction_h" class="btn">先生説明</button> <button data-report-type="age" class="btn">年代</button> <button data-report-type="children" class="btn">お子様数</button> <button data-report-type="income" class="btn">世帯年収</button> <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-NPS</button> <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-良い点</button> <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-スタッフ</button> <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">分析-お産</button> </div> <div class="flex items-center gap-4"> <button id="pdf-export-btn" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button> <button id="back-to-clinics" class="btn">院一覧へ戻る</button> </div> </header> <main class="card"> <div class="text-center mb-8 pb-4 border-b"> <h1 id="report-title" class="text-2xl font-bold"></h1> <p id="report-subtitle" class="text-sm text-gray-600 mt-2" style="white-space: pre-wrap;"></p> </div> <div id="slider-container" class="relative"> <div id="slide-content" class="bg-gray-50 border p-6 md:p-8 rounded-lg min-h-[500px]"> <h2 id="slide-header" class="text-xl font-bold mb-5 text-gray-800"></h2> <div id="slide-body" class="text-base leading-relaxed text-gray-700" style="white-space: pre-wrap;"></div> </div> <div id="pagination" class="flex items-center justify-center mt-6"> <button id="prev-slide" class="btn">&lt; 前へ</button> <span id="page-indicator" class="mx-6 text-base font-semibold text-gray-600"></span> <button id="next-slide" class="btn">次へ &gt;</button> </div> </div> </main> </div>
+  <div id="screen3" class="screen hidden">
+    <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
+      
+      <div id="report-nav" class="flex flex-wrap justify-center items-center gap-2">
+        <button data-report-type="nps" class="btn">NPS理由</button>
+        <button data-report-type="feedback_i" class="btn">良かった点</button>
+        <button data-report-type="feedback_j" class="btn">印象スタッフ</button>
+        <button data-report-type="feedback_m" class="btn">お産意見</button>
+        <button data-report-type="satisfaction_b" class="btn">満足度</button>
+        <button data-report-type="satisfaction_c" class="btn">施設</button>
+        <button data-report-type="satisfaction_d" class="btn">アクセス</button>
+        <button data-report-type="satisfaction_e" class="btn">価格</button>
+        <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
+        <button data-report-type="satisfaction_g" class="btn">スタッフ対応</button>
+        <button data-report-type="satisfaction_h" class="btn">先生説明</button>
+        <button data-report-type="age" class="btn">年代</button>
+        <button data-report-type="children" class="btn">お子様数</button>
+        <button data-report-type="income" class="btn">世帯年収</button>
+        <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-NPS</button>
+        <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-良い点</button>
+        <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-スタッフ</button>
+        <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-お産</button>
+        <button data-detailed-analysis-type="L" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-NPS</button>
+        <button data-detailed-analysis-type="I_good" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-良い点</button>
+        <button data-detailed-analysis-type="I_bad" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-悪い点</button>
+        <button data-detailed-analysis-type="J" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-スタッフ</button>
+        <button data-detailed-analysis-type="M" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-お産</button>
+      </div>
+      <div class="flex items-center gap-4">
+        <button id="pdf-export-btn" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button>
+        <button id="back-to-clinics" class="btn">院一覧へ戻る</button>
+      </div>
+    </header>
+    <main class="card">
+      <div class="text-center mb-8 pb-4 border-b">
+        <h1 id="report-title" class="text-2xl font-bold"></h1>
+        <p id="report-subtitle" class="text-sm text-gray-600 mt-2" style="white-space: pre-wrap;"></p>
+      </div>
+      <div id="slider-container" class="relative">
+        <div id="slide-content" class="bg-gray-50 border p-6 md:p-8 rounded-lg min-h-[500px]">
+          <h2 id="slide-header" class="text-xl font-bold mb-5 text-gray-800"></h2>
+          <div id="slide-body" class="text-base leading-relaxed text-gray-700" style="white-space: pre-wrap;"></div>
+        </div>
+        <div id="pagination" class="flex items-center justify-center mt-6">
+          <button id="prev-slide" class="btn">&lt; 前へ</button>
+          <span id="page-indicator" class="mx-6 text-base font-semibold text-gray-600"></span>
+          <button id="next-slide" class="btn">次へ &gt;</button>
+        </div>
+      </div>
+    </main>
+  </div>
 
   <div id="screen4" class="screen hidden"> <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200"> <div class="flex items-center gap-4 ml-auto"> <button id="back-to-clinics-from-analysis" class="btn">院一覧へ戻る</button> </div> </header> <main class="card"> <div class="text-center mb-8 pb-4 border-b"> <h1 id="analysis-title" class="text-2xl font-bold"></h1> <p class="text-sm text-gray-500 mt-2"> 文章中に出現する単語の頻出度を表しています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。<br> 通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。 </p> </div> <div class="grid grid-cols-1 md:grid-cols-2 gap-8"> <div class="space-y-4"> <div id="noun-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-blue-600">名詞</h3> <div id="noun-chart"></div> </div> <div id="verb-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-red-600">動詞</h3> <div id="verb-chart"></div> </div> <div id="adj-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-green-600">形容詞</h3> <div id="adj-chart"></div> </div> <div id="int-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-gray-600">感動詞</h3> <div id="int-chart"></div> </div> </div> <div class="space-y-6"> <div> <p class="text-sm text-gray-600"> ワードクラウドスコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br> 単語の色は品詞の種類で異なる。<br> <span class="text-blue-600 font-semibold">青色=名詞</span>、 <span class="text-red-600 font-semibold">赤色=動詞</span>、 <span class="text-green-600 font-semibold">緑色=形容詞</span>、 <span class="text-gray-600 font-semibold">灰色=感動詞</span> </p> </div> <div id="word-cloud-container"> <canvas id="word-cloud-canvas"></canvas> </div> <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div> </div> </div> </main> </div>
 
   <div id="report-type-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden"><div class="bg-white p-8 shadow-xl w-full max-w-md rounded-xl transform transition-all duration-300 scale-95 opacity-0"><h2 class="text-xl font-bold mb-6 text-center">表示するレポートを選択</h2><div class="flex flex-wrap justify-center gap-3"><button data-report-type="nps" class="btn">NPS推奨度 理由</button><button data-report-type="feedback_i" class="btn">良かった点・悪かった点</button><button data-report-type="feedback_j" class="btn">印象に残ったスタッフ</button><button data-report-type="feedback_m" class="btn">お産にかかわるご意見</button><button data-report-type="satisfaction_b" class="btn">満足度</button><button data-report-type="satisfaction_c" class="btn">施設</button><button data-report-type="satisfaction_d" class="btn">アクセス</button><button data-report-type="satisfaction_e" class="btn">価格</button><button data-report-type="satisfaction_f" class="btn">雰囲気</button><button data-report-type="satisfaction_g" class="btn">スタッフ対応</button><button data-report-type="satisfaction_h" class="btn">先生の説明</button><button data-report-type="age" class="btn">年代</button><button data-report-type="children" class="btn">お子様の数</button><button data-report-type="income" class="btn">世帯年収</button></div><div class="mt-8 text-center"><button id="cancel-report-selection" class="text-sm text-gray-600 hover:underline">キャンセル</button></div></div></div>
 
-<script>
-  // --- グローバル変数 (変更なし) ---
+  <div id="screen5" class="screen hidden">
+    <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
+        <div class="text-center md:text-left">
+            <h1 id="detailed-analysis-title" class="text-2xl font-bold text-gray-800">詳細分析レポート</h1>
+            <p id="detailed-analysis-subtitle" class="text-sm text-gray-500 mt-1"></p>
+        </div>
+        <div class="flex items-center gap-4">
+            <button id="edit-detailed-analysis-btn" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">編集</button>
+            <button id="save-detailed-analysis-btn" class="btn !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white hidden">保存</button>
+            <button id="cancel-edit-detailed-analysis-btn" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white hidden">キャンセル</button>
+            <button id="back-to-clinics-from-detailed-analysis" class="btn">院一覧へ戻る</button>
+        </div>
+    </header>
+    <main class="card">
+        <div class="border-b border-gray-200 mb-4">
+            <nav class="flex -mb-px" aria-label="Tabs">
+                <button id="tab-analysis" data-tab-id="analysis" class="tab-button active">分析と考察</button>
+                <button id="tab-suggestions" data-tab-id="suggestions" class="tab-button">改善提案</button>
+                <button id="tab-overall" data-tab-id="overall" class="tab-button">総評</button>
+            </nav>
+        </div>
+        
+        <div id="detailed-analysis-content-area">
+            <div id="content-analysis" class="tab-content">
+                <h2 id="analysis-title-area" class="text-xl font-bold mb-4 text-gray-800" data-key-title="analysis.title"></h2>
+                <div id="analysis-themes-area" class="space-y-6" data-key-list="analysis.themes">
+                    </div>
+            </div>
+            <div id="content-suggestions" class="tab-content hidden">
+                <h2 id="suggestions-title-area" class="text-xl font-bold mb-4 text-gray-800" data-key-title="suggestions.title"></h2>
+                <div id="suggestions-items-area" class="space-y-6" data-key-list="suggestions.items">
+                    </div>
+            </div>
+            <div id="content-overall" class="tab-content hidden">
+                <h2 id="overall-title-area" class="text-xl font-bold mb-4 text-gray-800" data-key-title="overall.title"></h2>
+                <div id="overall-summary-area" class="text-base leading-relaxed text-gray-700 whitespace-pre-wrap" data-key-summary="overall.summary">
+                    </div>
+            </div>
+        </div>
+        
+        <div id="detailed-analysis-error" class="text-red-500 text-sm text-center hidden p-4"></div>
+    </main>
+  </div>
+  <script>
+  // --- グローバル変数 (変更なし + 追加) ---
   let selectedPeriod = {}; let issuedReports = {}; let currentClinicForModal = ''; let slidesData = []; let currentPage = 1; let currentAnalysisTarget = 'L';
+  
+  // ▼▼▼ 詳細分析用グローバル変数 (追加) ▼▼▼
+  let currentDetailedAnalysisType = 'L'; // 詳細分析の対象タイプ (L, I_good, I_bad, J, M)
+  let detailedAnalysisResultsCache = {}; // 詳細分析結果キャッシュ (メモリ保持)
+  let isEditingDetailedAnalysis = false; // 詳細分析編集中フラグ
+  // ▲▲▲ 詳細分析用グローバル変数 (追加) ▲▲▲
+
 
   // --- Google Charts ロード (変更なし) ---
   const googleChartsLoaded = new Promise(resolve => { google.charts.load('current', {'packages':['corechart', 'bar']}); google.charts.setOnLoadCallback(resolve); });
@@ -52,8 +158,32 @@
   // --- 初期化 (変更なし) ---
   document.addEventListener('DOMContentLoaded', async () => { console.log('DOM Loaded.'); populateDateSelectors(); try { await googleChartsLoaded; console.log('Charts loaded.'); } catch (err) { console.error('Chart load fail:', err); alert('グラフライブラリ読込失敗'); return; } setupEventListeners(); console.log('Listeners setup.'); });
 
-  // --- イベントリスナー設定 (変更なし) ---
-  function setupEventListeners() { document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); document.getElementById('issue-btn').addEventListener('click', handleIssueReport); document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClick); document.getElementById('report-type-modal').addEventListener('click', handleReportModalClick); document.getElementById('report-nav').addEventListener('click', handleReportNavClick); document.getElementById('cancel-report-selection').addEventListener('click', () => showReportModal(false)); document.getElementById('prev-slide').addEventListener('click', handlePrevSlide); document.getElementById('next-slide').addEventListener('click', handleNextSlide); document.getElementById('back-to-clinics').addEventListener('click', () => showScreen('screen2')); document.getElementById('back-to-period').addEventListener('click', () => showScreen('screen1')); document.getElementById('pdf-export-btn').addEventListener('click', generatePdf); document.getElementById('back-to-clinics-from-analysis').addEventListener('click', () => showScreen('screen2')); }
+  // --- イベントリスナー設定 (変更あり) ---
+  function setupEventListeners() {
+    document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics);
+    document.getElementById('issue-btn').addEventListener('click', handleIssueReport);
+    document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClick);
+    document.getElementById('report-type-modal').addEventListener('click', handleReportModalClick);
+    document.getElementById('report-nav').addEventListener('click', handleReportNavClick);
+    document.getElementById('cancel-report-selection').addEventListener('click', () => showReportModal(false));
+    document.getElementById('prev-slide').addEventListener('click', handlePrevSlide);
+    document.getElementById('next-slide').addEventListener('click', handleNextSlide);
+    document.getElementById('back-to-clinics').addEventListener('click', () => showScreen('screen2'));
+    document.getElementById('back-to-period').addEventListener('click', () => showScreen('screen1'));
+    document.getElementById('pdf-export-btn').addEventListener('click', generatePdf);
+    document.getElementById('back-to-clinics-from-analysis').addEventListener('click', () => showScreen('screen2'));
+
+    // ▼▼▼ 詳細分析(Screen 5)用リスナー (追加) ▼▼▼
+    document.querySelectorAll('#screen5 .tab-button').forEach(button => { button.addEventListener('click', handleTabClick); });
+    document.getElementById('edit-detailed-analysis-btn').addEventListener('click', toggleEditDetailedAnalysis);
+    document.getElementById('save-detailed-analysis-btn').addEventListener('click', saveDetailedAnalysisEdits);
+    document.getElementById('cancel-edit-detailed-analysis-btn').addEventListener('click', cancelEditDetailedAnalysis);
+    document.getElementById('back-to-clinics-from-detailed-analysis').addEventListener('click', () => {
+        toggleEditDetailedAnalysis(false); // 編集モードを強制解除
+        showScreen('screen2');
+    });
+    // ▲▲▲ 詳細分析(Screen 5)用リスナー (追加) ▲▲▲
+  }
 
   // --- 画面1 (変更なし) ---
   function populateDateSelectors() { /* (変更なし) */ const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sm.value=String(now.getMonth()+1).padStart(2,'0'); }
@@ -68,31 +198,424 @@
   // --- 画面3 & 4 (レポート/分析表示) ---
   function handleIssuedListClick(e){ /* (変更なし) */ const t=e.target.closest('[data-clinic-name]');if(t){currentClinicForModal=t.dataset.clinicName;if(issuedReports[currentClinicForModal]){showReportModal(true);}} }
   function handleReportModalClick(e){ /* (変更なし) */ const rt=e.target.dataset.reportType;if(rt){showReportModal(false);setTimeout(()=>prepareAndShowReport(rt),300);} }
-  function handleReportNavClick(e) { /* (変更なし) */ const rt=e.target.dataset.reportType,at=e.target.dataset.analysisType;if(rt){console.log(`Report nav: ${rt}`);prepareAndShowReport(rt);}else if(at){console.log(`Analysis nav: ${at}`);currentAnalysisTarget=at;prepareAndShowAnalysis(at);} }
-  function prepareAndShowReport(reportType){ /* (変更なし) */ console.log(`Prepare report: ${reportType}`); showLoading(true,'レポート準備中...');updateNavActiveState(reportType, null); const cd=issuedReports[currentClinicForModal];if(!cd){showLoading(false);return;} slidesData=[];document.getElementById('pagination').style.display='flex';document.getElementById('slide-body').style.whiteSpace='pre-wrap';document.getElementById('slide-header').innerHTML='';document.getElementById('slide-body').innerHTML='';let isChart=false,isBar=false; if (reportType === 'nps'){const{totalCount,results}=cd.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);} else if (reportType === 'feedback_i'){prepareCommentSlides(cd.feedbackData.i_column,'良かった点悪かった点');} else if (reportType === 'feedback_j'){prepareCommentSlides(cd.feedbackData.j_column,'印象に残ったスタッフ');} else if (reportType === 'feedback_m'){prepareCommentSlides(cd.feedbackData.m_column,'お産意見感想');} else if (reportType === 'satisfaction_b'){prepareChartShell('満足度','5段階評価');isChart=true;} else if (reportType === 'satisfaction_c'){prepareChartShell('施設','5段階評価');isChart=true;} else if (reportType === 'satisfaction_d'){prepareChartShell('アクセス','5段階評価');isChart=true;} else if (reportType === 'satisfaction_e'){prepareChartShell('価格','5段階評価');isChart=true;} else if (reportType === 'satisfaction_f'){prepareChartShell('雰囲気','5段階評価');isChart=true;} else if (reportType === 'satisfaction_g'){prepareChartShell('スタッフ対応','5段階評価');isChart=true;} else if (reportType === 'satisfaction_h'){prepareChartShell('先生説明','5段階評価');isChart=true;} else if (reportType === 'age'){prepareChartShell('年代','');isChart=true;} else if (reportType === 'children'){prepareChartShell('お子様数','1人, 2人, 3人, 4人, 5人以上');isChart=true;} else if (reportType === 'income'){prepareChartShell('世帯年収','',true);isChart=true;isBar=true;} if(slidesData.length>0){currentPage=1;renderSlide(currentPage);}else if(slidesData.length===0&&(reportType.startsWith('nps')||reportType.startsWith('feedback'))){document.getElementById('slide-header').innerHTML='';document.getElementById('slide-body').innerHTML='<p class="text-center text-gray-500">該当データなし</p>';document.getElementById('pagination').style.display='none';} showScreen('screen3'); if(isChart){setTimeout(()=>{try{let data;if(reportType.startsWith('satisfaction')){data=cd.satisfactionData[reportType.split('_')[1]+'_column'];drawSatisfactionCharts(data.results);}else if(reportType==='age'){data=cd.ageData;drawSatisfactionCharts(data.results);}else if(reportType==='children'){data=cd.childrenCountData;drawSatisfactionCharts(data.results);}else if(reportType==='income'){data=cd.incomeData;drawIncomeCharts(data);}}catch(e){console.error('Chart draw error:',e);document.getElementById('slide-body').innerHTML='<p class="text-center text-red-500">グラフ描画失敗</p>';}finally{showLoading(false);}},100);}else{showLoading(false);} }
+  
+  // ▼▼▼ handleReportNavClick (変更あり) ▼▼▼
+  function handleReportNavClick(e) {
+    const targetButton = e.target.closest('.btn');
+    if (!targetButton) return;
+
+    const reportType = targetButton.dataset.reportType;
+    const analysisType = targetButton.dataset.analysisType;
+    const detailedAnalysisType = targetButton.dataset.detailedAnalysisType; // ★ 詳細分析タイプを取得
+
+    if (reportType) {
+        console.log(`Report nav: ${reportType}`);
+        prepareAndShowReport(reportType);
+    } else if (analysisType) {
+        console.log(`Analysis nav: ${analysisType}`);
+        currentAnalysisTarget = analysisType;
+        prepareAndShowAnalysis(analysisType);
+    } else if (detailedAnalysisType) { // ★ 詳細分析の分岐を追加
+        console.log(`Detailed Analysis nav: ${detailedAnalysisType}`);
+        currentDetailedAnalysisType = detailedAnalysisType;
+        prepareAndShowDetailedAnalysis(detailedAnalysisType);
+    }
+  }
+  // ▲▲▲ handleReportNavClick (変更あり) ▲▲▲
+
+  function prepareAndShowReport(reportType){ /* (変更なし) */ console.log(`Prepare report: ${reportType}`); showLoading(true,'レポート準備中...');updateNavActiveState(reportType, null, null); const cd=issuedReports[currentClinicForModal];if(!cd){showLoading(false);return;} slidesData=[];document.getElementById('pagination').style.display='flex';document.getElementById('slide-body').style.whiteSpace='pre-wrap';document.getElementById('slide-header').innerHTML='';document.getElementById('slide-body').innerHTML='';let isChart=false,isBar=false; if (reportType === 'nps'){const{totalCount,results}=cd.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);} else if (reportType === 'feedback_i'){prepareCommentSlides(cd.feedbackData.i_column,'良かった点悪かった点');} else if (reportType === 'feedback_j'){prepareCommentSlides(cd.feedbackData.j_column,'印象に残ったスタッフ');} else if (reportType === 'feedback_m'){prepareCommentSlides(cd.feedbackData.m_column,'お産意見感想');} else if (reportType === 'satisfaction_b'){prepareChartShell('満足度','5段階評価');isChart=true;} else if (reportType === 'satisfaction_c'){prepareChartShell('施設','5段階評価');isChart=true;} else if (reportType === 'satisfaction_d'){prepareChartShell('アクセス','5段階評価');isChart=true;} else if (reportType === 'satisfaction_e'){prepareChartShell('価格','5段階評価');isChart=true;} else if (reportType === 'satisfaction_f'){prepareChartShell('雰囲気','5段階評価');isChart=true;} else if (reportType === 'satisfaction_g'){prepareChartShell('スタッフ対応','5段階評価');isChart=true;} else if (reportType === 'satisfaction_h'){prepareChartShell('先生説明','5段階評価');isChart=true;} else if (reportType === 'age'){prepareChartShell('年代','');isChart=true;} else if (reportType === 'children'){prepareChartShell('お子様数','1人, 2人, 3人, 4人, 5人以上');isChart=true;} else if (reportType === 'income'){prepareChartShell('世帯年収','',true);isChart=true;isBar=true;} if(slidesData.length>0){currentPage=1;renderSlide(currentPage);}else if(slidesData.length===0&&(reportType.startsWith('nps')||reportType.startsWith('feedback'))){document.getElementById('slide-header').innerHTML='';document.getElementById('slide-body').innerHTML='<p class="text-center text-gray-500">該当データなし</p>';document.getElementById('pagination').style.display='none';} showScreen('screen3'); if(isChart){setTimeout(()=>{try{let data;if(reportType.startsWith('satisfaction')){data=cd.satisfactionData[reportType.split('_')[1]+'_column'];drawSatisfactionCharts(data.results);}else if(reportType==='age'){data=cd.ageData;drawSatisfactionCharts(data.results);}else if(reportType==='children'){data=cd.childrenCountData;drawSatisfactionCharts(data.results);}else if(reportType==='income'){data=cd.incomeData;drawIncomeCharts(data);}}catch(e){console.error('Chart draw error:',e);document.getElementById('slide-body').innerHTML='<p class="text-center text-red-500">グラフ描画失敗</p>';}finally{showLoading(false);}},100);}else{showLoading(false);} }
   function prepareNpsSlides(results, title){ /* (変更なし) */ document.getElementById('report-title').textContent=title;document.getElementById('report-subtitle').textContent='';const ml=20;if(!results)return;const sc=Object.keys(results).map(Number).sort((a,b)=>b-a);sc.forEach(s=>{const rs=results[s];if(!rs||rs.length===0)return;let clc=0,cpb='';rs.forEach((r,i)=>{const rt=`・ ${r}`;const rl=(rt.match(/\n/g)||[]).length+1;if(clc>0&&(clc+rl)>ml){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});cpb=rt;clc=rl;}else{cpb+=(clc===0?'':'\n')+rt;clc+=rl;}});if(cpb){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});}}); }
   function prepareCommentSlides(data, title){ /* (変更なし) */ if(!data)data={totalCount:0,results:[]};const{totalCount,results}=data;document.getElementById('report-title').textContent=`${title}(全${totalCount}件)`;document.getElementById('report-subtitle').textContent='';const ml=20;if(results&&results.length>0){let clc=0,cpb='';results.forEach((it,i)=>{const itx=`・ ${it}`;const il=(itx.match(/\n/g)||[]).length+1;if(clc>0&&(clc+il)>ml){slidesData.push({header:'',body:cpb});cpb=itx;clc=il;}else{cpb+=(clc===0?'':'\n')+itx;clc+=il;}});if(cpb){slidesData.push({header:'',body:cpb});}} }
   function prepareChartShell(title, subtitle, isBar=false){ /* (変更なし) */ document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;document.getElementById('report-subtitle').textContent=subtitle;document.getElementById('pagination').style.display='none';document.getElementById('slide-body').style.whiteSpace='normal';const cid=isBar?'bar-chart':'pie-chart',hc=isBar?'h-[350px]':'h-[400px]';document.getElementById('slide-body').innerHTML=`<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-${cid}" class="w-full ${hc}"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-${cid}" class="w-full ${hc}"></div></div></div>`; }
   function renderSlide(page){ /* (変更なし) */ if(page<1||page>slidesData.length)return;const s=slidesData[page-1];document.getElementById('slide-header').innerHTML=s.header;document.getElementById('slide-body').innerHTML=s.body;document.getElementById('page-indicator').textContent=`${page} / ${slidesData.length}`;document.getElementById('prev-slide').disabled=(page===1);document.getElementById('next-slide').disabled=(page===slidesData.length); }
-  function drawSatisfactionCharts(chartData){ /* (変更なし) */ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:16,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:14}},tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};const cd=document.getElementById('clinic-pie-chart');if(chartData&&chartData.length>1){const d=google.visualization.arrayToDataTable(chartData);const c=new google.visualization.PieChart(cd);c.draw(d,opt);}else{cd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['満足度','割合'],['非常に満足',73.5],['満足',24.2],['ふつう',2.0],['不満',0.3],['非常に不満',0]]);const avgC=new google.visualization.PieChart(document.getElementById('average-pie-chart'));avgC.draw(avgD,opt); }
+  function drawSatisfactionCharts(chartData){ /* (変更なし) */ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:16,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:14}},tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};const cd=document.getElementById('clinic-pie-chart');if(chartData&&chartData.length>1&&chartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(chartData);const c=new google.visualization.PieChart(cd);c.draw(d,opt);}else{cd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['満足度','割合'],['非常に満足',73.5],['満足',24.2],['ふつう',2.0],['不満',0.3],['非常に不満',0]]);const avgC=new google.visualization.PieChart(document.getElementById('average-pie-chart'));avgC.draw(avgD,opt); }
   function drawIncomeCharts({results,totalCount}){ /* (変更なし) */ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:'#'+'%\'',viewWindow:{min:0}},hAxis:{}};const ccd=document.getElementById('clinic-bar-chart');if(totalCount>0&&results&&results.length>1){const cd=google.visualization.arrayToDataTable(results);const cc=new google.visualization.ColumnChart(ccd);cc.draw(cd,opt);}else{ccd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['評価','割合',{role:'annotation'}],['1',1,'1%'],['2',2,'2%'],['3',7,'7%'],['4',12,'12%'],['5',16,'16%'],['6',16,'16%'],['7',13,'13%'],['8',12,'12%'],['9',8,'8%'],['10',15,'15%']]);const avgC=new google.visualization.ColumnChart(document.getElementById('average-bar-chart'));avgC.draw(avgD,opt); }
   function handlePrevSlide(){ /* (変更なし) */ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
   function handleNextSlide(){ /* (変更なし) */ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
 
   // --- テキスト分析関連 (ワードクラウド修正済み) ---
-  async function prepareAndShowAnalysis(columnType) { /* (変更なし) */ showLoading(true,`テキスト分析中(${getColumnName(columnType)})...`);showScreen('screen4');document.getElementById('analysis-error').classList.add('hidden');clearAnalysisCharts();updateNavActiveState(null, columnType); const cd=issuedReports[currentClinicForModal];if(!cd){console.error("No report data for analysis.");showLoading(false);return;} let tl=[],td=0;try{switch(columnType){case'L':tl=cd.npsData.rawText||[];td=cd.npsData.totalCount||0;break;case'I':tl=cd.feedbackData.i_column.results||[];td=cd.feedbackData.i_column.totalCount||0;break;case'J':tl=cd.feedbackData.j_column.results||[];td=cd.feedbackData.j_column.totalCount||0;break;case'M':tl=cd.feedbackData.m_column.results||[];td=cd.feedbackData.m_column.totalCount||0;break;default:console.error("Invalid column:",columnType);showLoading(false);return;}}catch(e){console.error("Error accessing text data:",e,"Data:",cd);alert("レポートデータアクセスエラー");showLoading(false);return;} document.getElementById('analysis-title').textContent=getAnalysisTitle(columnType,td);if(tl.length===0){console.log("No text to analyze:",columnType);document.getElementById('analysis-error').textContent='分析対象テキストなし';document.getElementById('analysis-error').classList.remove('hidden');showLoading(false);return;} try{console.log(`Sending ${tl.length} texts`);const r=await fetch('/api/analyzeText',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({textList:tl})});if(!r.ok){const et=await r.text();console.error(`Analyze API error(${r.status}):`,et);throw new Error(`分析APIエラー(${r.status}): ${et}`);} const ad=await r.json();console.log("Received analysis:",ad);drawAnalysisCharts(ad.results);}catch(error){console.error('!!! Analyze fail:',error);document.getElementById('analysis-error').textContent=`分析失敗: ${error.message}`;document.getElementById('analysis-error').classList.remove('hidden');}finally{showLoading(false);}}
+  async function prepareAndShowAnalysis(columnType) { /* (変更なし) */ showLoading(true,`テキスト分析中(${getColumnName(columnType)})...`);showScreen('screen4');document.getElementById('analysis-error').classList.add('hidden');clearAnalysisCharts();updateNavActiveState(null, columnType, null); const cd=issuedReports[currentClinicForModal];if(!cd){console.error("No report data for analysis.");showLoading(false);return;} let tl=[],td=0;try{switch(columnType){case'L':tl=cd.npsData.rawText||[];td=cd.npsData.totalCount||0;break;case'I':tl=cd.feedbackData.i_column.results||[];td=cd.feedbackData.i_column.totalCount||0;break;case'J':tl=cd.feedbackData.j_column.results||[];td=cd.feedbackData.j_column.totalCount||0;break;case'M':tl=cd.feedbackData.m_column.results||[];td=cd.feedbackData.m_column.totalCount||0;break;default:console.error("Invalid column:",columnType);showLoading(false);return;}}catch(e){console.error("Error accessing text data:",e,"Data:",cd);alert("レポートデータアクセスエラー");showLoading(false);return;} document.getElementById('analysis-title').textContent=getAnalysisTitle(columnType,td);if(tl.length===0){console.log("No text to analyze:",columnType);document.getElementById('analysis-error').textContent='分析対象テキストなし';document.getElementById('analysis-error').classList.remove('hidden');showLoading(false);return;} try{console.log(`Sending ${tl.length} texts`);const r=await fetch('/api/analyzeText',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({textList:tl})});if(!r.ok){const et=await r.text();console.error(`Analyze API error(${r.status}):`,et);throw new Error(`分析APIエラー(${r.status}): ${et}`);} const ad=await r.json();console.log("Received analysis:",ad);drawAnalysisCharts(ad.results);}catch(error){console.error('!!! Analyze fail:',error);document.getElementById('analysis-error').textContent=`分析失敗: ${error.message}`;document.getElementById('analysis-error').classList.remove('hidden');}finally{showLoading(false);}}
   function drawAnalysisCharts(results) { /* (変更なし - ワードクラウド修正済み) */ if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0},vAxis:{title:'単語'},height:500,width:'100%'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});console.log('WordCloud List:',wl);const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'#f9fafb',clearCanvas:true};console.log('WordCloud Options:',options);WordCloud(cv,options);console.log("Word cloud drawn.");}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
   function drawSingleBarChart(data, elementId, options) { /* (変更なし - 色指定修正済み) */ const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
   function clearAnalysisCharts() { /* (変更なし) */ document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
-  function getAnalysisTitle(columnType, count) { /* (変更なし) */ const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
+  function getAnalysisTitle(columnType, count) { /* (変更なし) */ const bt=`アンケート結果S`;return`${bt}　※全回答数${count}件ー`; }
   function getColumnName(columnType) { /* (変更なし) */ switch(columnType){case'L':return'NPS推奨度 理由';case'I':return'良かった点や悪かった点など';case'J':return'印象に残ったスタッフへのコメント';case'M':return'お産にかかわるご意見・ご感想';default:return'不明';} }
-  function updateNavActiveState(activeReportType, activeAnalysisType) { /* (変更なし) */ document.querySelectorAll('#report-nav .btn').forEach(btn=>{if(btn.dataset.reportType===activeReportType||btn.dataset.analysisType===activeAnalysisType){btn.classList.add('btn-active');}else{btn.classList.remove('btn-active');}}); }
+
+  // ▼▼▼ updateNavActiveState (変更あり) ▼▼▼
+  function updateNavActiveState(activeReportType, activeAnalysisType, activeDetailedAnalysisType) {
+    document.querySelectorAll('#report-nav .btn').forEach(btn => {
+        if ((activeReportType && btn.dataset.reportType === activeReportType) ||
+            (activeAnalysisType && btn.dataset.analysisType === activeAnalysisType) ||
+            (activeDetailedAnalysisType && btn.dataset.detailedAnalysisType === activeDetailedAnalysisType)) {
+            btn.classList.add('btn-active');
+        } else {
+            btn.classList.remove('btn-active');
+        }
+    });
+  }
+  // ▲▲▲ updateNavActiveState (変更あり) ▲▲▲
+
 
   // --- 汎用関数 (変更なし) ---
   function showScreen(screenId){ /* (変更なし) */ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
   function showLoading(isLoading, message=''){ /* (変更なし) */ const o=document.getElementById('loading-overlay'),m=document.getElementById('loading-message');if(isLoading){m.textContent=message;o.classList.remove('hidden');}else{o.classList.add('hidden');m.textContent='';} }
   function showReportModal(show){ /* (変更なし) */ const m=document.getElementById('report-type-modal'),c=m.querySelector('div');if(show){m.classList.remove('hidden');setTimeout(()=>{c.classList.remove('scale-95','opacity-0');},10);}else{c.classList.add('scale-95','opacity-0');setTimeout(()=>{m.classList.add('hidden');},300);} }
   async function generatePdf(){ /* (変更なし) */ console.log('PDF export clicked.');const cn=currentClinicForModal;const pt=document.getElementById('period-display').textContent.replace('集計期間：','');const rd=issuedReports[cn];if(!cn||!pt||!rd){alert('PDF生成に必要なレポートデータがありません。');return;} showLoading(true,'PDFを生成中...');try{const r=await fetch('/generate-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clinicName:cn,periodText:pt,reportData:rd})});if(!r.ok){let em=`サーバーエラー: ${r.status} ${r.statusText}`;try{const ed=await r.text();em+=`\n${ed}`;}catch(e){} throw new Error(em);} const b=await r.blob();const u=window.URL.createObjectURL(b);const a=document.createElement('a');a.style.display='none';a.href=u;document.body.appendChild(a);a.click();window.URL.revokeObjectURL(u);a.remove();showLoading(false);}catch(error){console.error('PDF gen error:',error);alert('PDF生成失敗\n'+error.message);showLoading(false);} }
+
+
+  // --- ▼▼▼ 詳細分析関連 (JS関数追加) ▼▼▼ ---
+
+  /**
+   * 詳細分析(AI)の準備と表示
+   */
+  async function prepareAndShowDetailedAnalysis(analysisType) {
+      console.log(`Prepare detailed analysis: ${analysisType}`);
+      const clinicName = currentClinicForModal;
+      if (!clinicName) {
+          alert('クリニックが選択されていません。');
+          return;
+      }
+      
+      showLoading(true, `AIによる詳細分析中...\n(${getDetailedAnalysisTitleBase(analysisType)})`);
+      showScreen('screen5');
+      updateNavActiveState(null, null, analysisType);
+      toggleEditDetailedAnalysis(false); // 編集モード強制解除
+      
+      const errorDiv = document.getElementById('detailed-analysis-error');
+      errorDiv.classList.add('hidden');
+      errorDiv.textContent = '';
+      
+      // UIのタイトル設定
+      document.getElementById('detailed-analysis-title').textContent = `${clinicName} 詳細分析レポート`;
+      document.getElementById('detailed-analysis-subtitle').textContent = `分析対象: ${getDetailedAnalysisTitleBase(analysisType)}`;
+      
+      // キャッシュキー
+      const cacheKey = `${clinicName}-${analysisType}`;
+      
+      try {
+          // 1. キャッシュ確認
+          if (detailedAnalysisResultsCache[cacheKey]) {
+              console.log("Using cached detailed analysis.");
+              displayDetailedAnalysis(detailedAnalysisResultsCache[cacheKey], analysisType);
+              switchTab('analysis'); // 常に最初のタブを表示
+              showLoading(false);
+              return;
+          }
+
+          // 2. キャッシュがない場合、元データを取得
+          const clinicData = issuedReports[clinicName];
+          if (!clinicData) throw new Error("レポートデータが見つかりません。");
+
+          let textList = [];
+          let totalCount = 0;
+          
+          // analysisType (L, I_good, I_bad, J, M) に応じてテキストリストを取得
+          switch (analysisType) {
+              case 'L':
+                  textList = clinicData.npsData.rawText || [];
+                  totalCount = clinicData.npsData.totalCount || 0;
+                  break;
+              case 'I_good':
+                  // "良かった点" (I列) のテキストのみを抽出
+                  textList = clinicData.feedbackData.i_column.results || [];
+                  totalCount = clinicData.feedbackData.i_column.totalCount || 0;
+                  break;
+              case 'I_bad':
+                  // "悪かった点" (I列) のテキストのみを抽出
+                  // ★注意: 現在の 'i_column' には良い点と悪い点が混在している可能性があります。
+                  // helpers.jsのプロンプトが 'I_bad' を期待しているため、ここでは 'i_column' をそのまま使いますが、
+                  // 本来は 'I_bad' 専用のデータソース（例: 'i_bad_column'）が必要です。
+                  // ここでは 'i_column' を '悪かった点' の分析対象として扱います。
+                  textList = clinicData.feedbackData.i_column.results || [];
+                  totalCount = clinicData.feedbackData.i_column.totalCount || 0;
+                  console.warn("Analysis type 'I_bad' is using 'i_column' data. Ensure this is correct.");
+                  break;
+              case 'J':
+                  textList = clinicData.feedbackData.j_column.results || [];
+                  totalCount = clinicData.feedbackData.j_column.totalCount || 0;
+                  break;
+              case 'M':
+                  textList = clinicData.feedbackData.m_column.results || [];
+                  totalCount = clinicData.feedbackData.m_column.totalCount || 0;
+                  break;
+              default:
+                  throw new Error(`無効な分析タイプです: ${analysisType}`);
+          }
+          
+          console.log(`Analyzing ${textList.length} texts for ${analysisType} (Total raw count: ${totalCount})`);
+          
+          if (textList.length === 0) {
+              throw new Error("分析対象のテキストデータが0件です。");
+          }
+
+          // 3. API呼び出し
+          console.log(`Fetching detailed analysis from API for ${cacheKey}`);
+          const response = await fetch('/api/generateDetailedAnalysis', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  clinicName: clinicName,
+                  columnType: analysisType,
+                  textList: textList
+              })
+          });
+
+          if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`Detailed analysis API error (${response.status}):`, errorText);
+              throw new Error(`AI分析APIエラー (${response.status}): ${errorText}`);
+          }
+
+          const analysisData = await response.json();
+          console.log("Received detailed analysis data:", analysisData);
+
+          // 4. キャッシュに保存
+          detailedAnalysisResultsCache[cacheKey] = analysisData;
+
+          // 5. 表示
+          displayDetailedAnalysis(analysisData, analysisType);
+          switchTab('analysis'); // 常に最初のタブを表示
+
+      } catch (err) {
+          console.error('!!! Detailed analysis failed:', err);
+          errorDiv.textContent = `分析失敗: ${err.message}`;
+          errorDiv.classList.remove('hidden');
+          // エラー時もコンテンツエリアをクリア
+          document.getElementById('analysis-title-area').innerHTML = '';
+          document.getElementById('analysis-themes-area').innerHTML = '';
+          document.getElementById('suggestions-title-area').innerHTML = '';
+          document.getElementById('suggestions-items-area').innerHTML = '';
+          document.getElementById('overall-title-area').innerHTML = '';
+          document.getElementById('overall-summary-area').innerHTML = '';
+      } finally {
+          showLoading(false);
+      }
+  }
+
+  /**
+   * 取得した詳細分析データをHTMLにレンダリング
+   */
+  function displayDetailedAnalysis(data, analysisType) {
+      if (!data || !data.analysis || !data.suggestions || !data.overall) {
+          console.error("Invalid data structure for detailed analysis:", data);
+          document.getElementById('detailed-analysis-error').textContent = 'AIから予期しないデータ形式が返されました。';
+          document.getElementById('detailed-analysis-error').classList.remove('hidden');
+          return;
+      }
+
+      // 1. 分析と考察 (Analysis)
+      const analysisTitleArea = document.getElementById('analysis-title-area');
+      const analysisThemesArea = document.getElementById('analysis-themes-area');
+      analysisTitleArea.textContent = data.analysis.title || '分析と考察';
+      analysisThemesArea.innerHTML = '';
+      if (data.analysis.themes && data.analysis.themes.length > 0) {
+          data.analysis.themes.forEach((theme, index) => {
+              const themeEl = document.createElement('div');
+              themeEl.className = 'border-b pb-4';
+              themeEl.innerHTML = `
+                  <h3 class="text-md font-semibold text-indigo-700 mb-2" data-key-item="analysis.themes.${index}.title">${theme.title}</h3>
+                  <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap" data-key-item="analysis.themes.${index}.summary">${theme.summary}</p>
+              `;
+              analysisThemesArea.appendChild(themeEl);
+          });
+      } else {
+          analysisThemesArea.innerHTML = '<p class="text-gray-500">テーマが見つかりませんでした。</p>';
+      }
+
+      // 2. 改善提案 (Suggestions)
+      const suggestionsTitleArea = document.getElementById('suggestions-title-area');
+      const suggestionsItemsArea = document.getElementById('suggestions-items-area');
+      suggestionsTitleArea.textContent = data.suggestions.title || '改善提案';
+      suggestionsItemsArea.innerHTML = '';
+      if (data.suggestions.items && data.suggestions.items.length > 0) {
+          data.suggestions.items.forEach((item, index) => {
+              const itemEl = document.createElement('div');
+              itemEl.className = 'border-b pb-4';
+              itemEl.innerHTML = `
+                  <h3 class="text-md font-semibold text-gray-700 mb-2" data-key-item="suggestions.items.${index}.themeTitle">${item.themeTitle}</h3>
+                  <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap" data-key-item="suggestions.items.${index}.suggestion">${item.suggestion}</p>
+              `;
+              suggestionsItemsArea.appendChild(itemEl);
+          });
+      } else {
+          suggestionsItemsArea.innerHTML = '<p class="text-gray-500">提案が見つかりませんでした。</p>';
+      }
+
+      // 3. 総評 (Overall)
+      const overallTitleArea = document.getElementById('overall-title-area');
+      const overallSummaryArea = document.getElementById('overall-summary-area');
+      overallTitleArea.textContent = data.overall.title || '総評';
+      overallSummaryArea.textContent = data.overall.summary || '総評がありません。';
+  }
+
+  /**
+   * 分析タイプの表示名を取得
+   */
+  function getDetailedAnalysisTitleBase(analysisType) {
+      switch (analysisType) {
+          case 'L': return 'NPS推奨度 理由';
+          case 'I_good': return '良かった点';
+          case 'I_bad': return '悪かった点';
+          case 'J': return '印象に残ったスタッフへのコメント';
+          case 'M': return 'お産にかかわるご意見・ご感想';
+          default: return '不明';
+      }
+  }
+
+  /**
+   * タブクリック処理
+   */
+  function handleTabClick(event) {
+      const tabId = event.target.dataset.tabId;
+      if (tabId) {
+          switchTab(tabId);
+      }
+  }
+
+  /**
+   * タブ切り替え
+   */
+  function switchTab(tabId) {
+      // 編集モード中はタブ切り替え不可
+      if (isEditingDetailedAnalysis) {
+          alert('編集モードを終了（保存またはキャンセル）してください。');
+          return;
+      }
+      
+      // ボタンのアクティブ状態
+      document.querySelectorAll('#screen5 .tab-button').forEach(button => {
+          if (button.dataset.tabId === tabId) {
+              button.classList.add('active');
+          } else {
+              button.classList.remove('active');
+          }
+      });
+      // コンテンツの表示状態
+      document.querySelectorAll('#screen5 .tab-content').forEach(content => {
+          if (content.id === `content-${tabId}`) {
+              content.classList.remove('hidden');
+          } else {
+              content.classList.add('hidden');
+          }
+      });
+  }
+
+
+  // --- ▼▼▼ 詳細分析 編集関連関数 ▼▼▼ ---
+
+  /**
+   * 編集モードのトグル
+   */
+  function toggleEditDetailedAnalysis(forceEdit = null) {
+      isEditingDetailedAnalysis = (forceEdit !== null) ? forceEdit : !isEditingDetailedAnalysis;
+      
+      const contentArea = document.getElementById('detailed-analysis-content-area');
+      const editBtn = document.getElementById('edit-detailed-analysis-btn');
+      const saveBtn = document.getElementById('save-detailed-analysis-btn');
+      const cancelBtn = document.getElementById('cancel-edit-detailed-analysis-btn');
+      
+      // 編集対象の全要素 (p, h2, h3)
+      const textElements = contentArea.querySelectorAll('[data-key-title], [data-key-item], [data-key-summary]');
+
+      if (isEditingDetailedAnalysis) {
+          // 編集モードへ
+          editBtn.classList.add('hidden');
+          saveBtn.classList.remove('hidden');
+          cancelBtn.classList.remove('hidden');
+
+          textElements.forEach(el => {
+              const currentText = el.textContent;
+              const key = el.dataset.keyTitle || el.dataset.keyItem || el.dataset.keySummary;
+              
+              if (el.tagName === 'P' || el.dataset.keySummary) {
+                  // Pタグや総評は <textarea> に
+                  const textarea = document.createElement('textarea');
+                  textarea.className = 'w-full h-32 p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none';
+                  textarea.value = currentText;
+                  textarea.dataset.originalKey = key;
+                  el.innerHTML = '';
+                  el.appendChild(textarea);
+              } else {
+                  // H2, H3 は <input> に
+                  const input = document.createElement('input');
+                  input.type = 'text';
+                  input.className = 'w-full p-1 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none';
+                  input.value = currentText;
+                  input.dataset.originalKey = key;
+                  el.innerHTML = '';
+                  el.appendChild(input);
+              }
+          });
+
+      } else {
+          // 表示モードへ（編集内容を破棄して再描画）
+          editBtn.classList.remove('hidden');
+          saveBtn.classList.add('hidden');
+          cancelBtn.classList.add('hidden');
+          
+          // キャッシュからデータを再取得して表示を元に戻す
+          const cacheKey = `${currentClinicForModal}-${currentDetailedAnalysisType}`;
+          if (detailedAnalysisResultsCache[cacheKey]) {
+              displayDetailedAnalysis(detailedAnalysisResultsCache[cacheKey], currentDetailedAnalysisType);
+          }
+      }
+  }
+
+  /**
+   * 編集内容を保存
+   */
+  function saveDetailedAnalysisEdits() {
+      const cacheKey = `${currentClinicForModal}-${currentDetailedAnalysisType}`;
+      if (!detailedAnalysisResultsCache[cacheKey]) {
+          alert('キャッシュデータが見つかりません。');
+          return;
+      }
+      
+      const updatedData = JSON.parse(JSON.stringify(detailedAnalysisResultsCache[cacheKey])); // ディープコピー
+      const contentArea = document.getElementById('detailed-analysis-content-area');
+      const inputs = contentArea.querySelectorAll('input[data-original-key], textarea[data-original-key]');
+
+      try {
+          inputs.forEach(input => {
+              const key = input.dataset.originalKey;
+              const value = input.value;
+              
+              // 'analysis.themes.0.title' のようなキーを解決
+              const keys = key.split('.');
+              let current = updatedData;
+              for (let i = 0; i < keys.length - 1; i++) {
+                  current = current[keys[i]];
+              }
+              current[keys[keys.length - 1]] = value;
+          });
+
+          // キャッシュを更新
+          detailedAnalysisResultsCache[cacheKey] = updatedData;
+          console.log("Updated cache:", updatedData);
+          
+          // 編集モード終了（表示を更新）
+          toggleEditDetailedAnalysis(false);
+          alert('変更を保存しました。');
+
+      } catch (e) {
+          console.error("Failed to save edits:", e);
+          alert('保存中にエラーが発生しました。');
+      }
+  }
+
+  /**
+   * 編集をキャンセル
+   */
+  function cancelEditDetailedAnalysis() {
+      if (confirm('編集内容を破棄しますか？')) {
+          toggleEditDetailedAnalysis(false); // 編集モードを終了（再描画される）
+      }
+  }
+  
+  // --- ▲▲▲ 詳細分析 編集関連関数 ▲▲▲ ---
+
+  // --- ▲▲▲ 詳細分析関連 (JS関数追加) ▲▲▲ ---
+
 </script>
 </body>
 </html>
