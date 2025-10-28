@@ -2,10 +2,10 @@
   "name": "node-pdf-report",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js", // <- index.js から変更
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node server.js" // <- index.js から変更
   },
   "keywords": [],
   "author": "",
@@ -13,8 +13,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "googleapis": "^164.1.0",
-    "kuromoji": "^0.1.2",  
+    "kuromoji": "^0.1.2",
+    "openai": "^4.52.7", // 詳細分析に必要
     "puppeteer": "^22.12.1"
   }
 }
-
