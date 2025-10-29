@@ -289,6 +289,15 @@
         setTimeout(()=>{
             try{
                 let data;
+                
+                // =================================================================
+                // === ▼▼▼ ログ追加: 描画関数呼び出し直前の #slide-body 確認 ▼▼▼ ===
+                // =================================================================
+                console.log('[DEBUG] Before calling draw function, slide-body innerHTML:', document.getElementById('slide-body').innerHTML);
+                // =================================================================
+                // === ▲▲▲ ログ追加 ▲▲▲ ===
+                // =================================================================
+
                 // ★★★ nps_score グラフ描画関数の呼び出しを追加 ★★★
                 if(reportType==='nps_score'){
                     
@@ -328,7 +337,23 @@
 
   function prepareNpsSlides(results, title){ document.getElementById('report-title').textContent=title;document.getElementById('report-subtitle').textContent='';const ml=20;if(!results)return;const sc=Object.keys(results).map(Number).sort((a,b)=>b-a);sc.forEach(s=>{const rs=results[s];if(!rs||rs.length===0)return;let clc=0,cpb='';rs.forEach((r,i)=>{const rt=`・ ${r}`;const rl=(rt.match(/\n/g)||[]).length+1;if(clc>0&&(clc+rl)>ml){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});cpb=rt;clc=rl;}else{cpb+=(clc===0?'':'\n')+rt;clc+=rl;}});if(cpb){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});}}); }
   function prepareCommentSlides(data, title){ if(!data)data={totalCount:0,results:[]};const{totalCount,results}=data;document.getElementById('report-title').textContent=`${title}(全${totalCount}件)`;document.getElementById('report-subtitle').textContent='';const ml=20;if(results&&results.length>0){let clc=0,cpb='';results.forEach((it,i)=>{const itx=`・ ${it}`;const il=(itx.match(/\n/g)||[]).length+1;if(clc>0&&(clc+il)>ml){slidesData.push({header:'',body:cpb});cpb=itx;clc=il;}else{cpb+=(clc===0?'':'\n')+itx;clc+=il;}});if(cpb){slidesData.push({header:'',body:cpb});}} }
-  function prepareChartShell(title, subtitle, isBar=false){ document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;document.getElementById('report-subtitle').textContent=subtitle;document.getElementById('pagination').style.display='none';document.getElementById('slide-body').style.whiteSpace='normal';const cid=isBar?'bar-chart':'pie-chart',hc=isBar?'h-[350px]':'h-[400px]';document.getElementById('slide-body').innerHTML=`<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-${cid}" class="w-full ${hc}"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-${cid}" class="w-full ${hc}"></div></div></div>`; }
+  // =================================================================
+  // === ▼▼▼ ログ追加: prepareChartShell 実行確認 ▼▼▼ ===
+  // =================================================================
+  function prepareChartShell(title, subtitle, isBar=false){ 
+    console.log(`[DEBUG] prepareChartShell called for title: "${title}", isBar: ${isBar}`); // 実行確認ログ
+    document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;
+    document.getElementById('report-subtitle').textContent=subtitle;
+    document.getElementById('pagination').style.display='none';
+    document.getElementById('slide-body').style.whiteSpace='normal';
+    const cid=isBar?'bar-chart':'pie-chart',hc=isBar?'h-[350px]':'h-[400px]';
+    const htmlContent = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-${cid}" class="w-full ${hc}"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-${cid}" class="w-full ${hc}"></div></div></div>`;
+    document.getElementById('slide-body').innerHTML = htmlContent; 
+    console.log(`[DEBUG] prepareChartShell finished setting innerHTML for #slide-body. Content includes clinic-${cid}?`, htmlContent.includes(`id="clinic-${cid}"`)); // HTML書き込み後ログ
+  }
+  // =================================================================
+  // === ▲▲▲ ログ追加 ▲▲▲ ===
+  // =================================================================
   function renderSlide(page){ if(page<1||page>slidesData.length)return;const s=slidesData[page-1];document.getElementById('slide-header').innerHTML=s.header;document.getElementById('slide-body').innerHTML=s.body;document.getElementById('page-indicator').textContent=`${page} / ${slidesData.length}`;document.getElementById('prev-slide').disabled=(page===1);document.getElementById('next-slide').disabled=(page===slidesData.length); }
   
   // =================================================================
@@ -348,16 +373,27 @@
     tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},
     colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};
     
-    const cd=document.getElementById('clinic-pie-chart');
+    const cdEl=document.getElementById('clinic-pie-chart');
+    // ★ 要素存在チェックを追加
+    if (!cdEl) {
+        console.error('[FIX-satisfaction] Cannot find element with ID: clinic-pie-chart');
+        throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
+    }
     if(chartData&&chartData.length>1&&chartData.slice(1).some(row=>row[1]>0)){
         const d=google.visualization.arrayToDataTable(chartData);
-        const c=new google.visualization.PieChart(cd);
+        const c=new google.visualization.PieChart(cdEl);
         c.draw(d,opt);
     } else {
-        cd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
+        cdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
     } 
+    const avgEl=document.getElementById('average-pie-chart');
+    // ★ 要素存在チェックを追加
+    if (!avgEl) {
+        console.error('[FIX-satisfaction] Cannot find element with ID: average-pie-chart');
+        throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');
+    }
     const avgD=google.visualization.arrayToDataTable([['満足度','割合'],['非常に満足',73.5],['満足',24.2],['ふつう',2.0],['不満',0.3],['非常に不満',0]]);
-    const avgC=new google.visualization.PieChart(document.getElementById('average-pie-chart'));
+    const avgC=new google.visualization.PieChart(avgEl);
     avgC.draw(avgD,opt); // ★ 平均グラフにも同じオプション(opt)を適用
   }
   // =================================================================
@@ -365,7 +401,7 @@
   // =================================================================
 
   // =================================================================
-  // === ▼▼▼ 修正点 3: 世帯年収Y軸バグ修正 ▼▼▼ ===
+  // === ▼▼▼ 修正点 3: 世帯年収Y軸バグ修正 & 要素チェック追加▼▼▼ ===
   // =================================================================
   function drawIncomeCharts({results,totalCount}){ 
     const opt={
@@ -378,20 +414,31 @@
         vAxis:{format:"#.##'%'",viewWindow:{min:0}}, 
         hAxis:{}
     };
-    const ccd=document.getElementById('clinic-bar-chart');
+    const ccdEl=document.getElementById('clinic-bar-chart');
+    // ★ 要素存在チェックを追加
+    if (!ccdEl) {
+        console.error('[FIX-income] Cannot find element with ID: clinic-bar-chart');
+        throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');
+    }
     if(totalCount>0&&results&&results.length>1){
         const cd=google.visualization.arrayToDataTable(results);
-        const cc=new google.visualization.ColumnChart(ccd);
+        const cc=new google.visualization.ColumnChart(ccdEl);
         cc.draw(cd,opt);
     } else {
-        ccd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
+        ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
     } 
+    const avgEl=document.getElementById('average-bar-chart');
+     // ★ 要素存在チェックを追加
+    if (!avgEl) {
+        console.error('[FIX-income] Cannot find element with ID: average-bar-chart');
+        throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');
+    }
     const avgD=google.visualization.arrayToDataTable([['評価','割合',{role:'annotation'}],['1',1,'1%'],['2',2,'2%'],['3',7,'7%'],['4',12,'12%'],['5',16,'16%'],['6',16,'16%'],['7',13,'13%'],['8',12,'12%'],['9',8,'8%'],['10',15,'15%']]);
-    const avgC=new google.visualization.ColumnChart(document.getElementById('average-bar-chart'));
+    const avgC=new google.visualization.ColumnChart(avgEl);
     avgC.draw(avgD,opt); 
   }
   // =================================================================
-  // === ▲▲▲ 修正点 3: 世帯年収Y軸バグ修正 ▲▲▲ ===
+  // === ▲▲▲ 修正点 3 & 要素チェック ▲▲▲ ===
   // =================================================================
 
   function handlePrevSlide(){ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
@@ -502,7 +549,7 @@
 
 
   // =================================================================
-  // === ▼▼▼ ここから新規関数 (NPSスコアグラフ) ▼▼▼ ===
+  // === ▼▼▼ ここから新規関数 (NPSスコアグラフ, おすすめ理由グラフ) ▼▼▼ ===
   // =================================================================
 
   /**
@@ -519,10 +566,13 @@
       const clinicChartEl = document.getElementById('clinic-bar-chart');
       const averageChartEl = document.getElementById('average-bar-chart');
 
-      if (!clinicChartEl || !averageChartEl) {
-          console.error('[FIX] Chart container element(s) not found. clinic-bar-chart:', clinicChartEl, 'average-bar-chart:', averageChartEl);
-          // より具体的なエラーメッセージをスロー
-          throw new Error("グラフ描画に必要なHTML要素 (clinic-bar-chart or average-bar-chart) が見つかりません。");
+      if (!clinicChartEl) { // averageChartEl はなくても致命的ではない
+          console.error('[FIX-NPS] Cannot find element with ID: clinic-bar-chart');
+          throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');
+      }
+       if (!averageChartEl) {
+          console.error('[FIX-NPS] Cannot find element with ID: average-bar-chart');
+          throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');
       }
       // =================================================================
       // === ▲▲▲ Container is not defined エラー対策 ▲▲▲ ===
@@ -621,17 +671,26 @@
       const averageChart = new google.visualization.ColumnChart(averageChartEl);
       averageChart.draw(averageChartData, opt);
       
+      // =================================================================
+      // === ▼▼▼ 修正点 4: NPSスコア表示 フォントサイズ調整 ▼▼▼ ===
+      // =================================================================
       // グラフの上にある <H3> タグ (average-bar-chart の親の親のH3) を見つけて書き換える
       const averageHeaderEl = averageChartEl.parentElement.querySelector('h3');
       if (averageHeaderEl) {
           averageHeaderEl.innerHTML = `
-              <div class"text-left text-xl space-y-2">
+              // ★ 外側の div のクラスを text-2xl に変更
+              <div class="text-left text-2xl space-y-2">
                   <p>全体平均　　NPS: ${overallNPS.toFixed(1)}</p>
-                  <p>貴院　　NPS: <span class="font-bold text-red-600 text-2xl">${npsScore.toFixed(1)}</span></p>
+                  // ★ span の text-2xl は削除 (親に指定するため)
+                  <p>貴院　　NPS: <span class="font-bold text-red-600">${npsScore.toFixed(1)}</span></p>
               </div>
           `;
-          averageHeaderEl.className = "font-normal text-xl mb-4 text-left"; // text-center を解除
+          // ★ クラス名を text-2xl に変更
+          averageHeaderEl.className = "font-normal text-2xl mb-4 text-left"; // text-center を解除
       }
+      // =================================================================
+      // === ▲▲▲ 修正点 4 ▲▲▲ ===
+      // =================================================================
       
       // 「貴院の結果」のH3も調整
       const clinicHeaderEl = clinicChartEl.parentElement.querySelector('h3');
@@ -760,6 +819,11 @@
 
           // 貴院のグラフ描画
           const clinicChartEl = document.getElementById('clinic-pie-chart');
+           // ★★★ 要素存在チェックを追加 ★★★
+          if (!clinicChartEl) {
+                console.error('[FIX-recommendation] Cannot find element with ID: clinic-pie-chart');
+                throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
+          }
           const totalClinicCount = clinicChartData.slice(1).reduce((sum, row) => sum + row[1], 0);
           if (totalClinicCount > 0) {
               const d = google.visualization.arrayToDataTable(clinicChartData);
@@ -771,6 +835,11 @@
           
           // 全体平均のグラフ描画
           const averageChartEl = document.getElementById('average-pie-chart');
+           // ★★★ 要素存在チェックを追加 ★★★
+          if (!averageChartEl) {
+                console.error('[FIX-recommendation] Cannot find element with ID: average-pie-chart');
+                throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');
+          }
           const avgC = new google.visualization.PieChart(averageChartEl);
           avgC.draw(averageChartData, opt);
 
