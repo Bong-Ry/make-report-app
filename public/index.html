@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
+    body{font-family:'Noto+Sans JP',sans-serif;background-color:#f8f7f7;}
     .btn{@apply py-2 px-6 border border-gray-800 text-gray-800 transition-all duration-300 rounded-md text-sm font-bold tracking-wider shadow-sm whitespace-nowrap;}
     .btn:hover:not(:disabled){@apply bg-gray-800 text-white shadow-md transform -translate-y-px;}
     .btn:disabled{@apply border-gray-300 text-gray-400 cursor-not-allowed bg-gray-100 shadow-none;}
@@ -52,7 +52,7 @@
         <button data-report-type="feedback_m" class="btn">お産意見</button>
         <button data-report-type="municipality" class="btn">市区町村</button> <button data-report-type="satisfaction_b" class="btn">満足度</button>
         <button data-report-type="satisfaction_c" class="btn">施設</button>
-        <button data-report-type="satisfaction_d" class="btn">アクセス</button>
+        <button data-report-type="satisfaction_d" class_A="btn">アクセス</button>
         <button data-report-type="satisfaction_e" class="btn">価格</button>
         <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
         <button data-report-type="satisfaction_g" class="btn">スタッフ対応</button>
@@ -292,7 +292,40 @@
   function prepareCommentSlides(data, title){ if(!data)data={totalCount:0,results:[]};const{totalCount,results}=data;document.getElementById('report-title').textContent=`${title}(全${totalCount}件)`;document.getElementById('report-subtitle').textContent='';const ml=20;if(results&&results.length>0){let clc=0,cpb='';results.forEach((it,i)=>{const itx=`・ ${it}`;const il=(itx.match(/\n/g)||[]).length+1;if(clc>0&&(clc+il)>ml){slidesData.push({header:'',body:cpb});cpb=itx;clc=il;}else{cpb+=(clc===0?'':'\n')+itx;clc+=il;}});if(cpb){slidesData.push({header:'',body:cpb});}} }
   function prepareChartShell(title, subtitle, isBar=false){ document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;document.getElementById('report-subtitle').textContent=subtitle;document.getElementById('pagination').style.display='none';document.getElementById('slide-body').style.whiteSpace='normal';const cid=isBar?'bar-chart':'pie-chart',hc=isBar?'h-[350px]':'h-[400px]';document.getElementById('slide-body').innerHTML=`<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-${cid}" class="w-full ${hc}"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-${cid}" class="w-full ${hc}"></div></div></div>`; }
   function renderSlide(page){ if(page<1||page>slidesData.length)return;const s=slidesData[page-1];document.getElementById('slide-header').innerHTML=s.header;document.getElementById('slide-body').innerHTML=s.body;document.getElementById('page-indicator').textContent=`${page} / ${slidesData.length}`;document.getElementById('prev-slide').disabled=(page===1);document.getElementById('next-slide').disabled=(page===slidesData.length); }
-  function drawSatisfactionCharts(chartData){ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:16,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:14}},tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};const cd=document.getElementById('clinic-pie-chart');if(chartData&&chartData.length>1&&chartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(chartData);const c=new google.visualization.PieChart(cd);c.draw(d,opt);}else{cd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['満足度','割合'],['非常に満足',73.5],['満足',24.2],['ふつう',2.0],['不満',0.3],['非常に不満',0]]);const avgC=new google.visualization.PieChart(document.getElementById('average-pie-chart'));avgC.draw(avgD,opt); }
+  
+  // =================================================================
+  // === ここが修正箇所です ===
+  // =================================================================
+  function drawSatisfactionCharts(chartData){ const opt={
+    is3D:true,
+    chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},
+    pieSliceText:'percentage',
+    
+    // ★ パーセンテージのフォントサイズを 17 に変更
+    pieSliceTextStyle:{color:'black',fontSize:17,bold:true},
+    
+    // ★ 項目名(凡例)のフォントサイズを 17 に変更
+    legend:{position:'labeled',textStyle:{color:'black',fontSize:17}},
+    
+    tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},
+    colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};
+    
+    const cd=document.getElementById('clinic-pie-chart');
+    if(chartData&&chartData.length>1&&chartData.slice(1).some(row=>row[1]>0)){
+        const d=google.visualization.arrayToDataTable(chartData);
+        const c=new google.visualization.PieChart(cd);
+        c.draw(d,opt);
+    } else {
+        cd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
+    } 
+    const avgD=google.visualization.arrayToDataTable([['満足度','割合'],['非常に満足',73.5],['満足',24.2],['ふつう',2.0],['不満',0.3],['非常に不満',0]]);
+    const avgC=new google.visualization.PieChart(document.getElementById('average-pie-chart'));
+    avgC.draw(avgD,opt); // ★ 平均グラフにも同じオプション(opt)を適用
+  }
+  // =================================================================
+  // === 修正箇所はここまでです ===
+  // =================================================================
+
   function drawIncomeCharts({results,totalCount}){ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:'#'+'%\'',viewWindow:{min:0}},hAxis:{}};const ccd=document.getElementById('clinic-bar-chart');if(totalCount>0&&results&&results.length>1){const cd=google.visualization.arrayToDataTable(results);const cc=new google.visualization.ColumnChart(ccd);cc.draw(cd,opt);}else{ccd.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgD=google.visualization.arrayToDataTable([['評価','割合',{role:'annotation'}],['1',1,'1%'],['2',2,'2%'],['3',7,'7%'],['4',12,'12%'],['5',16,'16%'],['6',16,'16%'],['7',13,'13%'],['8',12,'12%'],['9',8,'8%'],['10',15,'15%']]);const avgC=new google.visualization.ColumnChart(document.getElementById('average-bar-chart'));avgC.draw(avgD,opt); }
   function handlePrevSlide(){ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
   function handleNextSlide(){ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
