@@ -1,11 +1,14 @@
 const kuromojiService = require('../services/kuromoji');
 const openaiService = require('../services/openai');
 const postalCodeService = require('../services/postalCodeService'); // ★ 郵便番号サービス
-const { getSystemPromptForDetailAnalysis } = require('../utils/helpers');
+// ▼▼▼ getSystemPromptForRecommendationAnalysis を helpers からインポート ▼▼▼
+const { getSystemPromptForDetailAnalysis, getSystemPromptForRecommendationAnalysis } = require('../utils/helpers');
 
 // メモリキャッシュ (簡易版)
 let detailedAnalysisResultsCache = {};
-let municipalityReportCache = {}; // ★ 市区町村レポート用キャッシュ
+let municipalityReportCache = {}; // 市区町村レポート用キャッシュ
+// ▼▼▼ おすすめ理由 分類用キャッシュを追加 ▼▼▼
+let recommendationAnalysisCache = {}; 
 
 // --- テキスト分析 (Kuromoji) ---
 exports.analyzeText = async (req, res) => {
@@ -75,7 +78,7 @@ exports.generateDetailedAnalysis = async (req, res) => {
     }
 };
 
-// --- ★ 市区町村レポート生成 (新規追加) ---
+// --- 市区町村レポート生成 ---
 exports.generateMunicipalityReport = async (req, res) => {
     const { postalCodeCounts, clinicName } = req.body;
     console.log(`POST /api/generateMunicipalityReport called for ${clinicName}`);
@@ -145,3 +148,64 @@ exports.generateMunicipalityReport = async (req, res) => {
         res.status(500).send(`市区町村レポートの生成中にエラーが発生しました: ${error.message}`);
     }
 };
+
+
+// =================================================================
+// === ▼▼▼ 新しいAPI関数を追加 ▼▼▼ ===
+// =================================================================
+/**
+ * N列（おすすめ理由）の「その他」項目をAIで分類するAPI
+ */
+exports.classifyRecommendationOthers = async (req, res) => {
+    const { clinicName, otherList, fixedKeys } = req.body;
+    console.log(`POST /api/classifyRecommendations called for ${clinicName}`);
+
+    if (!clinicName || !otherList || !Array.isArray(otherList) || !fixedKeys || !Array.isArray(fixedKeys)) {
+        return res.status(400).send('不正なリクエスト: clinicName, otherList, fixedKeys が必要です。');
+    }
+    
+    if (otherList.length === 0) {
+        console.log('[/api/classifyRecommendations] otherList is empty, returning empty result.');
+        return res.json({ classifiedResults: [] }); // 分類対象がなければ空の結果を返す
+    }
+
+    // キャッシュキー (クリニック名 + 「その他」の全内容を簡易的にハッシュ化)
+    const textHash = otherList.join('|').substring(0, 50); // 簡易ハッシュ
+    const cacheKey = `${clinicName}-rec-${textHash}`;
+
+    if (recommendationAnalysisCache[cacheKey]) {
+        console.log(`[/api/classifyRecommendations] Returning cached classification for ${cacheKey}`);
+        return res.json(recommendationAnalysisCache[cacheKey]);
+    }
+
+    // AIへの指示（プロンプト）を生成
+    const systemPrompt = getSystemPromptForRecommendationAnalysis(fixedKeys);
+    
+    // 入力テキストを結合 (1行1項目)
+    const inputText = otherList.join('\n');
+    
+    console.log(`[/api/classifyRecommendations] Sending ${otherList.length} "other" texts (length: ${inputText.length}) to OpenAI for classification...`);
+
+    try {
+        const analysisJson = await openaiService.generateJsonAnalysis(systemPrompt, inputText);
+        
+        // { "classifiedResults": [...] } の形式か確認
+        if (!analysisJson || !Array.isArray(analysisJson.classifiedResults)) {
+            console.error('[/api/classifyRecommendations] AI returned invalid JSON structure:', analysisJson);
+            throw new Error('AIが予期しない分類結果フォーマットを返しました。');
+        }
+
+        // 結果をメモリにキャッシュ
+        recommendationAnalysisCache[cacheKey] = analysisJson;
+        console.log(`[/api/classifyRecommendations] Cached classification result for ${cacheKey}`);
+
+        res.json(analysisJson);
+
+    } catch (error) {
+        console.error('[/api/classifyRecommendations] Error classifying recommendations:', error);
+        res.status(500).send(`AI分類中にエラーが発生しました: ${error.message}`);
+    }
+};
+// =================================================================
+// === ▲▲▲ 新しいAPI関数を追加 ▲▲▲ ===
+// =================================================================

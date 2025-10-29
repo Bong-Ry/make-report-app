@@ -5,7 +5,7 @@ exports.getSpreadsheetIdFromUrl = (url) => {
     return match ? match[1] : null;
 };
 
-// --- OpenAI (GPT) に投げるプロンプトの定義 ---
+// --- OpenAI (GPT) に投げるプロンプトの定義 (詳細分析用) ---
 exports.getSystemPromptForDetailAnalysis = (clinicName, columnType) => {
     // 求めるJSONの厳格なフォーマット定義
     const jsonFormatString = `
@@ -70,3 +70,66 @@ exports.getSystemPromptForDetailAnalysis = (clinicName, columnType) => {
     }
     return systemInstruction;
 };
+
+// =================================================================
+// === ▼▼▼ 新しい関数を追加 ▼▼▼ ===
+// =================================================================
+
+/**
+ * N列（おすすめ理由）の「その他」項目を分類するためのプロンプトを生成
+ * @param {string[]} fixedKeys - 分類先の固定カテゴリ名リスト
+ * @returns {string} OpenAIに送信するシステムプロンプト
+ */
+exports.getSystemPromptForRecommendationAnalysis = (fixedKeys) => {
+    
+    // AIに認識させるカテゴリ名のリストを文字列として生成
+    const categoriesListString = fixedKeys.map(key => `- "${key}"`).join('\n');
+
+    // AIに出力してほしいJSONの形式を定義
+    const jsonFormatString = `
+# 出力フォーマット (厳格なJSONオブジェクトのみ):
+{
+  "classifiedResults": [
+    {
+      "originalText": "(分類対象の原文1)",
+      "matchedCategories": ["(合致したカテゴリ名1)", "(合致したカテゴリ名2)"]
+    },
+    {
+      "originalText": "(分類対象の原文2)",
+      "matchedCategories": ["(合致したカテゴリ名1)"]
+    },
+    {
+      "originalText": "(分類対象の原文3)",
+      "matchedCategories": ["その他"]
+    }
+  ]
+}
+`;
+
+    // AIへの指示本体
+    const systemInstruction = `
+# あなたの役割
+あなたは、アンケートの自由回答を分析するデータ分類アシスタントです。
+
+# タスク
+ユーザーから「分類対象の生データ」として自由回答のリストが提供されます。
+以下の「分類カテゴリ」を参照し、各回答がどのカテゴリに該当するかを判断してください。
+
+# 分類カテゴリ
+${categoriesListString}
+- "その他"
+
+# 指示
+1.  **多重分類**: 1つの回答が複数のカテゴリに該当する内容を含んでいる場合（例：「家から近いし、口コミも良かった」）、該当する**すべて**のカテゴリ名を `matchedCategories` 配列に含めてください。
+2.  **意図の汲み取り**: 表記が完全一致しなくても（例：「グーグルの評価」→「インターネット（Googleの口コミ）」）、意図が合致している場合はそのカテゴリとして分類してください。
+3.  **「その他」の扱い**: どのカテゴリにも明確に合致しない回答のみ、`matchedCategories` 配列に `"その他"` という文字列を**一つだけ**入れてください。
+4.  **出力**: 分析結果を、必ず指定されたJSONフォーマット（`classifiedResults` 配列）でのみ出力してください。JSON以外のテキスト（例: "承知いたしました。"など）は絶対に含めないでください。
+
+${jsonFormatString}
+`;
+
+    return systemInstruction;
+};
+// =================================================================
+// === ▲▲▲ 新しい関数を追加 ▲▲▲ ===
+// =================================================================

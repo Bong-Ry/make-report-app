@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    body{font-family:'Noto+Sans JP',sans-serif;background-color:#f8f7f7;}
+    body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     .btn{@apply py-2 px-6 border border-gray-800 text-gray-800 transition-all duration-300 rounded-md text-sm font-bold tracking-wider shadow-sm whitespace-nowrap;}
     .btn:hover:not(:disabled){@apply bg-gray-800 text-white shadow-md transform -translate-y-px;}
     .btn:disabled{@apply border-gray-300 text-gray-400 cursor-not-allowed bg-gray-100 shadow-none;}
@@ -46,13 +46,16 @@
     <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
       
       <div id="report-nav" class="flex flex-wrap justify-center items-center gap-2">
+        <button data-report-type="nps_score" class="btn">NPS値集計</button>
+        <button data-report-type="recommendation" class="btn">おすすめ理由</button>
         <button data-report-type="nps" class="btn">NPS理由</button>
         <button data-report-type="feedback_i" class="btn">良かった点</button>
         <button data-report-type="feedback_j" class="btn">印象スタッフ</button>
         <button data-report-type="feedback_m" class="btn">お産意見</button>
-        <button data-report-type="municipality" class="btn">市区町村</button> <button data-report-type="satisfaction_b" class="btn">満足度</button>
+        <button data-report-type="municipality" class="btn">市区町村</button>
+        <button data-report-type="satisfaction_b" class="btn">満足度</button>
         <button data-report-type="satisfaction_c" class="btn">施設</button>
-        <button data-report-type="satisfaction_d" class_A="btn">アクセス</button>
+        <button data-report-type="satisfaction_d" class="btn">アクセス</button>
         <button data-report-type="satisfaction_e" class="btn">価格</button>
         <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
         <button data-report-type="satisfaction_g" class="btn">スタッフ対応</button>
@@ -210,9 +213,15 @@
 
     if (reportType) {
         console.log(`Report nav: ${reportType}`);
-        // ★ 市区町村レポートの分岐を追加
+        // ★ 市区町村レポートと、新しい2つのレポートの分岐を追加
         if (reportType === 'municipality') {
             prepareAndShowMunicipalityReport();
+        } else if (reportType === 'recommendation') {
+            // ★ 新規追加
+            prepareAndShowRecommendationReport();
+        } else if (reportType === 'nps_score') {
+            // ★ 新規追加
+            prepareAndShowReport(reportType); // 既存のロジックを流用
         } else {
             prepareAndShowReport(reportType);
         }
@@ -229,7 +238,7 @@
   // ▲▲▲ handleReportNavClick (変更あり) ▲▲▲
 
   // ▼▼▼ prepareAndShowReport (変更あり) ▼▼▼
-  // (municipality の分岐を削除)
+  // (municipality の分岐を削除し、nps_score の分岐を追加)
   function prepareAndShowReport(reportType){
     console.log(`Prepare report: ${reportType}`); 
     showLoading(true,'レポート準備中...');
@@ -243,7 +252,16 @@
     document.getElementById('slide-body').innerHTML='';
     let isChart=false,isBar=false; 
     
-    if (reportType === 'nps'){const{totalCount,results}=cd.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);}
+    // ★★★ 新しいグラフ (nps_score) の分岐を追加 ★★★
+    if (reportType === 'nps_score'){
+        prepareChartShell(
+            'NPS(ネットプロモータースコア)＝推奨度',
+            'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない',
+            true // 棒グラフ(isBar = true)
+        );
+        isChart=true;isBar=true;
+    }
+    else if (reportType === 'nps'){const{totalCount,results}=cd.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);}
     else if (reportType === 'feedback_i'){prepareCommentSlides(cd.feedbackData.i_column,'良かった点悪かった点');}
     else if (reportType === 'feedback_j'){prepareCommentSlides(cd.feedbackData.j_column,'印象に残ったスタッフ');}
     else if (reportType === 'feedback_m'){prepareCommentSlides(cd.feedbackData.m_column,'お産意見感想');}
@@ -271,7 +289,12 @@
         setTimeout(()=>{
             try{
                 let data;
-                if(reportType.startsWith('satisfaction')){data=cd.satisfactionData[reportType.split('_')[1]+'_column'];drawSatisfactionCharts(data.results);}
+                // ★★★ nps_score グラフ描画関数の呼び出しを追加 ★★★
+                if(reportType==='nps_score'){
+                    data=cd.npsScoreData;
+                    drawNpsScoreCharts(data); // ★ 新規関数
+                }
+                else if(reportType.startsWith('satisfaction')){data=cd.satisfactionData[reportType.split('_')[1]+'_column'];drawSatisfactionCharts(data.results);}
                 else if(reportType==='age'){data=cd.ageData;drawSatisfactionCharts(data.results);}
                 else if(reportType==='children'){data=cd.childrenCountData;drawSatisfactionCharts(data.results);}
                 else if(reportType==='income'){data=cd.incomeData;drawIncomeCharts(data);}
@@ -294,7 +317,7 @@
   function renderSlide(page){ if(page<1||page>slidesData.length)return;const s=slidesData[page-1];document.getElementById('slide-header').innerHTML=s.header;document.getElementById('slide-body').innerHTML=s.body;document.getElementById('page-indicator').textContent=`${page} / ${slidesData.length}`;document.getElementById('prev-slide').disabled=(page===1);document.getElementById('next-slide').disabled=(page===slidesData.length); }
   
   // =================================================================
-  // === ここが修正箇所です ===
+  // === ここが修正箇所です (フォントサイズ 17) ===
   // =================================================================
   function drawSatisfactionCharts(chartData){ const opt={
     is3D:true,
@@ -339,11 +362,7 @@
   function getColumnName(columnType) { switch(columnType){case'L':return'NPS推奨度 理由';case'I':return'良かった点や悪かった点など';case'J':return'印象に残ったスタッフへのコメント';case'M':return'お産にかかわるご意見・ご感想';default:return'不明';} }
 
 
-  // --- ★ 市区町村レポート関数 (新規追加) ---
-  
-  /**
-   * 市区町村レポートの準備と表示 (API呼び出し)
-   */
+  // --- ★ 市区町村レポート関数 (変更なし) ---
   async function prepareAndShowMunicipalityReport() {
     console.log('Prepare municipality report');
     const clinicName = currentClinicForModal;
@@ -369,14 +388,12 @@
     
     try {
         // 1. クライアント側キャッシュ(issuedReports)を確認
-        // (issuedReports[clinicName].municipalityReportTable に保存する)
         if (cd.municipalityReportTable) {
             console.log('Using cached municipality report from issuedReports');
             displayMunicipalityTable(cd.municipalityReportTable);
             showLoading(false);
             return;
         }
-
         console.log(`Calling API /api/generateMunicipalityReport for ${clinicName}`);
         
         // 2. サーバーAPIを呼び出し
@@ -384,24 +401,20 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                postalCodeCounts: cd.postalCodeData.counts, // R列から集計した { "1110001": 10, ... }
-                clinicName: clinicName // サーバー側キャッシュ用キー
+                postalCodeCounts: cd.postalCodeData.counts,
+                clinicName: clinicName
             })
         });
-
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`集計APIエラー (${response.status}): ${errorText}`);
         }
-
-        const tableData = await response.json(); // [ {prefecture, municipality, count, percentage}, ... ]
+        const tableData = await response.json();
         
         // 3. クライアント側キャッシュに保存
         cd.municipalityReportTable = tableData;
-
         // 4. テーブル描画
         displayMunicipalityTable(tableData);
-
     } catch (err) {
         console.error('Failed to get municipality report:', err);
         slideBody.innerHTML = `<p class="text-center text-red-500">集計失敗: ${err.message}</p>`;
@@ -409,19 +422,12 @@
         showLoading(false);
     }
   }
-  
-  /**
-   * 市区町村テーブルをHTMLに描画
-   * @param {Array} data APIから取得したテーブルデータ
-   */
   function displayMunicipalityTable(data) {
     const slideBody = document.getElementById('slide-body');
     if (!data || data.length === 0) {
         slideBody.innerHTML = '<p class="text-center text-gray-500">集計データがありません。</p>';
         return;
     }
-
-    // スクロール可能なコンテナとテーブルを作成
     let tableHtml = `
         <div class="overflow-x-auto overflow-y-auto max-h-[600px] border border-gray-200 rounded-lg">
         <table class="min-w-full divide-y divide-gray-200">
@@ -435,8 +441,6 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
     `;
-
-    // データをループして行を追加
     data.forEach(row => {
         tableHtml += `
             <tr>
@@ -447,12 +451,258 @@
             </tr>
         `;
     });
-
     tableHtml += '</tbody></table></div>';
     slideBody.innerHTML = tableHtml;
   }
-  
-  // --- ▲▲▲ 市区町村レポート関数 (新規追加) ---
+  // --- ▲▲▲ 市区町村レポート関数 (変更なし) ---
+
+
+  // =================================================================
+  // === ▼▼▼ ここから新規関数を追加 ▼▼▼ ===
+  // =================================================================
+
+  /**
+   * NPSスコアグラフ(K列)の描画
+   */
+  function drawNpsScoreCharts(data) {
+      const { counts, totalCount } = data;
+      
+      // 1. NPSスコア計算
+      let promoters = 0; // 9-10
+      let passives = 0; // 7-8
+      let detractors = 0; // 0-6
+      
+      for (let i = 0; i <= 10; i++) {
+          if (counts[i] === undefined) continue;
+          
+          if (i >= 9) {
+              promoters += counts[i];
+          } else if (i >= 7) {
+              passives += counts[i];
+          } else {
+              detractors += counts[i];
+          }
+      }
+      
+      let npsScore = 0;
+      if (totalCount > 0) {
+          npsScore = ((promoters / totalCount) - (detractors / totalCount)) * 100;
+      }
+      
+      // 2. 貴院のグラフデータ作成
+      const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];
+      if (totalCount > 0) {
+          for (let i = 0; i <= 10; i++) {
+              const count = counts[i] || 0;
+              const percentage = (count / totalCount) * 100;
+              clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);
+          }
+      }
+      
+      // 3. 全体平均のグラフデータ (ハードコード)
+      const averageChartData = google.visualization.arrayToDataTable([
+          ['スコア', '割合', { role: 'annotation' }],
+          ['0', 1, '1%'], ['1', 0, '0%'], ['2', 0, '0%'], ['3', 1, '1%'],
+          ['4', 1, '1%'], ['5', 3, '3%'], ['6', 4, '4%'], ['7', 12, '12%'],
+          ['8', 28, '28%'], ['9', 20, '20%'], ['10', 30, '30%']
+      ]);
+      const overallNPS = 41.8; // ( (20+30) - (1+0+0+1+1+3+4) )
+
+      // 4. グラフオプション
+      const opt = {
+          legend: { position: 'none' },
+          colors: ['#4285F4'], // 棒グラフの色
+          annotations: {
+              textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },
+              alwaysOutside: false,
+              stem: { color: 'transparent' }
+          },
+          vAxis: { 
+              format: '#'+"%'", // Y軸をパーセンテージに
+              title: '割合(%)',
+              viewWindow: { min: 0 } // 最小値を0に
+          },
+          hAxis: {
+              title: '推奨度スコア (0〜10)'
+          },
+          bar: { groupWidth: '80%' },
+          isStacked: false
+      };
+      
+      // 5. 貴院のグラフ描画
+      const clinicChartEl = document.getElementById('clinic-bar-chart');
+      if (totalCount > 0 && clinicChartData.length > 1) {
+          const clinicData = google.visualization.arrayToDataTable(clinicChartData);
+          const clinicChart = new google.visualization.ColumnChart(clinicChartEl);
+          clinicChart.draw(clinicData, opt);
+      } else {
+          clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
+      }
+
+      // 6. 全体平均のグラフ描画とNPSスコア表示
+      const averageChartEl = document.getElementById('average-bar-chart');
+      // 既存のグラフ描画
+      const averageChart = new google.visualization.ColumnChart(averageChartEl);
+      averageChart.draw(averageChartData, opt);
+      
+      // グラフの上にある <H3> タグ (average-bar-chart の親の親のH3) を見つけて書き換える
+      const averageHeaderEl = averageChartEl.parentElement.querySelector('h3');
+      if (averageHeaderEl) {
+          averageHeaderEl.innerHTML = `
+              <div class"text-left text-xl space-y-2">
+                  <p>全体平均　　NPS: ${overallNPS.toFixed(1)}</p>
+                  <p>貴院　　NPS: <span class="font-bold text-red-600 text-2xl">${npsScore.toFixed(1)}</span></p>
+              </div>
+          `;
+          averageHeaderEl.className = "font-normal text-xl mb-4 text-left"; // text-center を解除
+      }
+      
+      // 「貴院の結果」のH3も調整
+      const clinicHeaderEl = clinicChartEl.parentElement.querySelector('h3');
+      if (clinicHeaderEl) {
+           clinicHeaderEl.className = "font-bold text-xl mb-4 text-left"; // text-center を解除
+           clinicHeaderEl.textContent = `貴院の結果 (全 ${totalCount} 件)`;
+      }
+  }
+
+  /**
+   * おすすめ理由グラフ(N列)の準備と表示 (AI分類実行)
+   */
+  async function prepareAndShowRecommendationReport() {
+      console.log('Prepare recommendation report');
+      const clinicName = currentClinicForModal;
+      const cd = issuedReports[clinicName];
+      
+      if (!cd || !cd.recommendationData) {
+          alert('おすすめ理由データ(recommendationData)が見つかりません。');
+          return;
+      }
+
+      showLoading(true, '「その他」項目をAIで分類中...');
+      showScreen('screen3');
+      updateNavActiveState('recommendation', null, null);
+
+      // --- レポートの静的タイトルなどを設定 ---
+      document.getElementById('report-title').textContent = 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー';
+      document.getElementById('report-subtitle').textContent = 'ご出産された産婦人科医院への本病院を選ぶ上で最も参考にしたものについて、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満';
+      document.getElementById('pagination').style.display = 'none';
+      document.getElementById('slide-header').innerHTML = '';
+      const slideBody = document.getElementById('slide-body');
+      slideBody.style.whiteSpace = 'normal';
+      // グラフ描画エリア(満足度グラフと共通)
+      slideBody.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-pie-chart" class="w-full h-[400px]"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-pie-chart" class="w-full h-[400px]"></div></div></div>`;
+
+      try {
+          const { fixedCounts, otherList, fixedKeys } = cd.recommendationData;
+          
+          // 1. 「その他」の分類結果をキャッシュまたはAPIから取得
+          let finalCounts = { ...fixedCounts }; // 固定キーのカウントをコピー
+          finalCounts['その他'] = 0; // 「その他」バケツを初期化
+          
+          // 2. クライアント側キャッシュ(issuedReports)を確認 (分類済みデータ)
+          if (cd.recommendationData.classifiedData) {
+              console.log('Using cached AI classification from issuedReports');
+              finalCounts = cd.recommendationData.classifiedData;
+          }
+          // 3. AI分類が必要な場合
+          else if (otherList && otherList.length > 0) {
+              console.log(`Calling API /api/classifyRecommendations for ${clinicName}`);
+              const response = await fetch('/api/classifyRecommendations', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      clinicName: clinicName,
+                      otherList: otherList,
+                      fixedKeys: fixedKeys
+                  })
+              });
+              if (!response.ok) {
+                  const errorText = await response.text();
+                  throw new Error(`AI分類APIエラー (${response.status}): ${errorText}`);
+              }
+              
+              const classificationResult = await response.json(); // { classifiedResults: [...] }
+              
+              // 4. AI分類結果を集計
+              classificationResult.classifiedResults.forEach(item => {
+                  item.matchedCategories.forEach(category => {
+                      if (finalCounts[category] !== undefined) {
+                          finalCounts[category]++;
+                      } else {
+                          // 予期しないカテゴリが返ってきた場合 (通常は "その他" になるはず)
+                          finalCounts['その他']++;
+                      }
+                  });
+              });
+              
+              // 5. クライアントキャッシュに保存
+              cd.recommendationData.classifiedData = finalCounts;
+              
+          } else {
+              console.log("No 'other' items to classify.");
+          }
+
+          showLoading(false); // AI分類が終わった時点でローディング解除
+
+          // 6. グラフ描画
+          
+          // 貴院のグラフデータ
+          const allKeys = [...fixedKeys, 'その他'];
+          const clinicChartData = [['カテゴリ', '件数']];
+          allKeys.forEach(key => {
+              clinicChartData.push([key, finalCounts[key] || 0]);
+          });
+          
+          // 全体平均のグラフデータ (ハードコード)
+           const averageChartData = google.visualization.arrayToDataTable([
+              ['カテゴリ', '件数'],
+              ['インターネット（Googleの口コミ）', 25],
+              ['インターネット（SNS）', 15],
+              ['インターネット（産院のホームページ）', 20],
+              ['知人の紹介', 18],
+              ['家族の紹介', 10],
+              ['自宅からの距離', 10],
+              ['インターネット（情報サイト）', 5],
+              ['その他', 2]
+          ]);
+
+          // 円グラフオプション (フォントサイズ 17)
+          const opt = {
+              is3D: true,
+              chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },
+              pieSliceText: 'percentage',
+              pieSliceTextStyle: { color: 'black', fontSize: 17, bold: true },
+              legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 17 } },
+              tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
+              // colors: [...] // 色はGoogle Chartsのデフォルトに任せる
+          };
+
+          // 貴院のグラフ描画
+          const clinicChartEl = document.getElementById('clinic-pie-chart');
+          const totalClinicCount = clinicChartData.slice(1).reduce((sum, row) => sum + row[1], 0);
+          if (totalClinicCount > 0) {
+              const d = google.visualization.arrayToDataTable(clinicChartData);
+              const c = new google.visualization.PieChart(clinicChartEl);
+              c.draw(d, opt);
+          } else {
+              clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
+          }
+          
+          // 全体平均のグラフ描画
+          const averageChartEl = document.getElementById('average-pie-chart');
+          const avgC = new google.visualization.PieChart(averageChartEl);
+          avgC.draw(averageChartData, opt);
+
+      } catch (err) {
+          console.error('Failed to get recommendation report:', err);
+          slideBody.innerHTML = `<p class="text-center text-red-500">集計失敗: ${err.message}</p>`;
+          showLoading(false);
+      }
+  }
+
+  // =================================================================
+  // === ▲▲▲ 新規関数はここまで ▲▲▲ ===
+  // =================================================================
 
 
   // --- ▼▼▼ 詳細分析関連 (JS関数追加) ▼▼▼
@@ -693,7 +943,7 @@
   }
 
 
-  // --- ▼▼▼ 詳細分析 編集関連関数 ▼▼▼ ---
+  // --- ▼▼▼ 詳細分析 編集関連関数 ▼▼▼
 
   /**
    * 編集モードのトグル
