@@ -277,7 +277,14 @@
     else if (reportType === 'income'){prepareChartShell('世帯年収','',true);isChart=true;isBar=true;}
     
     if(slidesData.length>0){currentPage=1;renderSlide(currentPage);}
-    else if(slidesData.length===0&&(reportType.startsWith('nps')||reportType.startsWith('feedback'))){
+    // =================================================================
+    // === ▼▼▼ ここが修正箇所です ▼▼▼ ===
+    // =================================================================
+    // 'nps_score' が 'nps' に前方一致しないよう、'reportType === 'nps'' で完全一致に変更
+    else if(slidesData.length===0&& (reportType === 'nps' || reportType.startsWith('feedback')) ){
+    // =================================================================
+    // === ▲▲▲ 修正はここまでです ▲▲▲ ===
+    // =================================================================
         document.getElementById('slide-header').innerHTML='';
         document.getElementById('slide-body').innerHTML='<p class="text-center text-gray-500">該当データなし</p>';
         document.getElementById('pagination').style.display='none';
