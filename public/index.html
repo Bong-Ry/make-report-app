@@ -512,6 +512,22 @@
       // data が undefined の場合は prepareAndShowReport で throw される
       const { counts, totalCount } = data;
       
+      // =================================================================
+      // === ▼▼▼ Container is not defined エラー対策 ▼▼▼ ===
+      // =================================================================
+      // グラフを描画する要素が存在するか確認
+      const clinicChartEl = document.getElementById('clinic-bar-chart');
+      const averageChartEl = document.getElementById('average-bar-chart');
+
+      if (!clinicChartEl || !averageChartEl) {
+          console.error('[FIX] Chart container element(s) not found. clinic-bar-chart:', clinicChartEl, 'average-bar-chart:', averageChartEl);
+          // より具体的なエラーメッセージをスロー
+          throw new Error("グラフ描画に必要なHTML要素 (clinic-bar-chart or average-bar-chart) が見つかりません。");
+      }
+      // =================================================================
+      // === ▲▲▲ Container is not defined エラー対策 ▲▲▲ ===
+      // =================================================================
+
       // 1. NPSスコア計算 (0-10の全データで計算)
       let promoters = 0; // 9-10
       let passives = 0; // 7-8
@@ -589,7 +605,7 @@
       };
       
       // 5. 貴院のグラフ描画
-      const clinicChartEl = document.getElementById('clinic-bar-chart');
+      // const clinicChartEl = document.getElementById('clinic-bar-chart'); // 上で取得済み
       if (totalCount > 0 && clinicChartData.length > 1) {
           const clinicData = google.visualization.arrayToDataTable(clinicChartData);
           const clinicChart = new google.visualization.ColumnChart(clinicChartEl);
@@ -600,7 +616,7 @@
       }
 
       // 6. 全体平均のグラフ描画とNPSスコア表示
-      const averageChartEl = document.getElementById('average-bar-chart');
+      // const averageChartEl = document.getElementById('average-bar-chart'); // 上で取得済み
       // 既存のグラフ描画
       const averageChart = new google.visualization.ColumnChart(averageChartEl);
       averageChart.draw(averageChartData, opt);
