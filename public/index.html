@@ -291,6 +291,15 @@
                 let data;
                 // ★★★ nps_score グラフ描画関数の呼び出しを追加 ★★★
                 if(reportType==='nps_score'){
+                    // ▼▼▼ デバッグログ追加 ▼▼▼
+                    console.log('[DEBUG] Preparing nps_score report. Checking data in issuedReports:', cd);
+                    if (!cd.npsScoreData) {
+                        console.error('[DEBUG] FATAL: cd.npsScoreData is missing or undefined!');
+                        // エラーをスローする前にログを出す
+                        throw new Error('npsScoreData is missing. Check backend data structure.'); 
+                    }
+                    console.log('[DEBUG] npsScoreData found:', JSON.stringify(cd.npsScoreData));
+                    // ▲▲▲ デバッグログ追加 ▲▲▲
                     data=cd.npsScoreData;
                     drawNpsScoreCharts(data); // ★ 新規関数
                 }
