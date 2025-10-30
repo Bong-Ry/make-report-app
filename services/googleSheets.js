@@ -5,7 +5,7 @@ const KEYFILEPATH = '/etc/secrets/credentials.json';
 // ▼▼▼ スコープを「読み書き」に変更し、Driveスコープも追加 ▼▼▼
 const SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets', // 読み書き
-    'https://www.googleapis.com/auth/drive.file'    // ファイルの検索・移動
+    'https://www.googleapis.com/auth/drive.file'    // ファイルの検索・移動・作成
 ];
 const MASTER_FOLDER_ID = '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj'; // 集計スプシ作成先フォルダ
 
@@ -70,8 +70,9 @@ exports.getMasterClinicUrls = async () => {
 };
 
 // =================================================================
-// === ▼▼▼ 新規関数 (1/7) ▼▼▼ ===
-// 集計用スプレッドシートを検索または新規作成する
+// === ▼▼▼ 関数 (1/7) を修正 ▼▼▼ ===
+// GaxiosError: The caller does not have permission 対策
+// sheets.create ではなく drive.files.create を使う
 // =================================================================
 exports.findOrCreateCentralSheet = async (periodText) => {
     if (!sheets || !drive) throw new Error('Google APIクライアントが初期化されていません。');
@@ -94,38 +95,39 @@ exports.findOrCreateCentralSheet = async (periodText) => {
             return fileId;
         }
 
-        // 3. 見つからない場合: 新規作成
-        console.log(`[googleSheetsService] No existing sheet found. Creating new one...`);
-        const createRes = await sheets.spreadsheets.create({
+        // 3. 見つからない場合: ★ Drive API を使ってフォルダ内に直接作成 ★
+        console.log(`[googleSheetsService] No existing sheet found. Creating new one directly in folder...`);
+        const createRes = await drive.files.create({
             resource: {
-                properties: {
-                    title: fileName,
-                },
-                sheets: [
+                name: fileName,
+                mimeType: 'application/vnd.google-apps.spreadsheet',
+                parents: [MASTER_FOLDER_ID] // フォルダIDを直接指定
+            },
+            fields: 'id'
+        });
+
+        const newSheetId = createRes.data.id;
+        console.log(`[googleSheetsService] Created new sheet via Drive API. ID: ${newSheetId}.`);
+
+        // 4. ★ デフォルトの "Sheet1" (sheetId=0) を "全体" にリネーム ★
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: newSheetId,
+            resource: {
+                requests: [
                     {
-                        properties: {
-                            title: '全体', // 最初のシート名を「全体」に
+                        updateSheetProperties: {
+                            properties: {
+                                sheetId: 0, // デフォルトシートのIDは常に0
+                                title: '全体'
+                            },
+                            fields: 'title'
                         }
                     }
                 ]
-            },
-            fields: 'spreadsheetId,sheets(properties(sheetId))',
+            }
         });
-
-        const newSheetId = createRes.data.spreadsheetId;
-        console.log(`[googleSheetsService] Created new sheet. ID: ${newSheetId}. Now moving to folder...`);
-
-        // 4. 作成したファイルを指定フォルダに移動
-        // (create時にparentを指定できないため、updateで移動する)
-        await drive.files.update({
-            fileId: newSheetId,
-            addParents: MASTER_FOLDER_ID,
-            removeParents: 'root', // rootから削除
-            fields: 'id, parents',
-        });
+        console.log(`[googleSheetsService] Renamed 'Sheet1' to '全体'.`);
         
-        console.log(`[googleSheetsService] Moved sheet ${newSheetId} to folder ${MASTER_FOLDER_ID}.`);
-
         // 5. ユーザー定義（フォームの回答 1）のシート名を追加
         // ※ 確実に 'フォームの回答 1' が存在するようにするため
         try {
@@ -138,10 +140,27 @@ exports.findOrCreateCentralSheet = async (periodText) => {
         return newSheetId;
 
     } catch (err) {
-        console.error(`[googleSheetsService] Error in findOrCreateCentralSheet for "${fileName}":`, err);
+        // === ▼▼▼ 詳細ログ（前回の修正） ▼▼▼ ===
+        console.error(`[googleSheetsService] Error in findOrCreateCentralSheet for "${fileName}".`);
+        
+        // GaxiosError の詳細を出力
+        if (err.response && err.response.data) {
+            console.error('[DETAILED_ERROR] Response Data:', JSON.stringify(err.response.data, null, 2));
+        }
+        if (err.errors) {
+            console.error('[DETAILED_ERROR] Errors Array:', JSON.stringify(err.errors, null, 2));
+        }
+        // スタックトレース全体も出力
+        console.error(err); 
+        // === ▲▲▲ 詳細ログ ▲▲▲ ===
+
         throw new Error(`集計スプレッドシートの検索または作成に失敗しました: ${err.message}`);
     }
 };
+// =================================================================
+// === ▲▲▲ 関数 (1/7) を修正 ▲▲▲ ===
+// =================================================================
+
 
 // =================================================================
 // === ▼▼▼ 更新関数 (2/7) ▼▼▼ ===
@@ -504,7 +523,7 @@ exports.updateAIAnalysisInSheet = async (centralSheetId, sheetName, content) => 
 
 
 // =================================================================
-// === ヘルパー関数群 ===
+// === ヘルパー関数群 (変更なし) ===
 // =================================================================
 
 /**
