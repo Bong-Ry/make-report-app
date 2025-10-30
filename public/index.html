@@ -237,8 +237,10 @@
   }
   // ▲▲▲ handleReportNavClick (変更あり) ▲▲▲
 
-  // ▼▼▼ prepareAndShowReport (変更あり) ▼▼▼
-  // (municipality の分岐を削除し、nps_score の分岐を追加)
+  // =================================================================
+  // === ▼▼▼ [修正] prepareAndShowReport 関数 ▼▼▼ ===
+  // (NPSスコアのレイアウト変更を適用)
+  // =================================================================
   function prepareAndShowReport(reportType){
     console.log(`Prepare report: ${reportType}`); 
     showLoading(true,'レポート準備中...');
@@ -252,15 +254,40 @@
     document.getElementById('slide-body').innerHTML='';
     let isChart=false,isBar=false; 
     
-    // ★★★ 新しいグラフ (nps_score) の分岐を追加 ★★★
+    // =================================================================
+    // === ▼▼▼ ここからが 'nps_score' の修正箇所です ▼▼▼ ===
+    // =================================================================
     if (reportType === 'nps_score'){
-        prepareChartShell(
-            'NPS(ネットプロモータースコア)＝推奨度',
-            'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない',
-            true // 棒グラフ(isBar = true)
-        );
-        isChart=true;isBar=true;
+        // 1. レポートのタイトルとサブタイトルを設定
+        document.getElementById('report-title').textContent = 'アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー';
+        document.getElementById('report-subtitle').textContent = 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない';
+        
+        // 2. ページネーションを非表示にし、white-spaceを通常に戻す
+        document.getElementById('pagination').style.display = 'none';
+        document.getElementById('slide-body').style.whiteSpace = 'normal';
+        
+        // 3. 【重要】レイアウトを「左:グラフ」「右:テキスト」の2カラムに変更
+        // グラフ描画用に 'clinic-bar-chart'
+        // テキスト表示用に 'nps-summary-area' を用意
+        const htmlContent = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="flex flex-col">
+                    <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
+                    <div id="clinic-bar-chart" class="w-full h-[350px]"></div>
+                </div>
+                <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6">
+                    <p class="text-gray-500">NPSスコア計算中...</p>
+                </div>
+            </div>`;
+        document.getElementById('slide-body').innerHTML = htmlContent;
+        
+        // 4. グラフ描画フラグを設定
+        isChart=true;
+        isBar=true; // (prepareChartShellは使わないが、後続処理のために一応true)
     }
+    // =================================================================
+    // === ▲▲▲ 'nps_score' の修正はここまでです ▲▲▲ ===
+    // =================================================================
     else if (reportType === 'nps'){const{totalCount,results}=cd.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);}
     else if (reportType === 'feedback_i'){prepareCommentSlides(cd.feedbackData.i_column,'良かった点悪かった点');}
     else if (reportType === 'feedback_j'){prepareCommentSlides(cd.feedbackData.j_column,'印象に残ったスタッフ');}
@@ -277,14 +304,8 @@
     else if (reportType === 'income'){prepareChartShell('世帯年収','',true);isChart=true;isBar=true;}
     
     if(slidesData.length>0){currentPage=1;renderSlide(currentPage);}
-    // =================================================================
-    // === ▼▼▼ ここが修正箇所です ▼▼▼ ===
-    // =================================================================
-    // 'nps_score' が 'nps' に前方一致しないよう、'reportType === 'nps'' で完全一致に変更
+    // (*** 既存の 'nps' or 'feedback' の分岐 ***)
     else if(slidesData.length===0&& (reportType === 'nps' || reportType.startsWith('feedback')) ){
-    // =================================================================
-    // === ▲▲▲ 修正はここまでです ▲▲▲ ===
-    // =================================================================
         document.getElementById('slide-header').innerHTML='';
         document.getElementById('slide-body').innerHTML='<p class="text-center text-gray-500">該当データなし</p>';
         document.getElementById('pagination').style.display='none';
@@ -297,32 +318,16 @@
             try{
                 let data;
                 
-                // =================================================================
-                // === ▼▼▼ ログ追加: 描画関数呼び出し直前の #slide-body 確認 ▼▼▼ ===
-                // =================================================================
+                // (*** 既存のログ ***)
                 console.log('[DEBUG] Before calling draw function, slide-body innerHTML:', document.getElementById('slide-body').innerHTML);
-                // =================================================================
-                // === ▲▲▲ ログ追加 ▲▲▲ ===
-                // =================================================================
 
-                // ★★★ nps_score グラフ描画関数の呼び出しを追加 ★★★
                 if(reportType==='nps_score'){
-                    
                     data=cd.npsScoreData;
-                    
-                    // =================================================================
-                    // === ▼▼▼ 修正点 1: 描画エラー防止 ▼▼▼ ===
-                    // =================================================================
-                    // サーバーから npsScoreData が返ってこない (undefined) 場合にエラーをスローし、catchブロックで表示
                     if (!data) {
                         console.error("[FIX] npsScoreData is missing. Server might be running old code.");
                         throw new Error('NPSスコアデータ (npsScoreData) が見つかりません。');
                     }
-                    // =================================================================
-                    // === ▲▲▲ 修正点 1: 描画エラー防止 ▲▲▲ ===
-                    // =================================================================
-
-                    drawNpsScoreCharts(data); // ★ 新規関数
+                    drawNpsScoreCharts(data); // ★ 修正後の関数を呼び出し
                 }
                 else if(reportType.startsWith('satisfaction')){data=cd.satisfactionData[reportType.split('_')[1]+'_column'];drawSatisfactionCharts(data.results);}
                 else if(reportType==='age'){data=cd.ageData;drawSatisfactionCharts(data.results);}
@@ -330,7 +335,6 @@
                 else if(reportType==='income'){data=cd.incomeData;drawIncomeCharts(data);}
             }catch(e){
                 console.error('Chart draw error:',e);
-                // グラフ描画失敗の理由を(e.message)で表示
                 document.getElementById('slide-body').innerHTML=`<p class="text-center text-red-500">グラフ描画失敗<br>(${e.message})</p>`;
             }finally{
                 showLoading(false);
@@ -340,13 +344,13 @@
         showLoading(false);
     } 
   }
-  // ▲▲▲ prepareAndShowReport (変更あり) ▲▲▲
+  // =================================================================
+  // === ▲▲▲ [修正] prepareAndShowReport 関数 ▲▲▲ ===
+  // =================================================================
 
   function prepareNpsSlides(results, title){ document.getElementById('report-title').textContent=title;document.getElementById('report-subtitle').textContent='';const ml=20;if(!results)return;const sc=Object.keys(results).map(Number).sort((a,b)=>b-a);sc.forEach(s=>{const rs=results[s];if(!rs||rs.length===0)return;let clc=0,cpb='';rs.forEach((r,i)=>{const rt=`・ ${r}`;const rl=(rt.match(/\n/g)||[]).length+1;if(clc>0&&(clc+rl)>ml){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});cpb=rt;clc=rl;}else{cpb+=(clc===0?'':'\n')+rt;clc+=rl;}});if(cpb){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});}}); }
   function prepareCommentSlides(data, title){ if(!data)data={totalCount:0,results:[]};const{totalCount,results}=data;document.getElementById('report-title').textContent=`${title}(全${totalCount}件)`;document.getElementById('report-subtitle').textContent='';const ml=20;if(results&&results.length>0){let clc=0,cpb='';results.forEach((it,i)=>{const itx=`・ ${it}`;const il=(itx.match(/\n/g)||[]).length+1;if(clc>0&&(clc+il)>ml){slidesData.push({header:'',body:cpb});cpb=itx;clc=il;}else{cpb+=(clc===0?'':'\n')+itx;clc+=il;}});if(cpb){slidesData.push({header:'',body:cpb});}} }
-  // =================================================================
-  // === ▼▼▼ ログ追加: prepareChartShell 実行確認 ▼▼▼ ===
-  // =================================================================
+  // (*** ログ追加済みの prepareChartShell (変更なし) ***)
   function prepareChartShell(title, subtitle, isBar=false){ 
     console.log(`[DEBUG] prepareChartShell called for title: "${title}", isBar: ${isBar}`); // 実行確認ログ
     document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;
@@ -358,14 +362,9 @@
     document.getElementById('slide-body').innerHTML = htmlContent; 
     console.log(`[DEBUG] prepareChartShell finished setting innerHTML for #slide-body. Content includes clinic-${cid}?`, htmlContent.includes(`id="clinic-${cid}"`)); // HTML書き込み後ログ
   }
-  // =================================================================
-  // === ▲▲▲ ログ追加 ▲▲▲ ===
-  // =================================================================
   function renderSlide(page){ if(page<1||page>slidesData.length)return;const s=slidesData[page-1];document.getElementById('slide-header').innerHTML=s.header;document.getElementById('slide-body').innerHTML=s.body;document.getElementById('page-indicator').textContent=`${page} / ${slidesData.length}`;document.getElementById('prev-slide').disabled=(page===1);document.getElementById('next-slide').disabled=(page===slidesData.length); }
   
-  // =================================================================
-  // === ここが修正箇所です (フォントサイズ 17) ===
-  // =================================================================
+  // (*** 修正済みの drawSatisfactionCharts (フォントサイズ17・変更なし) ***)
   function drawSatisfactionCharts(chartData){ const opt={
     is3D:true,
     chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},
@@ -403,13 +402,8 @@
     const avgC=new google.visualization.PieChart(avgEl);
     avgC.draw(avgD,opt); // ★ 平均グラフにも同じオプション(opt)を適用
   }
-  // =================================================================
-  // === 修正箇所はここまでです ===
-  // =================================================================
 
-  // =================================================================
-  // === ▼▼▼ 修正点 3: 世帯年収Y軸バグ修正 & 要素チェック追加▼▼▼ ===
-  // =================================================================
+  // (*** 修正済みの drawIncomeCharts (Y軸バグ修正・変更なし) ***)
   function drawIncomeCharts({results,totalCount}){ 
     const opt={
         legend:{position:'none'},
@@ -444,9 +438,112 @@
     const avgC=new google.visualization.ColumnChart(avgEl);
     avgC.draw(avgD,opt); 
   }
+
   // =================================================================
-  // === ▲▲▲ 修正点 3 & 要素チェック ▲▲▲ ===
+  // === ▼▼▼ [修正] drawNpsScoreCharts 関数 ▼▼▼ ===
+  // (レイアウト変更、色変更、テキスト表示、デバッグコメント削除)
   // =================================================================
+  /**
+   * NPSスコアグラフ(K列)の描画 (★レイアウト変更版)
+   */
+  function drawNpsScoreCharts(data) {
+      // data が undefined の場合は prepareAndShowReport で throw される
+      const { counts, totalCount } = data;
+      
+      // 1. グラフ描画エリア(左側)を取得
+      const clinicChartEl = document.getElementById('clinic-bar-chart');
+      if (!clinicChartEl) {
+          console.error('[FIX-NPS] Cannot find element with ID: clinic-bar-chart');
+          throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');
+      }
+
+      // 2. NPSスコア計算 (0-10の全データで計算)
+      let promoters = 0; // 9-10
+      let passives = 0; // 7-8
+      let detractors = 0; // 0-6
+      
+      for (let i = 0; i <= 10; i++) {
+          if (counts[i] === undefined) continue;
+          
+          if (i >= 9) {
+              promoters += counts[i];
+          } else if (i >= 7) {
+              passives += counts[i];
+          } else {
+              detractors += counts[i];
+          }
+      }
+      
+      let npsScore = 0;
+      if (totalCount > 0) {
+          npsScore = ((promoters / totalCount) - (detractors / totalCount)) * 100;
+      }
+      
+      // 3. 貴院のグラフデータ作成 (0-10)
+      // (ご提示のイメージ 22.48.33.png に合わせて 0～10 で表示)
+      const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];
+      if (totalCount > 0) {
+          for (let i = 0; i <= 10; i++) {
+              const count = counts[i] || 0;
+              const percentage = (count / totalCount) * 100;
+              clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);
+          }
+      }
+      
+      // 4. グラフオプション
+      const opt = {
+          legend: { position: 'none' },
+          // ★ ご要望のピンク色(#DE5D83)に変更
+          colors: ['#DE5D83'], 
+          annotations: {
+              textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },
+              alwaysOutside: false,
+              stem: { color: 'transparent' }
+          },
+          vAxis: { 
+              format: "#.##'%'", // Y軸の % 表示
+              title: '割合(%)',
+              viewWindow: { min: 0 } 
+          },
+          hAxis: {
+              title: '推奨度スコア (0〜10)' // X軸ラベル (0-10)
+          },
+          bar: { groupWidth: '80%' },
+          isStacked: false
+      };
+      
+      // 5. 貴院のグラフ描画 (左側)
+      if (totalCount > 0 && clinicChartData.length > 1) {
+          const clinicData = google.visualization.arrayToDataTable(clinicChartData);
+          const clinicChart = new google.visualization.ColumnChart(clinicChartEl);
+          clinicChart.draw(clinicData, opt);
+      } else {
+          clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
+      }
+
+      // 6. NPSスコアのテキスト表示 (右側)
+      // (平均グラフ描画とデバッグコメントを削除し、テキスト表示に変更)
+      const summaryArea = document.getElementById('nps-summary-area');
+      if (summaryArea) {
+          // ★ ご要望のフォーマットでNPSスコアを表示
+          summaryArea.innerHTML = `
+              <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs">
+                  <p>全体：<span class="font-bold text-gray-800">全体のNPS値</span></p>
+                  <p>貴院：<span class="font-bold text-red-600">${npsScore.toFixed(1)}</span></p>
+              </div>
+          `;
+      }
+      
+      // 7. グラフのヘッダー (H3) を調整
+      const clinicHeaderEl = document.getElementById('clinic-chart-header'); // IDで取得
+      if (clinicHeaderEl) {
+           clinicHeaderEl.textContent = `貴院の結果 (全 ${totalCount} 件)`;
+      }
+  }
+  // =================================================================
+  // === ▲▲▲ [修正] drawNpsScoreCharts 関数 ▲▲▲ ===
+  // =================================================================
+
 
   function handlePrevSlide(){ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
   function handleNextSlide(){ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
@@ -556,161 +653,8 @@
 
 
   // =================================================================
-  // === ▼▼▼ ここから新規関数 (NPSスコアグラフ, おすすめ理由グラフ) ▼▼▼ ===
+  // === ▼▼▼ [新規] おすすめ理由グラフ (変更なし) ▼▼▼ ===
   // =================================================================
-
-  /**
-   * NPSスコアグラフ(K列)の描画
-   */
-  function drawNpsScoreCharts(data) {
-      // data が undefined の場合は prepareAndShowReport で throw される
-      const { counts, totalCount } = data;
-      
-      // =================================================================
-      // === ▼▼▼ Container is not defined エラー対策 ▼▼▼ ===
-      // =================================================================
-      // グラフを描画する要素が存在するか確認
-      const clinicChartEl = document.getElementById('clinic-bar-chart');
-      const averageChartEl = document.getElementById('average-bar-chart');
-
-      if (!clinicChartEl) { // averageChartEl はなくても致命的ではない
-          console.error('[FIX-NPS] Cannot find element with ID: clinic-bar-chart');
-          throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');
-      }
-       if (!averageChartEl) {
-          console.error('[FIX-NPS] Cannot find element with ID: average-bar-chart');
-          throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');
-      }
-      // =================================================================
-      // === ▲▲▲ Container is not defined エラー対策 ▲▲▲ ===
-      // =================================================================
-
-      // 1. NPSスコア計算 (0-10の全データで計算)
-      let promoters = 0; // 9-10
-      let passives = 0; // 7-8
-      let detractors = 0; // 0-6
-      
-      for (let i = 0; i <= 10; i++) {
-          if (counts[i] === undefined) continue;
-          
-          if (i >= 9) {
-              promoters += counts[i];
-          } else if (i >= 7) {
-              passives += counts[i];
-          } else {
-              detractors += counts[i];
-          }
-      }
-      
-      let npsScore = 0;
-      if (totalCount > 0) {
-          npsScore = ((promoters / totalCount) - (detractors / totalCount)) * 100;
-      }
-      
-      // =================================================================
-      // === ▼▼▼ 修正点 2: NPS X軸 (1-10) ▼▼▼ ===
-      // =================================================================
-      
-      // 2. 貴院のグラフデータ作成 (1-10のみ)
-      const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];
-      if (totalCount > 0) {
-          // ★ ループを 0 からではなく 1 から開始
-          for (let i = 1; i <= 10; i++) {
-              const count = counts[i] || 0;
-              const percentage = (count / totalCount) * 100;
-              clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);
-          }
-      }
-      
-      // 3. 全体平均のグラフデータ (1-10のみ)
-      const averageChartData = google.visualization.arrayToDataTable([
-          ['スコア', '割合', { role: 'annotation' }],
-          // ★ '0' の行を削除
-          ['1', 0, '0%'], ['2', 0, '0%'], ['3', 1, '1%'],
-          ['4', 1, '1%'], ['5', 3, '3%'], ['6', 4, '4%'], ['7', 12, '12%'],
-          ['8', 28, '28%'], ['9', 20, '20%'], ['10', 30, '30%']
-      ]);
-      // ★ 平均NPSスコアは「0」を含めて計算 (ハードコード値は変更なし)
-      const overallNPS = 41.8; // ( (20+30) - (1+0+0+1+1+3+4) )
-
-      // 4. グラフオプション
-      const opt = {
-          legend: { position: 'none' },
-          colors: ['#4285F4'], // 棒グラフの色
-          annotations: {
-              textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },
-              alwaysOutside: false,
-              stem: { color: 'transparent' }
-          },
-          // =================================================================
-          // === ▼▼▼ 修正点 3: NPS Y軸バグ修正 ▼▼▼ ===
-          // =================================================================
-          vAxis: { 
-              // ★ Y軸のフォーマットを修正 (1000% バグ修正)
-              format: "#.##'%'", // 渡された数値 (例: 15) に '%' を付けます (例: 15%)
-              title: '割合(%)',
-              viewWindow: { min: 0 } 
-          },
-          // =================================================================
-          // === ▲▲▲ 修正点 3: NPS Y軸バグ修正 ▲▲▲ ===
-          // =================================================================
-          hAxis: {
-              title: '推奨度スコア (1〜10)' // ★ ラベルを 1-10 に変更
-          },
-          bar: { groupWidth: '80%' },
-          isStacked: false
-      };
-      
-      // 5. 貴院のグラフ描画
-      // const clinicChartEl = document.getElementById('clinic-bar-chart'); // 上で取得済み
-      if (totalCount > 0 && clinicChartData.length > 1) {
-          const clinicData = google.visualization.arrayToDataTable(clinicChartData);
-          const clinicChart = new google.visualization.ColumnChart(clinicChartEl);
-          clinicChart.draw(clinicData, opt);
-      } else {
-          // clinicChartData.length <= 1 は「データなし」と同じ
-          clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
-      }
-
-      // 6. 全体平均のグラフ描画とNPSスコア表示
-      // const averageChartEl = document.getElementById('average-bar-chart'); // 上で取得済み
-      // 既存のグラフ描画
-      const averageChart = new google.visualization.ColumnChart(averageChartEl);
-      averageChart.draw(averageChartData, opt);
-      
-      // =================================================================
-      // === ▼▼▼ 修正点 4: NPSスコア表示 フォントサイズ調整 ▼▼▼ ===
-      // =================================================================
-      // グラフの上にある <H3> タグ (average-bar-chart の親の親のH3) を見つけて書き換える
-      const averageHeaderEl = averageChartEl.parentElement.querySelector('h3');
-      if (averageHeaderEl) {
-          averageHeaderEl.innerHTML = `
-              // ★ 外側の div のクラスを text-2xl に変更
-              <div class="text-left text-2xl space-y-2">
-                  <p>全体平均　　NPS: ${overallNPS.toFixed(1)}</p>
-                  // ★ span の text-2xl は削除 (親に指定するため)
-                  <p>貴院　　NPS: <span class="font-bold text-red-600">${npsScore.toFixed(1)}</span></p>
-              </div>
-          `;
-          // ★ クラス名を text-2xl に変更
-          averageHeaderEl.className = "font-normal text-2xl mb-4 text-left"; // text-center を解除
-      }
-      // =================================================================
-      // === ▲▲▲ 修正点 4 ▲▲▲ ===
-      // =================================================================
-      
-      // 「貴院の結果」のH3も調整
-      const clinicHeaderEl = clinicChartEl.parentElement.querySelector('h3');
-      if (clinicHeaderEl) {
-           clinicHeaderEl.className = "font-bold text-xl mb-4 text-left"; // text-center を解除
-           // totalCount (全件数) には 0 の票も含まれるため、この表記で正しい
-           clinicHeaderEl.textContent = `貴院の結果 (全 ${totalCount} 件)`;
-      }
-  }
-  // =================================================================
-  // === ▲▲▲ 修正点 2: NPS X軸 (1-10) ▲▲▲ ===
-  // =================================================================
-
 
   /**
    * おすすめ理由グラフ(N列)の準備と表示 (AI分類実行)
@@ -858,7 +802,7 @@
   }
 
   // =================================================================
-  // === ▲▲▲ 新規関数はここまで ▲▲▲ ===
+  // === ▲▲▲ [新規] おすすめ理由グラフ (変更なし) ▲▲▲ ===
   // =================================================================
 
 
