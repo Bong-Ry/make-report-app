@@ -1,6 +1,9 @@
 const { google } = require('googleapis');
 const { getSpreadsheetIdFromUrl } = require('../utils/helpers'); // 既存のヘルパー
 
+// ▼▼▼ いただいたGAS WebアプリURLに更新 ▼▼▼
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
+
 const KEYFILEPATH = '/etc/secrets/credentials.json';
 // ▼▼▼ スコープを「読み書き」に変更し、Driveスコープも追加 ▼▼▼
 const SCOPES = [
@@ -70,91 +73,52 @@ exports.getMasterClinicUrls = async () => {
 };
 
 // =================================================================
-// === ▼▼▼ 関数 (1/7) を修正 ▼▼▼ ===
-// GaxiosError: The caller does not have permission 対策
-// sheets.create ではなく drive.files.create を使う
+// === ▼▼▼ 関数 (1/7) をGAS呼び出しに修正 ▼▼▼ ===
+// GaxiosError: The user's Drive storage quota has been exceeded. 対策
+// drive.files.create の代わりに、GASのWebアプリを呼び出す
 // =================================================================
 exports.findOrCreateCentralSheet = async (periodText) => {
-    if (!sheets || !drive) throw new Error('Google APIクライアントが初期化されていません。');
+    // ★ drive APIの代わりにGASを呼び出すため、sheets や drive クライアントは不要
 
     const fileName = periodText; // 例: "2025-09～2025-10"
-    console.log(`[googleSheetsService] Finding or creating central sheet: "${fileName}"`);
+    console.log(`[googleSheetsService] Finding or creating central sheet via GAS: "${fileName}"`);
 
     try {
-        // 1. フォルダ内をファイル名で検索
-        const searchRes = await drive.files.list({
-            q: `name='${fileName}' and '${MASTER_FOLDER_ID}' in parents and trashed=false`,
-            fields: 'files(id, name)',
-            spaces: 'drive',
-        });
-
-        if (searchRes.data.files && searchRes.data.files.length > 0) {
-            // 2. 見つかった場合: IDを返す
-            const fileId = searchRes.data.files[0].id;
-            console.log(`[googleSheetsService] Found existing sheet. ID: ${fileId}`);
-            return fileId;
-        }
-
-        // 3. 見つからない場合: ★ Drive API を使ってフォルダ内に直接作成 ★
-        console.log(`[googleSheetsService] No existing sheet found. Creating new one directly in folder...`);
-        const createRes = await drive.files.create({
-            resource: {
-                name: fileName,
-                mimeType: 'application/vnd.google-apps.spreadsheet',
-                parents: [MASTER_FOLDER_ID] // フォルダIDを直接指定
+        // 1. ★ GAS Web App URL に fetch (POST)
+        const response = await fetch(GAS_WEB_APP_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
             },
-            fields: 'id'
+            body: JSON.stringify({
+                periodText: fileName,
+                folderId: MASTER_FOLDER_ID // (念のためフォルダIDも渡す)
+            })
         });
 
-        const newSheetId = createRes.data.id;
-        console.log(`[googleSheetsService] Created new sheet via Drive API. ID: ${newSheetId}.`);
-
-        // 4. ★ デフォルトの "Sheet1" (sheetId=0) を "全体" にリネーム ★
-        await sheets.spreadsheets.batchUpdate({
-            spreadsheetId: newSheetId,
-            resource: {
-                requests: [
-                    {
-                        updateSheetProperties: {
-                            properties: {
-                                sheetId: 0, // デフォルトシートのIDは常に0
-                                title: '全体'
-                            },
-                            fields: 'title'
-                        }
-                    }
-                ]
-            }
-        });
-        console.log(`[googleSheetsService] Renamed 'Sheet1' to '全体'.`);
-        
-        // 5. ユーザー定義（フォームの回答 1）のシート名を追加
-        // ※ 確実に 'フォームの回答 1' が存在するようにするため
-        try {
-            await addSheet(newSheetId, 'フォームの回答 1');
-            console.log(`[googleSheetsService] Added 'フォームの回答 1' sheet for user preference.`);
-        } catch (e) {
-             console.warn(`[googleSheetsService] Could not add 'フォームの回答 1' sheet (maybe exists): ${e.message}`);
+        if (!response.ok) {
+            throw new Error(`GAS Web App request failed with status ${response.status}: ${await response.text()}`);
         }
 
-        return newSheetId;
+        // 2. ★ GASからのJSONレスポンスを解析
+        const result = await response.json();
+
+        if (result.status === 'ok' && result.spreadsheetId) {
+            // 3. 成功: IDを返す
+            console.log(`[googleSheetsService] GAS operation successful. ID: ${result.spreadsheetId}`);
+            return result.spreadsheetId;
+        } else {
+            // 4. GAS側でのエラー
+            console.error('[googleSheetsService] GAS Web App returned an error:', result.message);
+            throw new Error(`GAS側でのシート作成に失敗しました: ${result.message || '不明なエラー'}`);
+        }
 
     } catch (err) {
-        // === ▼▼▼ 詳細ログ（前回の修正） ▼▼▼ ===
-        console.error(`[googleSheetsService] Error in findOrCreateCentralSheet for "${fileName}".`);
-        
-        // GaxiosError の詳細を出力
-        if (err.response && err.response.data) {
-            console.error('[DETAILED_ERROR] Response Data:', JSON.stringify(err.response.data, null, 2));
-        }
-        if (err.errors) {
-            console.error('[DETAILED_ERROR] Errors Array:', JSON.stringify(err.errors, null, 2));
-        }
-        // スタックトレース全体も出力
-        console.error(err); 
-        // === ▲▲▲ 詳細ログ ▲▲▲ ===
+        // 5. fetch自体、またはGAS呼び出しの全般的なエラー
+        console.error(`[googleSheetsService] Error in findOrCreateCentralSheet (GAS) for "${fileName}".`);
+        console.error(err); // スタックトレース全体も出力
 
-        throw new Error(`集計スプレッドシートの検索または作成に失敗しました: ${err.message}`);
+        throw new Error(`集計スプレッドシートの検索または作成に失敗しました (GAS): ${err.message}`);
     }
 };
 // =================================================================
@@ -179,14 +143,20 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
     const processedClinics = []; // 正常に処理できたクリニック名
 
     for (const clinicName in clinicUrls) {
-        const clinicSheetId = clinicUrls[clinicName];
-        console.log(`[googleSheetsService-ETL] Processing ${clinicName} (Source ID: ${clinicSheetId})`);
+        // ★ 修正: getSpreadsheetIdFromUrl をここで呼び出す
+        const sourceSheetId = getSpreadsheetIdFromUrl(clinicUrls[clinicName]);
+        if (!sourceSheetId) {
+            console.warn(`[googleSheetsService-ETL] Invalid URL for ${clinicName}. Skipping.`);
+            continue;
+        }
+        
+        console.log(`[googleSheetsService-ETL] Processing ${clinicName} (Source ID: ${sourceSheetId})`);
 
         try {
             // 1. 元データ（フォームの回答 1）を読み取る
             const range = "'フォームの回答 1'!A:R"; // R列(郵便番号)まで
             const clinicDataResponse = await sheets.spreadsheets.values.get({
-                spreadsheetId: clinicSheetId,
+                spreadsheetId: sourceSheetId, // ★ 修正
                 range: range,
                 dateTimeRenderOption: 'SERIAL_NUMBER',
                 valueRenderOption: 'UNFORMATTED_VALUE'
@@ -676,3 +646,7 @@ async function readCell(spreadsheetId, sheetName, cell) {
         throw e;
     }
 }
+
+// ★ 既存の getSpreadsheetIdFromUrl を googleSheetsService の末尾にもエクスポート
+// (controllers/reportController.js で使われているため)
+exports.getSpreadsheetIdFromUrl = getSpreadsheetIdFromUrl;
