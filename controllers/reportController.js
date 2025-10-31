@@ -1,7 +1,5 @@
 const googleSheetsService = require('../services/googleSheets');
 const pdfGeneratorService = require('../services/pdfGenerator');
-// ▼▼▼ getSpreadsheetIdFromUrl は不要になったため削除 ▼▼▼
-// const { getSpreadsheetIdFromUrl } = require('../utils/helpers');
 
 // --- (変更なし) クリニック一覧取得 ---
 exports.getClinicList = async (req, res) => {
@@ -17,8 +15,33 @@ exports.getClinicList = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 新規API (1/3) ▼▼▼ ===
-// 集計用スプレッドシートの検索または新規作成
+// === ▼▼▼ 新規API (要求 #6 転記状況の確認) ▼▼▼ ===
+// =================================================================
+/**
+ * [新規] 集計スプレッドシート内の全タブ名を取得する
+ * (フロントエンドが「転記済みか」を判断するために使う)
+ */
+exports.getTransferredList = async (req, res) => {
+    const { centralSheetId } = req.body;
+    console.log(`POST /api/getTransferredList called for: ${centralSheetId}`);
+
+    if (!centralSheetId) {
+        return res.status(400).send('Invalid request: centralSheetId required.');
+    }
+    
+    try {
+        const sheetTitles = await googleSheetsService.getSheetTitles(centralSheetId);
+        // sheetTitles = ["全体", "フォームの回答 1", "あらかわレディースクリニック", "サンプルクリニック", ...]
+        res.json({ sheetTitles: sheetTitles });
+    } catch (err) {
+        console.error('[/api/getTransferredList] Error:', err);
+        res.status(500).send(err.message || '転記済みシート一覧の取得に失敗しました。');
+    }
+};
+
+
+// =================================================================
+// === (変更なし) findOrCreateSheet (1/3) ===
 // =================================================================
 exports.findOrCreateSheet = async (req, res) => {
     const { periodText } = req.body;
@@ -38,11 +61,10 @@ exports.findOrCreateSheet = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 更新API (2/3) ▼▼▼ ===
-// 役割変更: 「レポート発行」ボタンで呼ばれ、データ転記(ETL)を実行する
+// === ▼▼▼ 更新API (2/3) (バグ修正) ▼▼▼ ===
+// (前回修正した getSpreadsheetIdFromUrl のロジックが間違っていたため修正)
 // =================================================================
 exports.getReportData = async (req, res) => {
-    // ▼▼▼ centralSheetId をリクエストから受け取る ▼▼▼
     const { period, selectedClinics, centralSheetId } = req.body;
     console.log('POST /api/getReportData (ETL Trigger) called');
     console.log('[/api/getReportData] Request Body:', req.body);
@@ -59,53 +81,27 @@ exports.getReportData = async (req, res) => {
             console.log('[/api/getReportData] No clinic/URL data found in master sheet.');
             return res.json({});
         }
+        
+        // ▼▼▼ [修正点] clinicUrls のマップには ID ではなく「元URL」を格納する ▼▼▼
         const clinicUrls = {};
         Object.entries(masterClinicUrls).forEach(([clinicName, sheetUrl]) => {
             if (selectedClinics.includes(clinicName) && sheetUrl) {
-                // getSpreadsheetIdFromUrl は googleSheetsService 側で実行される
-                // ここでは元URLのマップではなく、IDのマップを渡す必要がある
-                // ※※ services/googleSheets.js の getMasterClinicUrls がIDを返すと仮定 ※※
-                // → services/googleSheets.js の getMasterClinicUrls はURLを返すままだった
-                // → → services/googleSheets.js (前回の) を修正する必要がある
-                
-                // --- services/googleSheets.js の getMasterClinicUrls を修正する前提で進めます ---
-                // ※※※
-                // 変更案: 
-                // services/googleSheets.js の getMasterClinicUrls 内で getSpreadsheetIdFromUrl を呼ぶようにする
-                // (前回のファイル出力を修正)
-                // 
-                // [前回]
-                // if (row[0] && row[1]) { urlMap[row[0]] = row[1]; }
-                // [修正案]
-                // if (row[0] && row[1]) { 
-                //   const sheetId = getSpreadsheetIdFromUrl(row[1]);
-                //   if (sheetId) { urlMap[row[0]] = sheetId; }
-                // }
-                // ※※※
-                
-                // (上記の修正が services/googleSheets.js に適用されたと仮定して)
-                // 
-                // [修正後のロジック]
-                const sourceSheetId = googleSheetsService.getSpreadsheetIdFromUrl(sheetUrl);
-                if (sourceSheetId) {
-                    clinicUrls[clinicName] = sourceSheetId;
-                } else {
-                     console.warn(`[/api/getReportData] Invalid URL found for ${clinicName}: ${sheetUrl}`);
-                }
+                clinicUrls[clinicName] = sheetUrl; // URL (https://...) をそのまま渡す
             }
         });
         
-        console.log('[/api/getReportData] Target Source Sheet IDs:', clinicUrls);
+        // ▼▼▼ [修正点] ログに表示するのはURL ▼▼▼
+        console.log('[/api/getReportData] Target Source Sheet URLs:', clinicUrls);
         if (Object.keys(clinicUrls).length === 0) {
-            console.warn('[/api/getReportData] No valid source sheet IDs found for selected clinics.');
+            console.warn('[/api/getReportData] No valid source sheet URLs found for selected clinics.');
             return res.json({ status: 'ok', processed: [] });
         }
+        // (IDへの変換は services/googleSheets.js の fetchAndAggregateReportData 側で行われる)
 
-        // 2. ▼▼▼ データを集計スプシに「転記」する (ETL実行) ▼▼▼
+        // 2. データを集計スプシに「転記」する (ETL実行)
         const processedClinics = await googleSheetsService.fetchAndAggregateReportData(clinicUrls, period, centralSheetId);
         
         console.log('[/api/getReportData] Finished ETL process. Processed clinics:', processedClinics);
-        // ▼▼▼ 成功ステータスと処理済みクリニック名を返す ▼▼▼
         res.json({ status: 'ok', processed: processedClinics });
 
     } catch (err) {
@@ -115,8 +111,7 @@ exports.getReportData = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 新規API (3/3) ▼▼▼ ===
-// 集計スプシから「集計済みのグラフ用データ」を取得する
+// === (変更なし) getChartData (3/3) ===
 // =================================================================
 exports.getChartData = async (req, res) => {
     const { centralSheetId, sheetName } = req.body;
@@ -127,6 +122,7 @@ exports.getChartData = async (req, res) => {
     }
     
     try {
+        // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts を呼び出す
         const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, sheetName);
         res.json(reportData);
     } catch (err) {
@@ -136,12 +132,10 @@ exports.getChartData = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 更新API ▼▼▼ ===
-// PDF生成ロジックを、集計スプシからのデータ取得に変更
+// === (変更なし) PDF生成 ===
 // =================================================================
 exports.generatePdf = async (req, res) => {
     console.log("POST /generate-pdf called");
-    // ▼▼▼ reportData の代わりに centralSheetId と clinicName を受け取る ▼▼▼
     const { clinicName, periodText, centralSheetId } = req.body;
     
     if (!clinicName || !periodText || !centralSheetId) {
@@ -150,11 +144,10 @@ exports.generatePdf = async (req, res) => {
     }
 
     try {
-        // ▼▼▼ PDF生成に必要なデータを集計スプシから取得 ▼▼▼
+        // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts を呼び出す
         console.log(`[/generate-pdf] Fetching data for PDF from sheet: "${clinicName}"`);
         const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
         
-        // (pdfGeneratorService は npsData しか使っていないため、これだけで動くはず)
         const pdfBuffer = await pdfGeneratorService.generatePdfFromData(clinicName, periodText, reportData);
 
         res.contentType('application/pdf');

@@ -45,7 +45,7 @@ k<!DOCTYPE html>
 
   <div id="screen1" class="screen"> <div class="card max-w-lg mx-auto mt-12"> <div class="text-center mb-8"> <h1 class="text-2xl font-bold text-gray-800">集計期間の選択</h1> <p class="text-sm text-gray-500 mt-2">レポートを生成する期間を設定してください。</p> </div> <div class="space-y-6"> <div> <label for="start-year" class="font-bold text-gray-700 mb-2 block text-sm">開始年月</label> <div class="grid grid-cols-2 gap-4"> <select id="start-year" class="select-box"></select> <select id="start-month" class="select-box"></select> </div> </div> <div> <label for="end-year" class="font-bold text-gray-700 mb-2 block text-sm">終了年月</label> <div class="grid grid-cols-2 gap-4"> <select id="end-year" class="select-box"></select> <select id="end-month" class="select-box"></select> </div> </div> <div class="pt-4 border-t mt-6"> <button id="next-to-clinics" class="btn w-full bg-gray-800 text-white hover:bg-gray-700">次へ進む</button> </div> </div> </div> </div>
 
-  <div id="screen2" class="screen hidden"> <header class="flex justify-between items-center mb-6 pb-4 border-b"> <button id="back-to-period" class="btn">&lt; 期間選択へ戻る</button> <div id="period-display" class="text-base font-semibold text-gray-700 bg-white py-2 px-4 rounded-lg shadow-sm border"></div> </header> <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:px-8"> <section class="card"> <h2 class="text-xl font-bold mb-5">1. クリニックを選択</h2> <div id="clinic-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2 border rounded-lg p-4 bg-gray-50"> <p class="text-sm text-gray-500 text-center py-4">読み込み中...</p> </div> <div class="mt-6 text-right"> <button id="issue-btn" class="btn bg-gray-800 text-white hover:bg-gray-700" disabled>データ転記実行</button> </div> </section> <section class="card"> <h2 class="text-xl font-bold mb-5">2. 転記済みレポートを閲覧</h2> <div id="issued-list-container" class="space-y-3"> <p class="text-sm text-gray-500 text-center py-8">まだ転記されたレポートはありません。</p> </div> </section> </main> </div>
+  <div id="screen2" class="screen hidden"> <header class="flex justify-between items-center mb-6 pb-4 border-b"> <button id="back-to-period" class="btn">&lt; 期間選択へ戻る</button> <div id="period-display" class="text-base font-semibold text-gray-700 bg-white py-2 px-4 rounded-lg shadow-sm border"></div> </header> <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:px-8"> <section class="card"> <h2 class="text-xl font-bold mb-5">1. クリニックを選択 (未転記)</h2> <div id="clinic-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2 border rounded-lg p-4 bg-gray-50"> <p class="text-sm text-gray-500 text-center py-4">読み込み中...</p> </div> <div class="mt-6 text-right"> <button id="issue-btn" class="btn bg-gray-800 text-white hover:bg-gray-700" disabled>データ転記実行</button> </div> </section> <section class="card"> <h2 class="text-xl font-bold mb-5">2. レポートを閲覧 (転記済み)</h2> <div id="issued-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2"> <p class="text-sm text-gray-500 text-center py-8">読み込み中...</p> </div> </section> </main> </div>
 
   <div id="screen3" class="screen hidden">
     <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
@@ -102,22 +102,134 @@ k<!DOCTYPE html>
     </main>
   </div>
 
-  <div id="screen4" class="screen hidden"> <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200"> <div class="flex items-center gap-4 ml-auto"> <button id="back-to-clinics-from-analysis" class="btn">院一覧へ戻る</button> </div> </header> <main class="card"> <div class="text-center mb-8 pb-4 border-b"> <h1 id="analysis-title" class="text-2xl font-bold"></h1> <p class="text-sm text-gray-500 mt-2"> 文章中に出現する単語の頻出度を表しています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。<br> 通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。 </p> </div> <div class="grid grid-cols-1 md:grid-cols-2 gap-8"> <div class="space-y-4"> <div id="noun-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-blue-600">名詞</h3> <div id="noun-chart"></div> </div> <div id="verb-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-red-600">動詞</h3> <div id="verb-chart"></div> </div> <div id="adj-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-green-600">形容詞</h3> <div id="adj-chart"></div> </div> <div id="int-chart-container" class="chart-container"> <h3 class="font-bold text-center mb-2 text-gray-600">感動詞</h3> <div id="int-chart"></div> </div> </div> <div class="space-y-6"> <div> <p class="text-sm text-gray-600"> ワードクラウドスコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br> 単語の色は品詞の種類で異なる。<br> <span class="text-blue-600 font-semibold">青色=名詞</span>、 <span class="text-red-600 font-semibold">赤色=動詞</span>、 <span class="text-green-600 font-semibold">緑色=形容詞</span>、 <span class="text-gray-600 font-semibold">灰色=感動詞</span> </p> </div> <div id="word-cloud-container"> <canvas id="word-cloud-canvas"></canvas> </div> <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div> </div> </div> </main> </div>
-
-  <div id="report-type-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden"><div class="bg-white p-8 shadow-xl w-full max-w-md rounded-xl transform transition-all duration-300 scale-95 opacity-0"><h2 class="text-xl font-bold mb-6 text-center">表示するレポートを選択</h2><div class="flex flex-wrap justify-center gap-3"><button data-report-type="nps" class="btn">NPS推奨度 理由</button><button data-report-type="feedback_i" class="btn">良かった点・悪かった点</button><button data-report-type="feedback_j" class="btn">印象に残ったスタッフ</button><button data-report-type="feedback_m" class="btn">お産にかかわるご意見</button><button data-report-type="satisfaction_b" class="btn">満足度</button><button data-report-type="satisfaction_c" class="btn">施設</button><button data-report-type="satisfaction_d" class="btn">アクセス</button><button data-report-type="satisfaction_e" class="btn">価格</button><button data-report-type="satisfaction_f" class="btn">雰囲気</button><button data-report-type="satisfaction_g" class="btn">スタッフ対応</button><button data-report-type="satisfaction_h" class="btn">先生の説明</button><button data-report-type="age" class="btn">年代</button><button data-report-type="children" class="btn">お子様の数</button><button data-report-type="income" class="btn">世帯年収</button></div><div class="mt-8 text-center"><button id="cancel-report-selection" class="text-sm text-gray-600 hover:underline">キャンセル</button></div></div></div>
-
-  <div id="screen5" class="screen hidden">
+  <div id="screen4" class="screen hidden">
     <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
-        <div class="text-center md:text-left">
-            <h1 id="detailed-analysis-title" class="text-2xl font-bold text-gray-800">詳細分析レポート</h1>
-            <p id="detailed-analysis-subtitle" class="text-sm text-gray-500 mt-1"></p>
+        <div id="report-nav-screen4" class="flex flex-wrap justify-center items-center gap-2">
+            <button data-report-type="nps_score" class="btn">NPS値集計</button>
+            <button data-report-type="recommendation" class="btn">おすすめ理由</button>
+            <button data-report-type="nps" class="btn">NPS理由</button>
+            <button data-report-type="feedback_i" class="btn">良かった点</button>
+            <button data-report-type="feedback_j" class="btn">印象スタッフ</button>
+            <button data-report-type="feedback_m" class="btn">お産意見</button>
+            <button data-report-type="municipality" class="btn">市区町村</button>
+            <button data-report-type="satisfaction_b" class="btn">満足度</button>
+            <button data-report-type="satisfaction_c" class="btn">施設</button>
+            <button data-report-type="satisfaction_d" class="btn">アクセス</button>
+            <button data-report-type="satisfaction_e" class="btn">価格</button>
+            <button data-report-type_f="satisfaction_f" class="btn">雰囲気</button>
+            <button data-report-type_g="satisfaction_g" class="btn">スタッフ対応</button>
+            <button data-report-type_h="satisfaction_h" class="btn">先生説明</button>
+            <button data-report-type="age" class="btn">年代</button>
+            <button data-report-type="children" class="btn">お子様数</button>
+            <button data-report-type="income" class="btn">世帯年収</button>
+            <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-NPS</button>
+            <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-良い点</button>
+            <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-スタッフ</button>
+            <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-お産</button>
+            <button data-detailed-analysis-type="L" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-NPS</button>
+            <button data-detailed-analysis-type="I_good" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-良い点</button>
+            <button data-detailed-analysis-type="I_bad" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-悪い点</button>
+            <button data-detailed-analysis-type="J" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-スタッフ</button>
+            <button data-detailed-analysis-type="M" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-お産</button>
         </div>
         <div class="flex items-center gap-4">
-            <button id="regenerate-detailed-analysis-btn" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">AI分析を再実行</button>
-            <button id="edit-detailed-analysis-btn" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">編集</button>
-            <button id="save-detailed-analysis-btn" class="btn !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white hidden">保存</button>
-            <button id="cancel-edit-detailed-analysis-btn" class="btn !border-gray-600 !text-gray-600 hover:!bg-gray-600 hover:!text-white hidden">キャンセル</button>
-            <button id="back-to-clinics-from-detailed-analysis" class="btn">院一覧へ戻る</button>
+            <button id="pdf-export-btn-screen4" class="btn bg-gray-800 text-white hover:bg-gray-700 hidden">PDF出力</button>
+            <button id="back-to-clinics-from-analysis" class="btn">院一覧へ戻る</button>
+        </div>
+    </header>
+    <main class="card">
+        <div class="text-center mb-8 pb-4 border-b">
+            <h1 id="analysis-title" class="text-2xl font-bold"></h1>
+            <p class="text-sm text-gray-500 mt-2">
+                文章中に出現する単語の頻出度を表しています。<br class="md:hidden">単語ごとに表示されている「スコア」は出現回数を示します。<br>
+                「言う」や「思う」など、一般的すぎる単語はストップワードとして除外されています。
+            </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="space-y-4">
+                <div id="noun-chart-container" class="chart-container">
+                    <h3 class="font-bold text-center mb-2 text-blue-600">名詞</h3>
+                    <div id="noun-chart"></div>
+                </div>
+                <div id="verb-chart-container" class="chart-container">
+                    <h3 class="font-bold text-center mb-2 text-red-600">動詞</h3>
+                    <div id="verb-chart"></div>
+                </div>
+                <div id="adj-chart-container" class="chart-container">
+                    <h3 class="font-bold text-center mb-2 text-green-600">形容詞</h3>
+                    <div id="adj-chart"></div>
+                </div>
+                <div id="int-chart-container" class="chart-container">
+                    <h3 class="font-bold text-center mb-2 text-gray-600">感動詞</h3>
+                    <div id="int-chart"></div>
+                </div>
+            </div>
+            <div class="space-y-6">
+                <div>
+                    <p class="text-sm text-gray-600">
+                        スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>
+                        単語の色は品詞の種類で異なります。<br>
+                        <span class="text-blue-600 font-semibold">青色=名詞</span>、
+                        <span class="text-red-600 font-semibold">赤色=動詞</span>、
+                        <span class="text-green-600 font-semibold">緑色=形容詞</span>、
+                        <span class="text-gray-600 font-semibold">灰色=感動詞</span>
+                    </p>
+                </div>
+                <div id="word-cloud-container">
+                    <canvas id="word-cloud-canvas"></canvas>
+                </div>
+                <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
+            </div>
+        </div>
+    </main>
+  </div>
+  <div id="screen5" class="screen hidden">
+    <header class="mb-6 flex flex-col space-y-4 pb-6 border-b border-gray-200">
+        <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <div id="report-nav-screen5" class="flex flex-wrap justify-center items-center gap-2">
+                <button data-report-type="nps_score" class="btn">NPS値集計</button>
+                <button data-report-type="recommendation" class="btn">おすすめ理由</button>
+                <button data-report-type="nps" class="btn">NPS理由</button>
+                <button data-report-type="feedback_i" class="btn">良かった点</button>
+                <button data-report-type="feedback_j" class="btn">印象スタッフ</button>
+                <button data-report-type="feedback_m" class="btn">お産意見</button>
+                <button data-report-type="municipality" class="btn">市区町村</button>
+                <button data-report-type="satisfaction_b" class="btn">満足度</button>
+                <button data-report-type="satisfaction_c" class="btn">施設</button>
+                <button data-report-type="satisfaction_d" class="btn">アクセス</button>
+                <button data-report-type="satisfaction_e" class="btn">価格</button>
+                <button data-report-type_f="satisfaction_f" class="btn">雰囲気</button>
+                <button data-report-type_g="satisfaction_g" class="btn">スタッフ対応</button>
+                <button data-report-type_h="satisfaction_h" class="btn">先生説明</button>
+                <button data-report-type="age" class="btn">年代</button>
+                <button data-report-type="children" class="btn">お子様数</button>
+                <button data-report-type="income" class="btn">世帯年収</button>
+                <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-NPS</button>
+                <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-良い点</button>
+                <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-スタッフ</button>
+                <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-お産</button>
+                <button data-detailed-analysis-type="L" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-NPS</button>
+                <button data-detailed-analysis-type="I_good" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-良い点</button>
+                <button data-detailed-analysis-type="I_bad" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-悪い点</button>
+                <button data-detailed-analysis-type="J" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-スタッフ</button>
+                <button data-detailed-analysis-type="M" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-お産</button>
+            </div>
+            <div class="flex items-center gap-4">
+                 <button id="pdf-export-btn-screen5" class="btn bg-gray-800 text-white hover:bg-gray-700 hidden">PDF出力</button>
+                 <button id="back-to-clinics-from-detailed-analysis" class="btn">院一覧へ戻る</button>
+            </div>
+        </div>
+        <div class="mt-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <div class="text-center md:text-left">
+                <h1 id="detailed-analysis-title" class="text-2xl font-bold text-gray-800">詳細分析レポート</h1>
+                <p id="detailed-analysis-subtitle" class="text-sm text-gray-500 mt-1"></p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="regenerate-detailed-analysis-btn" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">AI分析を再実行</button>
+                <button id="edit-detailed-analysis-btn" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">編集</button>
+                <button id="save-detailed-analysis-btn" class="btn !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white hidden">保存</button>
+                <button id="cancel-edit-detailed-analysis-btn" class="btn !border-gray-600 !text-gray-600 hover:!bg-gray-600 hover:!text-white hidden">キャンセル</button>
+            </div>
         </div>
     </header>
     <main class="card">
@@ -132,22 +244,19 @@ k<!DOCTYPE html>
         <div id="detailed-analysis-content-area">
             <div id="content-analysis" class="tab-content">
                 <div id="display-analysis" class="text-base leading-relaxed text-gray-700 whitespace-pre-wrap"></div>
-                <div id="edit-analysis" class_name="hidden">
-                    <textarea id="textarea-analysis" class="edit-textarea"></textarea>
+                <div id="edit-analysis" class="hidden"> <textarea id="textarea-analysis" class="edit-textarea"></textarea>
                 </div>
             </div>
 
             <div id="content-suggestions" class="tab-content hidden">
                  <div id="display-suggestions" class="text-base leading-relaxed text-gray-700 whitespace-pre-wrap"></div>
-                <div id="edit-suggestions" class_name="hidden">
-                    <textarea id="textarea-suggestions" class="edit-textarea"></textarea>
+                <div id="edit-suggestions" class="hidden"> <textarea id="textarea-suggestions" class="edit-textarea"></textarea>
                 </div>
             </div>
 
             <div id="content-overall" class="tab-content hidden">
                  <div id="display-overall" class="text-base leading-relaxed text-gray-700 whitespace-pre-wrap"></div>
-                <div id="edit-overall" class_name="hidden">
-                    <textarea id="textarea-overall" class="edit-textarea"></textarea>
+                <div id="edit-overall" class="hidden"> <textarea id="textarea-overall" class="edit-textarea"></textarea>
                 </div>
             </div>
 
@@ -158,16 +267,17 @@ k<!DOCTYPE html>
   </div>
   <script>
   // --- グローバル変数 (変更) ---
-  let selectedPeriod = {}; // { start: "YYYY-MM", end: "YYYY-MM" }
-  let issuedReports = {}; // { "クリニックA": { timestamp: "...", centralSheetId: "...", periodText: "..." } }
+  let selectedPeriod = {}; 
+  // ▼▼▼ [変更点] issuedReports は不要 (要求 #6) ▼▼▼
+  // let issuedReports = {}; 
   let currentClinicForModal = '';
-  let slidesData = []; // スライド用
-  let currentPage = 1; // スライド用
-  let currentAnalysisTarget = 'L'; // WC用
-  let currentDetailedAnalysisType = 'L'; // AI分析用
-  let isEditingDetailedAnalysis = false; // AI分析編集モード
-  let currentCentralSheetId = null; // ★ 現在の集計スプレッドシートID
-  let currentPeriodText = ""; // ★ 現在の集計期間テキスト
+  let slidesData = []; 
+  let currentPage = 1; 
+  let currentAnalysisTarget = 'L'; 
+  let currentDetailedAnalysisType = 'L'; 
+  let isEditingDetailedAnalysis = false; 
+  let currentCentralSheetId = null; 
+  let currentPeriodText = ""; 
 
   // --- Google Charts ロード (変更なし) ---
   const googleChartsLoaded = new Promise(resolve => { google.charts.load('current', {'packages':['corechart', 'bar']}); google.charts.setOnLoadCallback(resolve); });
@@ -190,38 +300,44 @@ k<!DOCTYPE html>
 
   // --- イベントリスナー設定 (変更) ---
   function setupEventListeners() {
-    document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); // ★ 変更
-    document.getElementById('issue-btn').addEventListener('click', handleIssueReport); // ★ 変更
+    document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); 
+    document.getElementById('issue-btn').addEventListener('click', handleIssueReport); 
     document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClick);
-    document.getElementById('report-type-modal').addEventListener('click', handleReportModalClick);
+    
+    // ▼▼▼ [削除] モーダル関連のリスナー (要求 #7) ▼▼▼
+    // document.getElementById('report-type-modal').addEventListener('click', handleReportModalClick);
+    // document.getElementById('cancel-report-selection').addEventListener('click', () => showReportModal(false));
+
+    // ▼▼▼ [変更点] screen3, 4, 5 のナビゲーション (要求 #5) ▼▼▼
     document.getElementById('report-nav').addEventListener('click', handleReportNavClick);
-    document.getElementById('cancel-report-selection').addEventListener('click', () => showReportModal(false));
+    document.getElementById('report-nav-screen4').addEventListener('click', handleReportNavClick);
+    document.getElementById('report-nav-screen5').addEventListener('click', handleReportNavClick);
+    
     document.getElementById('prev-slide').addEventListener('click', handlePrevSlide);
     document.getElementById('next-slide').addEventListener('click', handleNextSlide);
     document.getElementById('back-to-clinics').addEventListener('click', () => showScreen('screen2'));
     document.getElementById('back-to-period').addEventListener('click', () => {
-        currentCentralSheetId = null; // ★ 集計IDをリセット
+        currentCentralSheetId = null; 
         currentPeriodText = "";
         showScreen('screen1');
     });
-    document.getElementById('pdf-export-btn').addEventListener('click', generatePdf); // ★ 変更
+    document.getElementById('pdf-export-btn').addEventListener('click', generatePdf); 
     document.getElementById('back-to-clinics-from-analysis').addEventListener('click', () => showScreen('screen2'));
 
-    // --- 詳細分析(Screen 5)用リスナー (変更) ---
+    // --- 詳細分析(Screen 5)用リスナー (変更なし) ---
     document.querySelectorAll('#screen5 .tab-button').forEach(button => { button.addEventListener('click', handleTabClick); });
-    document.getElementById('regenerate-detailed-analysis-btn').addEventListener('click', handleRegenerateDetailedAnalysis); // ★ 再生成ボタン
-    document.getElementById('edit-detailed-analysis-btn').addEventListener('click', () => toggleEditDetailedAnalysis(true)); // ★ 変更
-    document.getElementById('save-detailed-analysis-btn').addEventListener('click', saveDetailedAnalysisEdits); // ★ 変更
+    document.getElementById('regenerate-detailed-analysis-btn').addEventListener('click', handleRegenerateDetailedAnalysis);
+    document.getElementById('edit-detailed-analysis-btn').addEventListener('click', () => toggleEditDetailedAnalysis(true));
+    document.getElementById('save-detailed-analysis-btn').addEventListener('click', saveDetailedAnalysisEdits);
     document.getElementById('cancel-edit-detailed-analysis-btn').addEventListener('click', () => {
         if (confirm('編集内容を破棄しますか？')) {
-            toggleEditDetailedAnalysis(false); // ★ 変更
+            toggleEditDetailedAnalysis(false); 
         }
     });
     document.getElementById('back-to-clinics-from-detailed-analysis').addEventListener('click', () => {
-        toggleEditDetailedAnalysis(false); // 編集モードを強制解除
+        toggleEditDetailedAnalysis(false); 
         showScreen('screen2');
     });
-    // --- ▲▲▲ 詳細分析(Screen 5)用リスナー (変更) ---
   }
 
   // =================================================================
@@ -229,7 +345,6 @@ k<!DOCTYPE html>
   // =================================================================
   function populateDateSelectors() { const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sm.value=String(now.getMonth()+1).padStart(2,'0'); }
 
-  // ★ API呼び出し先を /api/findOrCreateSheet に変更
   async function handleNextToClinics() {
     console.log('Next clicked.');
     const sy=document.getElementById('start-year').value;
@@ -250,14 +365,13 @@ k<!DOCTYPE html>
     document.getElementById('start-month').classList.remove('border-red-500');
 
     selectedPeriod = {start: `${sy}-${sm}`, end: `${ey}-${em}`};
-    currentPeriodText = `${sy}-${sm}～${ey}-${em}`; // ★ スプシファイル名用
+    currentPeriodText = `${sy}-${sm}～${ey}-${em}`; 
     const displayPeriod = `${sy}年${sm}月～${ey}年${em}月`;
 
     console.log('Period:', selectedPeriod, 'File Name:', currentPeriodText);
     showLoading(true, '集計シートを検索・準備中...');
 
     try {
-        // ★ 新しいAPIを呼び出し
         const response = await fetch('/api/findOrCreateSheet', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -270,19 +384,15 @@ k<!DOCTYPE html>
         }
         
         const data = await response.json();
-        currentCentralSheetId = data.centralSheetId; // ★ 集計スプシIDをグローバルに保存
+        currentCentralSheetId = data.centralSheetId; 
         console.log(`Got Central Sheet ID: ${currentCentralSheetId}`);
         
         document.getElementById('period-display').textContent = `集計期間：${displayPeriod}`;
         showScreen('screen2');
 
-        // ★ issuedReports の状態をリセットし、現在の期間のものを設定
-        issuedReports = {};
-        issuedReports[currentPeriodText] = {
-            centralSheetId: currentCentralSheetId,
-            periodText: displayPeriod,
-            clinics: {} // ここに転記済みクリニックを格納
-        };
+        // ▼▼▼ [変更点] issuedReports への設定は不要 (要求 #6) ▼▼▼
+        // issuedReports = {};
+        // issuedReports[currentPeriodText] = { ... };
 
         loadClinics();
     } catch (err) {
@@ -297,74 +407,107 @@ k<!DOCTYPE html>
   // === ▼▼▼ 画面2 (クリニック選択・転記) 処理 (変更) ▼▼▼ ===
   // =================================================================
 
-  // ★ loadClinics: 転記済み状態を反映するように変更
+  // ▼▼▼ [変更点] loadClinics (要求 #6) ▼▼▼
   async function loadClinics() {
-    console.log('loadClinics...');
-    showLoading(true, 'クリニック一覧読込中...');
-    const c=document.getElementById('clinic-list-container');
-    c.innerHTML='<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
+    console.log('loadClinics (new)...');
+    showLoading(true, 'クリニック一覧と転記状況を読込中...');
     
-    // 現在の集計期間の転記済みクリニック情報を取得
-    const periodReport = issuedReports[currentPeriodText];
-    const transferredClinics = periodReport ? periodReport.clinics : {};
+    const clinicListContainer = document.getElementById('clinic-list-container');
+    const issuedListContainer = document.getElementById('issued-list-container');
+    clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
+    issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
+    
+    document.getElementById('issue-btn').disabled = true; // デフォルトは無効
 
-    try{
-        console.log('Fetching list...');
-        const r=await fetch('/api/getClinicList');
-        if(!r.ok){const et=await r.text();throw new Error(`サーバーエラー(${r.status}): ${et}`);}
+    try {
+        // 1. APIを並列呼び出し
+        const [clinicListRes, transferredListRes] = await Promise.all([
+            fetch('/api/getClinicList'),
+            fetch('/api/getTransferredList', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ centralSheetId: currentCentralSheetId })
+            })
+        ]);
+
+        if (!clinicListRes.ok) throw new Error(`クリニック一覧の取得失敗: ${await clinicListRes.text()}`);
+        if (!transferredListRes.ok) throw new Error(`転記済み一覧の取得失敗: ${await transferredListRes.text()}`);
         
-        const clinics=await r.json();
-        console.log('Received clinics:', clinics);
-        c.innerHTML='';
+        const masterClinics = await clinicListRes.json(); // ["クリニックA", "クリニックB"]
+        const { sheetTitles } = await transferredListRes.json(); // ["全体", "クリニックA", "AI-...", ...]
         
-        if(!Array.isArray(clinics) || clinics.length === 0){
-            c.innerHTML='<p class="text-sm text-gray-500 text-center py-4">対象なし</p>';
+        const transferredTitlesSet = new Set(sheetTitles); // 検索用Set
+        
+        // 2. コンテナをクリア
+        clinicListContainer.innerHTML = '';
+        issuedListContainer.innerHTML = '';
+        
+        let untransferredCount = 0;
+        let transferredCount = 0;
+
+        // 3. 描画
+        if (!Array.isArray(masterClinics) || masterClinics.length === 0) {
+            clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">対象なし</p>';
         } else {
-            clinics.forEach(n=>{
-                const d=document.createElement('div');
-                d.className='flex items-center p-2 rounded-md hover:bg-gray-100';
-                
-                // ★ 転記済みかチェック
-                const isTransferred = transferredClinics[n];
-                const checked = isTransferred ? 'checked' : '';
-                const disabled = isTransferred ? 'disabled' : '';
-                const labelColor = isTransferred ? 'text-gray-400' : 'text-gray-900';
-                
-                d.innerHTML = `
-                    <input type="checkbox" id="clinic-${n}" name="clinic" value="${n}" class="mr-3 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-800 cursor-pointer" ${checked} ${disabled}>
-                    <label for="clinic-${n}" class="text-sm select-none cursor-pointer ${labelColor}">${n} ${isTransferred ? '(転記済み)' : ''}</label>
-                `;
-                c.appendChild(d);
+            masterClinics.forEach(clinicName => {
+                if (transferredTitlesSet.has(clinicName)) {
+                    // (B) 転記済み -> 右側
+                    const d = document.createElement('div');
+                    d.className = 'p-4 border rounded-lg cursor-pointer hover:bg-gray-50 hover:shadow-md transition-all duration-200';
+                    d.dataset.clinicName = clinicName;
+                    d.innerHTML = `<p class="font-bold text-base">${clinicName}</p>`;
+                    issuedListContainer.appendChild(d);
+                    transferredCount++;
+                } else {
+                    // (A) 未転記 -> 左側
+                    const d = document.createElement('div');
+                    d.className = 'flex items-center p-2 rounded-md hover:bg-gray-100';
+                    d.innerHTML = `
+                        <input type="checkbox" id="clinic-${clinicName}" name="clinic" value="${clinicName}" class="mr-3 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-800 cursor-pointer">
+                        <label for="clinic-${clinicName}" class="text-sm select-none cursor-pointer text-gray-900">${clinicName}</label>
+                    `;
+                    clinicListContainer.appendChild(d);
+                    untransferredCount++;
+                }
             });
-            c.removeEventListener('change',handleClinicCheckboxChange);
-            c.addEventListener('change',handleClinicCheckboxChange);
         }
         
-        // ★ 転記済みリストも更新
-        updateIssuedList();
-    } catch(err){
-        console.error('!!! Load failed:',err);
-        c.innerHTML=`<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;
+        // 4. コンテナが空の場合のメッセージ
+        if (untransferredCount === 0) {
+            clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">未転記のクリニックはありません</p>';
+        }
+        if (transferredCount === 0) {
+            issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-8">転記済みレポートなし</p>';
+        }
+
+        // 5. チェックボックスのリスナー設定
+        clinicListContainer.removeEventListener('change', handleClinicCheckboxChange);
+        clinicListContainer.addEventListener('change', handleClinicCheckboxChange);
+
+    } catch(err) {
+        console.error('!!! Load failed:', err);
+        clinicListContainer.innerHTML = `<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;
+        issuedListContainer.innerHTML = `<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;
     } finally {
         showLoading(false);
     }
   }
 
-  // ★ 転記済みでないクリニックが1つでもあればボタン有効化
+  // ▼▼▼ [変更点] 転記ボタンの有効/無効 (要求 #6) ▼▼▼
   function handleClinicCheckboxChange() {
-    const unchecked = document.querySelectorAll('#clinic-list-container input:not(:checked)').length;
-    const checkedAndNotDisabled = document.querySelectorAll('#clinic-list-container input:checked:not(:disabled)').length;
-    document.getElementById('issue-btn').disabled = (checkedAndNotDisabled === 0);
+    // チェックが1つでもあれば有効
+    const checkedCount = document.querySelectorAll('#clinic-list-container input:checked').length;
+    document.getElementById('issue-btn').disabled = (checkedCount === 0);
   }
 
-  // ★ API呼び出し先を /api/getReportData (ETL) に変更
+  // ▼▼▼ [変更点] 転記実行 (要求 #6) ▼▼▼
   async function handleIssueReport() {
     console.log('Issue report (ETL).');
     showLoading(true, '集計スプレッドシートへデータ転記中...');
     
-    // ★ 転記済みでない、チェックされたクリニックのみを対象
-    const sc=Array.from(document.querySelectorAll('#clinic-list-container input:checked:not(:disabled)'))
-                  .map(cb=>cb.value);
+    // (変更なし) チェックされたクリニックのみを対象
+    const sc = Array.from(document.querySelectorAll('#clinic-list-container input:checked'))
+                  .map(cb => cb.value);
                   
     if (sc.length === 0) {
         alert('転記対象のクリニックが選択されていません。');
@@ -375,97 +518,64 @@ k<!DOCTYPE html>
     console.log('Selected for ETL:', sc);
     console.log('Using CentralSheetID:', currentCentralSheetId);
 
-    try{
-        const r=await fetch('/api/getReportData',{
+    try {
+        const r = await fetch('/api/getReportData', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({
                 period: selectedPeriod,
                 selectedClinics: sc,
-                centralSheetId: currentCentralSheetId // ★ 集計IDを渡す
+                centralSheetId: currentCentralSheetId 
             })
         });
         
-        if(!r.ok){const et=await r.text();throw new Error(`サーバーエラー(${r.status}): ${et}`);}
+        if (!r.ok) { const et = await r.text(); throw new Error(`サーバーエラー(${r.status}): ${et}`); }
         
-        const data = await r.json(); // { status: 'ok', processed: ["クリニックA", ...] }
+        const data = await r.json(); 
         console.log('ETL process finished:', data);
 
-        const ts = new Date().toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-        
-        // ★ issuedReports の状態を更新
-        const periodReport = issuedReports[currentPeriodText];
-        if (periodReport) {
-            data.processed.forEach(clinicName => {
-                periodReport.clinics[clinicName] = { timestamp: ts };
-            });
-        }
-        
-        // ★ リストを再描画
-        loadClinics(); // クリニックリスト(左側)を再描画（転記済みにする）
-        // updateIssuedList() は loadClinics() の中で呼ばれる
+        // ▼▼▼ [変更点] issuedReports 変数を更新する代わりに、リスト全体を再読み込みする ▼▼▼
+        loadClinics(); 
 
-    } catch(err){
-        console.error('!!! ETL Issue failed:',err);
+    } catch(err) {
+        console.error('!!! ETL Issue failed:', err);
         alert(`データ転記失敗\n${err.message}`);
     } finally {
         showLoading(false);
     }
   }
 
-  // ★ 転記済みクリニックのリストを表示するように変更
-  function updateIssuedList() {
-    const c=document.getElementById('issued-list-container');
-    c.innerHTML='';
-    
-    const periodReport = issuedReports[currentPeriodText];
-    const clinics = (periodReport && periodReport.clinics) ? Object.keys(periodReport.clinics) : [];
-
-    if(clinics.length === 0){
-        c.innerHTML='<p class="text-sm text-gray-500 text-center py-8">転記済みレポートなし</p>';
-        return;
-    }
-    
-    clinics.forEach(n=>{
-        const d=document.createElement('div');
-        d.className='p-4 border rounded-lg cursor-pointer hover:bg-gray-50 hover:shadow-md transition-all duration-200';
-        d.dataset.clinicName=n;
-        d.innerHTML=`
-            <p class="font-bold text-base">${n}</p>
-            <p class="text-xs text-gray-500 mt-1">転記日時: ${periodReport.clinics[n].timestamp}</p>
-        `;
-        c.appendChild(d);
-    });
-    console.log('Issued list updated.');
-  }
+  // ▼▼▼ [削除] updateIssuedList (要求 #6) ▼▼▼
+  // (loadClinics が両方のリストを再描画するため不要)
 
 
   // =================================================================
-  // === ▼▼▼ 画面3 (グラフ・レポート表示) 処理 (大幅変更) ▼▼▼ ===
+  // === ▼▼▼ 画面3 (グラフ・レポート表示) 処理 (変更) ▼▼▼ ===
   // =================================================================
 
-  function handleIssuedListClick(e){
-    const t=e.target.closest('[data-clinic-name]');
-    if(t){
-        currentClinicForModal=t.dataset.clinicName;
-        // ★ issuedReports にデータ本体は無いため、モーダルを直接表示
-        showReportModal(true);
+  // ▼▼▼ [変更点] 転記済みレポートクリック (要求 #7) ▼▼▼
+  function handleIssuedListClick(e) {
+    const t = e.target.closest('[data-clinic-name]');
+    if (t) {
+        currentClinicForModal = t.dataset.clinicName;
+        console.log(`Issued clinic clicked: ${currentClinicForModal}`);
+        
+        // ▼▼▼ [変更点] モーダルを廃止し、NPSスコアレポートを直接表示 ▼▼▼
+        // showReportModal(true);
+        prepareAndShowReport('nps_score');
     }
   }
 
-  function handleReportModalClick(e){
-    const rt=e.target.dataset.reportType;
-    if(rt){
-        showReportModal(false);
-        // ★ prepareAndShowReport は非同期になった
-        setTimeout(() => prepareAndShowReport(rt), 300);
-    }
-  }
+  // ▼▼▼ [削除] モーダルクリック処理 (要求 #7) ▼▼▼
+  // function handleReportModalClick(e){ ... }
 
-  // ★ API呼び出しロジックに全面変更
+  // ▼▼▼ [変更点] ナビゲーションクリック処理 (要求 #5) ▼▼▼
   function handleReportNavClick(e) {
     const targetButton = e.target.closest('.btn');
     if (!targetButton) return;
+
+    // (クリックされたボタンが属するナビゲーションコンテナを取得)
+    const currentNav = e.currentTarget;
 
     const reportType = targetButton.dataset.reportType;
     const analysisType = targetButton.dataset.analysisType;
@@ -473,44 +583,38 @@ k<!DOCTYPE html>
 
     if (reportType) {
         console.log(`Report nav: ${reportType}`);
-        // ★ 市区町村レポートも他と同じ prepareAndShowReport を使うように変更
-        //    (prepareAndShowMunicipalityReport は内部で呼ばれる)
+        // ▼▼▼ [変更点] 市区町村レポート (要求 #3) ▼▼▼
         prepareAndShowReport(reportType);
     } else if (analysisType) {
         console.log(`Analysis nav: ${analysisType}`);
         currentAnalysisTarget = analysisType;
-        prepareAndShowAnalysis(analysisType); // ★ 非同期に変更
+        prepareAndShowAnalysis(analysisType); 
     } else if (detailedAnalysisType) {
         console.log(`Detailed Analysis nav: ${detailedAnalysisType}`);
         currentDetailedAnalysisType = detailedAnalysisType;
-        prepareAndShowDetailedAnalysis(detailedAnalysisType); // ★ 非同期に変更
+        prepareAndShowDetailedAnalysis(detailedAnalysisType); 
     }
   }
   
-  /**
-   * [変更] グラフ・レポート表示のメイン関数
-   * サーバーから都度データを取得するように変更
-   */
   async function prepareAndShowReport(reportType){
     console.log(`Prepare report: ${reportType}`); 
     showLoading(true,'レポートデータ集計中...');
+    
+    // ▼▼▼ [変更点] すべてのナビゲーションを更新 (要求 #5) ▼▼▼
     updateNavActiveState(reportType, null, null);
     
-    // ★ 市区町村レポートの場合、専用APIを呼ぶ
     if (reportType === 'municipality') {
-        await prepareAndShowMunicipalityReport(); // 専用関数を呼んで終了
-        showLoading(false);
+        // ▼▼▼ [変更点] 市区町村レポート (要求 #3) ▼▼▼
+        await prepareAndShowMunicipalityReport(); 
+        showLoading(false); // 専用関数内でローディング制御
         return;
     }
     
-    // ★ おすすめ理由(N列)の場合、専用APIを呼ぶ
     if (reportType === 'recommendation') {
-        await prepareAndShowRecommendationReport(); // 専用関数を呼んで終了
-        showLoading(false);
+        await prepareAndShowRecommendationReport(); 
+        showLoading(false); // 専用関数内でローディング制御
         return;
     }
-
-    // --- 以下はグラフまたはテキストスライドの処理 ---
     
     slidesData=[];
     document.getElementById('pagination').style.display='flex';
@@ -522,7 +626,6 @@ k<!DOCTYPE html>
     let clinicData, overallData;
 
     try {
-        // ★ /api/getChartData を2回呼び出し
         console.log(`Fetching data for clinic: "${currentClinicForModal}"`);
         const clinicRes = await fetch('/api/getChartData', {
             method: 'POST',
@@ -532,7 +635,6 @@ k<!DOCTYPE html>
         if (!clinicRes.ok) throw new Error(`貴院データ取得失敗: ${await clinicRes.text()}`);
         clinicData = await clinicRes.json();
         
-        // ★ 「全体」データを取得 (NPS理由とフィードバック以外)
         if (reportType !== 'nps' && !reportType.startsWith('feedback')) {
             console.log(`Fetching data for "全体"`);
             const overallRes = await fetch('/api/getChartData', {
@@ -550,8 +652,6 @@ k<!DOCTYPE html>
         showLoading(false);
         return;
     }
-
-    // --- 取得したデータ(clinicData, overallData)を元にスライド/グラフを準備 ---
     
     if (reportType === 'nps_score'){
         document.getElementById('report-title').textContent = 'アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー';
@@ -571,6 +671,7 @@ k<!DOCTYPE html>
         document.getElementById('slide-body').innerHTML = htmlContent;
         isChart=true; isBar=true;
     }
+    // (以降の else if は変更なし)
     else if (reportType === 'nps'){const{totalCount,results}=clinicData.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);}
     else if (reportType === 'feedback_i'){prepareCommentSlides(clinicData.feedbackData.i_column,'良かった点悪かった点');}
     else if (reportType === 'feedback_j'){prepareCommentSlides(clinicData.feedbackData.j_column,'印象に残ったスタッフ');}
@@ -599,24 +700,19 @@ k<!DOCTYPE html>
         setTimeout(()=>{
             try{
                 if(reportType==='nps_score'){
-                    // ★ 貴院データと全体データを渡す
                     drawNpsScoreCharts(clinicData.npsScoreData, overallData.npsScoreData);
                 }
                 else if(reportType.startsWith('satisfaction')){
                     const type = reportType.split('_')[1] + '_column';
-                    // ★ 貴院データと全体データを渡す
                     drawSatisfactionCharts(clinicData.satisfactionData[type].results, overallData.satisfactionData[type].results);
                 }
                 else if(reportType==='age'){
-                    // ★ 貴院データと全体データを渡す
                     drawSatisfactionCharts(clinicData.ageData.results, overallData.ageData.results);
                 }
                 else if(reportType==='children'){
-                     // ★ 貴院データと全体データを渡す
                     drawSatisfactionCharts(clinicData.childrenCountData.results, overallData.childrenCountData.results);
                 }
                 else if(reportType==='income'){
-                     // ★ 貴院データと全体データを渡す
                     drawIncomeCharts(clinicData.incomeData, overallData.incomeData);
                 }
             }catch(e){
@@ -634,167 +730,16 @@ k<!DOCTYPE html>
   // (スライド生成ヘルパー - 変更なし)
   function prepareNpsSlides(results, title){ document.getElementById('report-title').textContent=title;document.getElementById('report-subtitle').textContent='';const ml=20;if(!results)return;const sc=Object.keys(results).map(Number).sort((a,b)=>b-a);sc.forEach(s=>{const rs=results[s];if(!rs||rs.length===0)return;let clc=0,cpb='';rs.forEach((r,i)=>{const rt=`・ ${r}`;const rl=(rt.match(/\n/g)||[]).length+1;if(clc>0&&(clc+rl)>ml){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});cpb=rt;clc=rl;}else{cpb+=(clc===0?'':'\n')+rt;clc+=rl;}});if(cpb){slidesData.push({header:`推奨度 ${s}(${rs.length}人)`,body:cpb});}}); }
   function prepareCommentSlides(data, title){ if(!data)data={totalCount:0,results:[]};const{totalCount,results}=data;document.getElementById('report-title').textContent=`${title}(全${totalCount}件)`;document.getElementById('report-subtitle').textContent='';const ml=20;if(results&&results.length>0){let clc=0,cpb='';results.forEach((it,i)=>{const itx=`・ ${it}`;const il=(itx.match(/\n/g)||[]).length+1;if(clc>0&&(clc+il)>ml){slidesData.push({header:'',body:cpb});cpb=itx;clc=il;}else{cpb+=(clc===0?'':'\n')+itx;clc+=il;}});if(cpb){slidesData.push({header:'',body:cpb});}} }
-  function prepareChartShell(title, subtitle, isBar=false){ 
-    console.log(`[DEBUG] prepareChartShell called for title: "${title}", isBar: ${isBar}`);
-    document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;
-    document.getElementById('report-subtitle').textContent=subtitle;
-    document.getElementById('pagination').style.display='none';
-    document.getElementById('slide-body').style.whiteSpace='normal';
-    const cid=isBar?'bar-chart':'pie-chart',hc=isBar?'h-[350px]':'h-[400px]';
-    const htmlContent = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-${cid}" class="w-full ${hc}"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-${cid}" class="w-full ${hc}"></div></div></div>`;
-    document.getElementById('slide-body').innerHTML = htmlContent; 
-    console.log(`[DEBUG] prepareChartShell finished setting innerHTML for #slide-body. Content includes clinic-${cid}?`, htmlContent.includes(`id="clinic-${cid}"`));
-  }
-
-  // (スライド描画 - 変更なし)
+  function prepareChartShell(title, subtitle, isBar=false){ console.log(`[DEBUG] prepareChartShell called for title: "${title}", isBar: ${isBar}`);document.getElementById('report-title').textContent=`アンケート結果 ー${title}ー`;document.getElementById('report-subtitle').textContent=subtitle;document.getElementById('pagination').style.display='none';document.getElementById('slide-body').style.whiteSpace='normal';const cid=isBar?'bar-chart':'pie-chart',hc=isBar?'h-[350px]':'h-[400px]';const htmlContent = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-${cid}" class="w-full ${hc}"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-${cid}" class="w-full ${hc}"></div></div></div>`;document.getElementById('slide-body').innerHTML = htmlContent; console.log(`[DEBUG] prepareChartShell finished setting innerHTML for #slide-body. Content includes clinic-${cid}?`, htmlContent.includes(`id="clinic-${cid}"`)); }
   function renderSlide(page){ if(page<1||page>slidesData.length)return;const s=slidesData[page-1];document.getElementById('slide-header').innerHTML=s.header;document.getElementById('slide-body').innerHTML=s.body;document.getElementById('page-indicator').textContent=`${page} / ${slidesData.length}`;document.getElementById('prev-slide').disabled=(page===1);document.getElementById('next-slide').disabled=(page===slidesData.length); }
   function handlePrevSlide(){ if(currentPage>1){currentPage--;renderSlide(currentPage);} }
   function handleNextSlide(){ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
+  function drawSatisfactionCharts(clinicChartData, overallChartData){ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:17,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:17}},tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};const cdEl=document.getElementById('clinic-pie-chart');if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');if(clinicChartData&&clinicChartData.length>1&&clinicChartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(clinicChartData);const c=new google.visualization.PieChart(cdEl);c.draw(d,opt);} else {cdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-pie-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');if(overallChartData&&overallChartData.length>1&&overallChartData.slice(1).some(row=>row[1]>0)){const avgD=google.visualization.arrayToDataTable(overallChartData);const avgC=new google.visualization.PieChart(avgEl);avgC.draw(avgD,opt);} else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
+  function drawIncomeCharts(clinicData, overallData){ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:"#.##'%'",viewWindow:{min:0}}, hAxis:{}};const ccdEl=document.getElementById('clinic-bar-chart');if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');if(clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1){const cd=google.visualization.arrayToDataTable(clinicData.results);const cc=new google.visualization.ColumnChart(ccdEl);cc.draw(cd,opt);} else {ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-bar-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');if(overallData.totalCount > 0 && overallData.results && overallData.results.length > 1){const avgD=google.visualization.arrayToDataTable(overallData.results);const avgC=new google.visualization.ColumnChart(avgEl);avgC.draw(avgD,opt); } else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
+  function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = document.getElementById('clinic-bar-chart');if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];if (clinicData.totalCount > 0) {for (let i = 0; i <= 10; i++) {const count = clinicData.counts[i] || 0;const percentage = (count / clinicData.totalCount) * 100;clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);}} const opt = {legend: { position: 'none' },colors: ['#DE5D83'], annotations: {textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },alwaysOutside: false,stem: { color: 'transparent' }},vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 } },hAxis: { title: '推奨度スコア (0〜10)' },bar: { groupWidth: '80%' },isStacked: false};if (clinicData.totalCount > 0 && clinicChartData.length > 1) {const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);const clinicChart = new google.visualization.ColumnChart(clinicChartEl);clinicChart.draw(clinicDataVis, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const summaryArea = document.getElementById('nps-summary-area');if (summaryArea) {summaryArea.innerHTML = ` <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs"> <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p> <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p> </div> `;} const clinicHeaderEl = document.getElementById('clinic-chart-header');if (clinicHeaderEl) {clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;} }
+  function calculateNps(counts, totalCount) { if (totalCount === 0) return 0;let promoters = 0, passives = 0, detractors = 0;for (let i = 0; i <= 10; i++) {const count = counts[i] || 0;if (i >= 9) promoters += count;else if (i >= 7) passives += count;else detractors += count;} return ((promoters / totalCount) - (detractors / totalCount)) * 100; }
 
-  // ★ グラフ描画関数を「貴院」と「全体」の2つを受け取るように変更
-  function drawSatisfactionCharts(clinicChartData, overallChartData){ 
-    const opt={
-        is3D:true,
-        chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},
-        pieSliceText:'percentage',
-        pieSliceTextStyle:{color:'black',fontSize:17,bold:true},
-        legend:{position:'labeled',textStyle:{color:'black',fontSize:17}},
-        tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},
-        colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']
-    };
-    
-    // 貴院 (左)
-    const cdEl=document.getElementById('clinic-pie-chart');
-    if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
-    if(clinicChartData&&clinicChartData.length>1&&clinicChartData.slice(1).some(row=>row[1]>0)){
-        const d=google.visualization.arrayToDataTable(clinicChartData);
-        const c=new google.visualization.PieChart(cdEl);
-        c.draw(d,opt);
-    } else {
-        cdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
-    }
-    
-    // 全体 (右)
-    const avgEl=document.getElementById('average-pie-chart');
-    if (!avgEl) throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');
-    if(overallChartData&&overallChartData.length>1&&overallChartData.slice(1).some(row=>row[1]>0)){
-        const avgD=google.visualization.arrayToDataTable(overallChartData);
-        const avgC=new google.visualization.PieChart(avgEl);
-        avgC.draw(avgD,opt);
-    } else {
-        avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
-    }
-  }
-
-  // ★ グラフ描画関数を「貴院」と「全体」の2つを受け取るように変更
-  function drawIncomeCharts(clinicData, overallData){ 
-    const opt={
-        legend:{position:'none'},
-        colors:['#DE5D83'],
-        annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},
-        vAxis:{format:"#.##'%'",viewWindow:{min:0}}, 
-        hAxis:{}
-    };
-
-    // 貴院 (左)
-    const ccdEl=document.getElementById('clinic-bar-chart');
-    if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');
-    if(clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1){
-        const cd=google.visualization.arrayToDataTable(clinicData.results);
-        const cc=new google.visualization.ColumnChart(ccdEl);
-        cc.draw(cd,opt);
-    } else {
-        ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
-    } 
-    
-    // 全体 (右)
-    const avgEl=document.getElementById('average-bar-chart');
-    if (!avgEl) throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');
-    if(overallData.totalCount > 0 && overallData.results && overallData.results.length > 1){
-        const avgD=google.visualization.arrayToDataTable(overallData.results);
-        const avgC=new google.visualization.ColumnChart(avgEl);
-        avgC.draw(avgD,opt); 
-    } else {
-        avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
-    }
-  }
-
-  // ★ グラフ描画関数を「貴院」と「全体」の2つを受け取るように変更
-  function drawNpsScoreCharts(clinicData, overallData) {
-      // 1. グラフ描画エリア(左側)を取得
-      const clinicChartEl = document.getElementById('clinic-bar-chart');
-      if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');
-
-      // 2. NPSスコア計算 (貴院)
-      const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);
-      // 3. NPSスコア計算 (全体)
-      const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);
-
-      // 4. 貴院のグラフデータ作成 (0-10)
-      const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];
-      if (clinicData.totalCount > 0) {
-          for (let i = 0; i <= 10; i++) {
-              const count = clinicData.counts[i] || 0;
-              const percentage = (count / clinicData.totalCount) * 100;
-              clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);
-          }
-      }
-      
-      const opt = {
-          legend: { position: 'none' },
-          colors: ['#DE5D83'], 
-          annotations: {
-              textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },
-              alwaysOutside: false,
-              stem: { color: 'transparent' }
-          },
-          vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 } },
-          hAxis: { title: '推奨度スコア (0〜10)' },
-          bar: { groupWidth: '80%' },
-          isStacked: false
-      };
-      
-      // 5. 貴院のグラフ描画 (左側)
-      if (clinicData.totalCount > 0 && clinicChartData.length > 1) {
-          const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);
-          const clinicChart = new google.visualization.ColumnChart(clinicChartEl);
-          clinicChart.draw(clinicDataVis, opt);
-      } else {
-          clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
-      }
-
-      // 6. NPSスコアのテキスト表示 (右側)
-      const summaryArea = document.getElementById('nps-summary-area');
-      if (summaryArea) {
-          summaryArea.innerHTML = `
-              <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs">
-                  <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p>
-                  <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p>
-              </div>
-          `;
-      }
-      
-      // 7. グラフのヘッダー
-      const clinicHeaderEl = document.getElementById('clinic-chart-header');
-      if (clinicHeaderEl) {
-           clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;
-      }
-  }
-
-  // ★ NPS計算ロジックをヘルパー関数に分離
-  function calculateNps(counts, totalCount) {
-      if (totalCount === 0) return 0;
-      let promoters = 0, passives = 0, detractors = 0;
-      for (let i = 0; i <= 10; i++) {
-          const count = counts[i] || 0;
-          if (i >= 9) promoters += count;
-          else if (i >= 7) passives += count;
-          else detractors += count;
-      }
-      return ((promoters / totalCount) - (detractors / totalCount)) * 100;
-  }
-
-  // ★ 市区町村レポート (API呼び出しに変更)
+  // ▼▼▼ [変更点] 市区町村レポート (要求 #3) ▼▼▼
   async function prepareAndShowMunicipalityReport() {
     console.log('Prepare municipality report');
     updateNavActiveState('municipality', null, null);
@@ -806,10 +751,10 @@ k<!DOCTYPE html>
     document.getElementById('slide-header').innerHTML = '';
     const slideBody = document.getElementById('slide-body');
     slideBody.style.whiteSpace = 'normal';
-    slideBody.innerHTML = '<p class="text-center text-gray-500">外部APIから住所データを取得・集計中...</p>';
+    // ▼▼▼ [変更点] ローディングメッセージ (要求 #3) ▼▼▼
+    slideBody.innerHTML = '<p class="text-center text-gray-500">市区町村データを読み込み中... (初回実行時は集計・保存のため時間がかかります)</p>';
     
     try {
-        // ★ APIに centralSheetId と clinicName を渡す
         const response = await fetch('/api/generateMunicipalityReport', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -823,21 +768,23 @@ k<!DOCTYPE html>
             throw new Error(`集計APIエラー (${response.status}): ${errorText}`);
         }
         const tableData = await response.json();
+        
+        // ▼▼▼ [変更点] %に変換済みのデータを受け取るため、表示ロジックは変更なし ▼▼▼
         displayMunicipalityTable(tableData);
+        
     } catch (err) {
         console.error('Failed to get municipality report:', err);
         slideBody.innerHTML = `<p class="text-center text-red-500">集計失敗: ${err.message}</p>`;
     }
   }
-  // (displayMunicipalityTable - 変更なし)
+  
   function displayMunicipalityTable(data) { const slideBody = document.getElementById('slide-body'); if (!data || data.length === 0) { slideBody.innerHTML = '<p class="text-center text-gray-500">集計データがありません。</p>'; return; } let tableHtml = `<div class="overflow-x-auto overflow-y-auto max-h-[600px] border border-gray-200 rounded-lg"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">A列: 都道府県</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">B列: 市区町村</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">C列: 件数</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">D列: 割合</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`; data.forEach(row => { tableHtml += `<tr><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.prefecture}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${row.municipality}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${row.count}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${row.percentage.toFixed(2)}%</td></tr>`; }); tableHtml += '</tbody></table></div>'; slideBody.innerHTML = tableHtml; }
 
-  // ★ おすすめ理由 (API呼び出しに変更)
+  // (おすすめ理由 - 変更なし)
   async function prepareAndShowRecommendationReport() {
       console.log('Prepare recommendation report');
       updateNavActiveState('recommendation', null, null);
       showScreen('screen3');
-      
       document.getElementById('report-title').textContent = 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー';
       document.getElementById('report-subtitle').textContent = 'ご出産された産婦人科医院への本病院を選ぶ上で最も参考にしたものについて、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満';
       document.getElementById('pagination').style.display = 'none';
@@ -845,69 +792,36 @@ k<!DOCTYPE html>
       const slideBody = document.getElementById('slide-body');
       slideBody.style.whiteSpace = 'normal';
       slideBody.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-pie-chart" class="w-full h-[400px]"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-pie-chart" class="w-full h-[400px]"></div></div></div>`;
-
       let clinicData, overallData;
       try {
           showLoading(true, '「その他」項目をAIで分類中...');
-          
-          // ★ 貴院・全体のデータをまず取得
           console.log(`Fetching recommendation data for clinic: "${currentClinicForModal}"`);
           const clinicRes = await fetch('/api/getChartData', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: currentClinicForModal }) });
           if (!clinicRes.ok) throw new Error(`貴院データ取得失敗: ${await clinicRes.text()}`);
           clinicData = (await clinicRes.json()).recommendationData;
-          
           console.log(`Fetching recommendation data for "全体"`);
           const overallRes = await fetch('/api/getChartData', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: "全体" }) });
           if (!overallRes.ok) throw new Error(`全体データ取得失敗: ${await overallRes.text()}`);
           overallData = (await overallRes.json()).recommendationData;
-
-          // ★ 貴院・全体の「その他」を並列でAI分類
           const [clinicClassifiedCounts, overallClassifiedCounts] = await Promise.all([
               classifyOthers(clinicData, 'clinic'),
               classifyOthers(overallData, 'overall')
           ]);
-
           showLoading(false);
-
-          // 6. グラフ描画
           const allKeys = [...clinicData.fixedKeys, 'その他'];
           const clinicChartData = [['カテゴリ', '件数']];
           allKeys.forEach(key => { clinicChartData.push([key, clinicClassifiedCounts[key] || 0]); });
-          
           const overallChartData = [['カテゴリ', '件数']];
           allKeys.forEach(key => { overallChartData.push([key, overallClassifiedCounts[key] || 0]); });
-
-          const opt = {
-              is3D: true,
-              chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },
-              pieSliceText: 'percentage',
-              pieSliceTextStyle: { color: 'black', fontSize: 17, bold: true },
-              legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 17 } },
-              tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
-          };
-
-          // 貴院
+          const opt = {is3D: true,chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },pieSliceText: 'percentage',pieSliceTextStyle: { color: 'black', fontSize: 17, bold: true },legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 17 } },tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },};
           const clinicChartEl = document.getElementById('clinic-pie-chart');
           if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
           const totalClinicCount = clinicChartData.slice(1).reduce((sum, row) => sum + row[1], 0);
-          if (totalClinicCount > 0) {
-              const d = google.visualization.arrayToDataTable(clinicChartData);
-              new google.visualization.PieChart(clinicChartEl).draw(d, opt);
-          } else {
-              clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
-          }
-          
-          // 全体
+          if (totalClinicCount > 0) {const d = google.visualization.arrayToDataTable(clinicChartData);new google.visualization.PieChart(clinicChartEl).draw(d, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';}
           const averageChartEl = document.getElementById('average-pie-chart');
           if (!averageChartEl) throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');
           const totalOverallCount = overallChartData.slice(1).reduce((sum, row) => sum + row[1], 0);
-           if (totalOverallCount > 0) {
-              const d = google.visualization.arrayToDataTable(overallChartData);
-              new google.visualization.PieChart(averageChartEl).draw(d, opt);
-          } else {
-              averageChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
-          }
-
+           if (totalOverallCount > 0) {const d = google.visualization.arrayToDataTable(overallChartData);new google.visualization.PieChart(averageChartEl).draw(d, opt);} else {averageChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';}
       } catch (err) {
           console.error('Failed to get recommendation report:', err);
           slideBody.innerHTML = `<p class="text-center text-red-500">集計失敗: ${err.message}</p>`;
@@ -915,50 +829,23 @@ k<!DOCTYPE html>
       }
   }
 
-  // ★ おすすめ理由分類のヘルパー関数
-  async function classifyOthers(data, type) {
-      const { fixedCounts, otherList, fixedKeys } = data;
-      let finalCounts = { ...fixedCounts };
-      finalCounts['その他'] = 0;
-
-      if (otherList && otherList.length > 0) {
-          console.log(`[classifyOthers] Calling AI for ${type} (${otherList.length} items)...`);
-          const response = await fetch('/api/classifyRecommendations', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  clinicName: currentClinicForModal, // キャッシュキー用
-                  otherList: otherList,
-                  fixedKeys: fixedKeys
-              })
-          });
-          if (!response.ok) throw new Error(`AI分類APIエラー (${type}): ${await response.text()}`);
-          
-          const classificationResult = await response.json();
-          classificationResult.classifiedResults.forEach(item => {
-              item.matchedCategories.forEach(category => {
-                  if (finalCounts[category] !== undefined) finalCounts[category]++;
-                  else finalCounts['その他']++;
-              });
-          });
-      }
-      return finalCounts;
-  }
+  // (おすすめ理由ヘルパー - 変更なし)
+  async function classifyOthers(data, type) { const { fixedCounts, otherList, fixedKeys } = data;let finalCounts = { ...fixedCounts };finalCounts['その他'] = 0;if (otherList && otherList.length > 0) {console.log(`[classifyOthers] Calling AI for ${type} (${otherList.length} items)...`);const response = await fetch('/api/classifyRecommendations', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({clinicName: currentClinicForModal, otherList: otherList,fixedKeys: fixedKeys})});if (!response.ok) throw new Error(`AI分類APIエラー (${type}): ${await response.text()}`);const classificationResult = await response.json();classificationResult.classifiedResults.forEach(item => {item.matchedCategories.forEach(category => {if (finalCounts[category] !== undefined) finalCounts[category]++;else finalCounts['その他']++;});});} return finalCounts; }
   
   // =================================================================
-  // === ▼▼▼ 画面4 (ワードクラウド) 処理 (変更) ▼▼▼ ===
+  // === ▼▼▼ 画面4 (ワードクラウド) 処理 (変更なし) ▼▼▼ ===
   // =================================================================
-
   async function prepareAndShowAnalysis(columnType) {
     showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
     showScreen('screen4');
     document.getElementById('analysis-error').classList.add('hidden');
     clearAnalysisCharts();
+    
+    // ▼▼▼ [変更点] すべてのナビゲーションを更新 (要求 #5) ▼▼▼
     updateNavActiveState(null, columnType, null);
 
     let tl = [], td = 0;
     try {
-        // ★ /api/getChartData からテキストリストを取得
         console.log(`[WC] Fetching text list for ${columnType}...`);
         const response = await fetch('/api/getChartData', {
             method: 'POST',
@@ -1009,7 +896,7 @@ k<!DOCTYPE html>
     }
   }
 
-  // (drawAnalysisCharts, drawSingleBarChart, clearAnalysisCharts, getAnalysisTitle, getColumnName - 変更なし)
+  // (WCヘルパー - 変更なし)
   function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0},vAxis:{title:'単語'},height:500,width:'100%'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});console.log('WordCloud List:',wl);const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'#f9fafb',clearCanvas:true};console.log('WordCloud Options:',options);WordCloud(cv,options);console.log("Word cloud drawn.");}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
   function drawSingleBarChart(data, elementId, options) { const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
   function clearAnalysisCharts() { document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
@@ -1017,20 +904,18 @@ k<!DOCTYPE html>
   function getColumnName(columnType) { switch(columnType){case'L':return'NPS推奨度 理由';case'I':return'良かった点や悪かった点など';case'J':return'印象に残ったスタッフへのコメント';case'M':return'お産にかかわるご意見・ご感想';default:return'不明';} }
 
   // =================================================================
-  // === ▼▼▼ 画面5 (AI詳細分析) 処理 (大幅変更) ▼▼▼ ===
+  // === ▼▼▼ 画面5 (AI詳細分析) 処理 (変更なし) ▼▼▼ ===
   // =================================================================
-
-  /**
-   * AI詳細分析の準備と表示 (読み出し・初回生成)
-   */
   async function prepareAndShowDetailedAnalysis(analysisType) {
     console.log(`Prepare detailed analysis: ${analysisType}`);
     const clinicName = currentClinicForModal;
     
     showLoading(true, `AI分析結果を読み込み中...\n(${getDetailedAnalysisTitleBase(analysisType)})`);
     showScreen('screen5');
+    
+    // ▼▼▼ [変更点] すべてのナビゲーションを更新 (要求 #5) ▼▼▼
     updateNavActiveState(null, null, analysisType);
-    toggleEditDetailedAnalysis(false); // 表示モードに
+    toggleEditDetailedAnalysis(false); 
     
     const errorDiv = document.getElementById('detailed-analysis-error');
     errorDiv.classList.add('hidden');
@@ -1040,7 +925,6 @@ k<!DOCTYPE html>
     document.getElementById('detailed-analysis-subtitle').textContent = `分析対象: ${getDetailedAnalysisTitleBase(analysisType)}`;
     
     try {
-        // 1. まず、/api/getDetailedAnalysis で保存済みデータを読みに行く
         console.log(`[AI] Fetching saved analysis from Sheet...`);
         const response = await fetch('/api/getDetailedAnalysis', {
             method: 'POST',
@@ -1056,18 +940,14 @@ k<!DOCTYPE html>
             throw new Error(`分析結果の読み込み失敗 (${response.status}): ${await response.text()}`);
         }
         
-        // data = { analysis: "...", suggestions: "...", overall: "..." }
         const savedData = await response.json(); 
         
-        // 2. 読み込んだデータを表示
-        // (analysis が null や "（データがありません）" でないかチェック)
         if (savedData.analysis && !savedData.analysis.includes('（データがありません）')) {
             console.log(`[AI] Found saved data in Sheet.`);
-            displayDetailedAnalysis(savedData, analysisType, false); // "false" = JSONではない
+            displayDetailedAnalysis(savedData, analysisType, false); 
             switchTab('analysis');
             showLoading(false);
         } else {
-            // 3. データが無い場合、初回実行
             console.log(`[AI] No saved data found. Running initial analysis...`);
             showLoading(true, `初回AI分析を実行中...\n(${getDetailedAnalysisTitleBase(analysisType)})`);
             await runDetailedAnalysisGeneration(analysisType);
@@ -1082,29 +962,20 @@ k<!DOCTYPE html>
     }
   }
   
-  /**
-   * AI分析の「再生成」ボタンの処理
-   */
   async function handleRegenerateDetailedAnalysis() {
       const typeName = getDetailedAnalysisTitleBase(currentDetailedAnalysisType);
       if (!confirm(`「${typeName}」のAI分析を再実行しますか？\n\n・現在の分析内容は破棄されます。\n・編集中の内容は保存されません。`)) {
           return;
       }
-      
       console.log(`[AI] Regenerating analysis for ${currentDetailedAnalysisType}...`);
       showLoading(true, `AI分析を再実行中...\n(${typeName})`);
-      toggleEditDetailedAnalysis(false); // 編集モード強制解除
-      
+      toggleEditDetailedAnalysis(false); 
       await runDetailedAnalysisGeneration(currentDetailedAnalysisType);
   }
 
-  /**
-   * AI分析の「実行」と「保存」を行う共通関数
-   */
   async function runDetailedAnalysisGeneration(analysisType) {
       const errorDiv = document.getElementById('detailed-analysis-error');
       errorDiv.classList.add('hidden');
-      
       try {
           const response = await fetch('/api/generateDetailedAnalysis', {
               method: 'POST',
@@ -1115,23 +986,17 @@ k<!DOCTYPE html>
                   columnType: analysisType
               })
           });
-          
           if (!response.ok) {
               const errorText = await response.text();
-              // 404 (テキスト0件) の場合
               if (response.status === 404) {
                    throw new Error(`分析対象のテキストが0件のため、AI分析を実行できませんでした。`);
               }
               throw new Error(`AI分析APIエラー (${response.status}): ${errorText}`);
           }
-          
-          const analysisJson = await response.json(); // 生のJSON
+          const analysisJson = await response.json(); 
           console.log("[AI] Generation successful, raw JSON:", analysisJson);
-
-          // ★ AIが生成した生のJSONを、シート保存形式のテキストに変換して表示
-          displayDetailedAnalysis(analysisJson, analysisType, true); // "true" = 生JSON
+          displayDetailedAnalysis(analysisJson, analysisType, true); 
           switchTab('analysis');
-
       } catch (err) {
           console.error('!!! AI Generation failed:', err);
           errorDiv.textContent = `AI分析実行エラー: ${err.message}`;
@@ -1143,41 +1008,21 @@ k<!DOCTYPE html>
   }
 
 
-  /**
-   * 取得した詳細分析データをHTMLにレンダリング
-   * @param {object} data - (isRawJson=true) AIが生成したJSON / (isRawJson=false) {analysis, suggestions, overall}
-   * @param {boolean} isRawJson - data が生のJSONか、シートから読み取ったテキスト形式か
-   */
   function displayDetailedAnalysis(data, analysisType, isRawJson) {
       let analysisText, suggestionsText, overallText;
-
       if (isRawJson) {
-          // AIから返ってきた生のJSONを、シート保存形式のテキストに変換
-          analysisText = (data.analysis && data.analysis.themes)
-              ? data.analysis.themes.map(t => `【${t.title}】\n${t.summary}`).join('\n\n---\n\n')
-              : '（分析データがありません）';
-          suggestionsText = (data.suggestions && data.suggestions.items)
-              ? data.suggestions.items.map(i => `【${i.themeTitle}】\n${i.suggestion}`).join('\n\n---\n\n')
-              : '（改善提案データがありません）';
-          overallText = (data.overall && data.overall.summary)
-              ? data.overall.summary
-              : '（総評データがありません）';
+          analysisText = (data.analysis && data.analysis.themes) ? data.analysis.themes.map(t => `【${t.title}】\n${t.summary}`).join('\n\n---\n\n') : '（分析データがありません）';
+          suggestionsText = (data.suggestions && data.suggestions.items) ? data.suggestions.items.map(i => `【${i.themeTitle}】\n${i.suggestion}`).join('\n\n---\n\n') : '（改善提案データがありません）';
+          overallText = (data.overall && data.overall.summary) ? data.overall.summary : '（総評データがありません）';
       } else {
-          // /api/getDetailedAnalysis から返ってきた {analysis, suggestions, overall}
           analysisText = data.analysis;
           suggestionsText = data.suggestions;
           overallText = data.overall;
       }
-      
-      // 1. 分析 (Analysis)
       document.getElementById('display-analysis').textContent = analysisText;
       document.getElementById('textarea-analysis').value = analysisText;
-
-      // 2. 改善提案 (Suggestions)
       document.getElementById('display-suggestions').textContent = suggestionsText;
       document.getElementById('textarea-suggestions').value = suggestionsText;
-
-      // 3. 総評 (Overall)
       document.getElementById('display-overall').textContent = overallText;
       document.getElementById('textarea-overall').value = overallText;
   }
@@ -1191,120 +1036,94 @@ k<!DOCTYPE html>
       document.getElementById('textarea-overall').value = '';
   }
 
-  // (タブクリック - 変更なし)
   function handleTabClick(event) { const tabId = event.target.dataset.tabId; if (tabId) { switchTab(tabId); } }
-  // (タブ切り替え - 変更なし)
-  function switchTab(tabId) { if (isEditingDetailedAnalysis) { alert('編集モードを終了（保存またはキャンセル）してください。'); return; } document.querySelectorAll('#screen5 .tab-button').forEach(button => { if (button.dataset.tabId === tabId) { button.classList.add('active'); } else { button.classList.remove('active'); } }); document.querySelectorAll('#screen5 .tab-content').forEach(content => { if (content.id === `content-${tabId}`) { content.classList.remove('hidden'); } else { content.classList.add('hidden'); } }); }
+  
+  function switchTab(tabId) { 
+      if (isEditingDetailedAnalysis) { 
+          // ▼▼▼ [変更点] 編集中のタブ切り替えは許可する (要求 #5) ▼▼▼
+          // alert('編集モードを終了（保存またはキャンセル）してください。'); return; 
+      } 
+      document.querySelectorAll('#screen5 .tab-button').forEach(button => { if (button.dataset.tabId === tabId) { button.classList.add('active'); } else { button.classList.remove('active'); } }); 
+      document.querySelectorAll('#screen5 .tab-content').forEach(content => { if (content.id === `content-${tabId}`) { content.classList.remove('hidden'); } else { content.classList.add('hidden'); } }); 
+      
+      // ▼▼▼ [変更点] 編集モードの場合、切り替え先のテキストエリアの高さを調整 (要求 #5) ▼▼▼
+      if (isEditingDetailedAnalysis) {
+          const activeTextarea = document.getElementById(`textarea-${tabId}`);
+          if (activeTextarea) {
+              activeTextarea.style.height = 'auto';
+              activeTextarea.style.height = (activeTextarea.scrollHeight + 5) + 'px';
+          }
+      }
+  }
 
-  /**
-   * AI分析 編集モードのトグル (変更)
-   */
   function toggleEditDetailedAnalysis(isEdit) {
       isEditingDetailedAnalysis = isEdit;
-      
       const editBtn = document.getElementById('edit-detailed-analysis-btn');
       const regenBtn = document.getElementById('regenerate-detailed-analysis-btn');
       const saveBtn = document.getElementById('save-detailed-analysis-btn');
       const cancelBtn = document.getElementById('cancel-edit-detailed-analysis-btn');
-      
       const displayAreas = document.querySelectorAll('[id^="display-"]');
       const editAreas = document.querySelectorAll('[id^="edit-"]');
 
       if (isEditingDetailedAnalysis) {
-          // 編集モードへ
           editBtn.classList.add('hidden');
           regenBtn.classList.add('hidden');
           saveBtn.classList.remove('hidden');
           cancelBtn.classList.remove('hidden');
-          
-          // テキストエリアを表示
           displayAreas.forEach(el => el.classList.add('hidden'));
           editAreas.forEach(el => el.classList.remove('hidden'));
-          
-          // 表示中のタブのテキストエリアに高さを自動設定
-          const activeTab = document.querySelector('.tab-button.active').dataset.tabId;
+          const activeTab = document.querySelector('#screen5 .tab-button.active').dataset.tabId;
           const activeTextarea = document.getElementById(`textarea-${activeTab}`);
           if (activeTextarea) {
               activeTextarea.style.height = 'auto';
               activeTextarea.style.height = (activeTextarea.scrollHeight + 5) + 'px';
           }
       } else {
-          // 表示モードへ
           editBtn.classList.remove('hidden');
           regenBtn.classList.remove('hidden');
           saveBtn.classList.add('hidden');
           cancelBtn.classList.add('hidden');
-          
-          // テキストエリアを非表示
           displayAreas.forEach(el => el.classList.remove('hidden'));
           editAreas.forEach(el => el.classList.add('hidden'));
-          
-          // ★ 表示内容をテキストエリアの値から更新 (キャンセル時は再取得)
-          // ※ save/cancel ロジック側で表示更新を行うため、ここでは表示切り替えのみ
       }
   }
 
-  /**
-   * AI分析 編集内容を保存 (変更)
-   */
   async function saveDetailedAnalysisEdits() {
       showLoading(true, '変更を保存中...');
-      
       const analysisContent = document.getElementById('textarea-analysis').value;
       const suggestionsContent = document.getElementById('textarea-suggestions').value;
       const overallContent = document.getElementById('textarea-overall').value;
-      
       const baseSheetName = `${currentClinicForModal}-AI分析-${currentDetailedAnalysisType}`;
       
       try {
-          // 3つのAPIを並列で呼び出す
           const promises = [
               fetch('/api/updateDetailedAnalysis', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      centralSheetId: currentCentralSheetId,
-                      sheetName: `${baseSheetName}-分析`,
-                      content: analysisContent
-                  })
+                  body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: `${baseSheetName}-分析`, content: analysisContent })
               }),
               fetch('/api/updateDetailedAnalysis', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      centralSheetId: currentCentralSheetId,
-                      sheetName: `${baseSheetName}-改善案`,
-                      content: suggestionsContent
-                  })
+                  body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: `${baseSheetName}-改善案`, content: suggestionsContent })
               }),
               fetch('/api/updateDetailedAnalysis', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      centralSheetId: currentCentralSheetId,
-                      sheetName: `${baseSheetName}-総評`,
-                      content: overallContent
-                  })
+                  body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: `${baseSheetName}-総評`, content: overallContent })
               })
           ];
-          
           const results = await Promise.all(promises);
-          
-          // 1つでも失敗したらエラー
           for (const res of results) {
               if (!res.ok) {
                   throw new Error(`保存失敗 (${res.status}): ${await res.text()}`);
               }
           }
-          
-          // 成功したら、表示用DOMも更新
           document.getElementById('display-analysis').textContent = analysisContent;
           document.getElementById('display-suggestions').textContent = suggestionsContent;
           document.getElementById('display-overall').textContent = overallContent;
-          
           toggleEditDetailedAnalysis(false);
           alert('変更を保存しました。');
-
       } catch (e) {
           console.error("Failed to save edits:", e);
           alert(`保存中にエラーが発生しました。\n${e.message}`);
@@ -1324,32 +1143,40 @@ k<!DOCTYPE html>
       }
   }
   
-  // --- ▲▲▲ 画面5 (AI詳細分析) 処理 (大幅変更) ▲▲▲ ---
+  // --- ▲▲▲ 画面5 (AI詳細分析) 処理 (変更なし) ▲▲▲ ---
 
 
   // --- 汎用関数 (変更) ---
+  
+  // ▼▼▼ [変更点] すべてのナビゲーションを更新 (要求 #5) ▼▼▼
   function updateNavActiveState(activeReportType, activeAnalysisType, activeDetailedAnalysisType) {
-    document.querySelectorAll('#report-nav .btn').forEach(btn => {
-        if ((activeReportType && btn.dataset.reportType === activeReportType) ||
-            (activeAnalysisType && btn.dataset.analysisType === activeAnalysisType) ||
-            (activeDetailedAnalysisType && btn.dataset.detailedAnalysisType === activeDetailedAnalysisType)) {
-            btn.classList.add('btn-active');
-        } else {
-            btn.classList.remove('btn-active');
-        }
+    const navs = ['#report-nav', '#report-nav-screen4', '#report-nav-screen5'];
+    navs.forEach(navSelector => {
+        document.querySelectorAll(`${navSelector} .btn`).forEach(btn => {
+            if ((activeReportType && btn.dataset.reportType === activeReportType) ||
+                (activeAnalysisType && btn.dataset.analysisType === activeAnalysisType) ||
+                (activeDetailedAnalysisType && btn.dataset.detailedAnalysisType === activeDetailedAnalysisType)) {
+                btn.classList.add('btn-active');
+            } else {
+                btn.classList.remove('btn-active');
+            }
+        });
     });
   }
+
   function showScreen(screenId){ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
   function showLoading(isLoading, message=''){ const o=document.getElementById('loading-overlay'),m=document.getElementById('loading-message');if(isLoading){m.textContent=message;o.classList.remove('hidden');}else{o.classList.add('hidden');m.textContent='';} }
-  function showReportModal(show){ const m=document.getElementById('report-type-modal'),c=m.querySelector('div');if(show){m.classList.remove('hidden');setTimeout(()=>{c.classList.remove('scale-95','opacity-0');},10);}else{c.classList.add('scale-95','opacity-0');setTimeout(()=>{m.classList.add('hidden');},300);} }
   
-  // ★ PDF生成 (APIに centralSheetId を渡すように変更)
+  // ▼▼▼ [削除] showReportModal (要求 #7) ▼▼▼
+  // function showReportModal(show){ ... }
+  
   async function generatePdf(){
     console.log('PDF export clicked.');
     const cn=currentClinicForModal;
-    // ★ issuedReports から periodText を取得
-    const periodReport = issuedReports[currentPeriodText];
-    const pt = periodReport ? periodReport.periodText : currentPeriodText;
+    
+    // ▼▼▼ [変更点] periodText をグローバル変数から取得 (要求 #6) ▼▼▼
+    // const periodReport = issuedReports[currentPeriodText]; // issuedReports は廃止
+    const pt = currentPeriodText; // グローバルの期間テキストを使用
     
     if(!cn || !pt || !currentCentralSheetId){
         alert('PDF生成に必要なレポートデータ（クリニック名、期間、集計ID）がありません。');
@@ -1364,7 +1191,7 @@ k<!DOCTYPE html>
             body:JSON.stringify({
                 clinicName: cn,
                 periodText: pt,
-                centralSheetId: currentCentralSheetId // ★ reportData の代わりに centralSheetId を渡す
+                centralSheetId: currentCentralSheetId 
             })
         });
         if(!r.ok){let em=`サーバーエラー: ${r.status} ${r.statusText}`;try{const ed=await r.text();em+=`\n${ed}`;}catch(e){} throw new Error(em);}

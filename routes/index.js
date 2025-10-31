@@ -26,6 +26,10 @@ router.post('/api/getReportData', reportController.getReportData);
 // 3. (画面3以降) グラフ表示用に、集計スプシから集計済みデータを取得
 router.post('/api/getChartData', reportController.getChartData);
 
+// 4. (画面2) [新規] 転記済みのタブリストを取得
+router.post('/api/getTransferredList', reportController.getTransferredList);
+
+
 // =================================================================
 // === ▼▼▼ 分析系APIルート ▼▼▼ ===
 // =================================================================

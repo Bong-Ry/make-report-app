@@ -1,14 +1,12 @@
 const kuromojiService = require('../services/kuromoji');
 const openaiService = require('../services/openai');
 const postalCodeService = require('../services/postalCodeService');
-// ▼▼▼ googleSheetsService を追加 ▼▼▼
 const googleSheetsService = require('../services/googleSheets');
 const { getSystemPromptForDetailAnalysis, getSystemPromptForRecommendationAnalysis } = require('../utils/helpers');
 
 // メモリキャッシュ (簡易版)
-// ▼▼▼ detailedAnalysisResultsCache はGoogle Sheetが担うため削除 ▼▼▼
-// let detailedAnalysisResultsCache = {}; 
-let municipalityReportCache = {}; // 市区町村レポート用キャッシュ
+// ▼▼▼ [変更点] 市区町村レポートのキャッシュはGoogle Sheetが担うため削除 ▼▼▼
+// let municipalityReportCache = {}; 
 let recommendationAnalysisCache = {}; // おすすめ理由 分類用キャッシュ
 
 // --- (変更なし) テキスト分析 (Kuromoji) ---
@@ -22,6 +20,8 @@ exports.analyzeText = async (req, res) => {
     }
 
     try {
+        // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts が返す
+        //    rawText を使うため、この関数自体は変更不要
         const analysisResult = kuromojiService.analyzeTextList(textList);
         console.log(`[/api/analyzeText] Kuromoji analysis complete. Found ${analysisResult.results.length} significant words.`);
         res.json(analysisResult);
@@ -32,11 +32,9 @@ exports.analyzeText = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 更新API ▼▼▼ ===
-// AI詳細分析の「実行」と「保存」
+// === (変更なし) AI詳細分析 (実行・保存) ===
 // =================================================================
 exports.generateDetailedAnalysis = async (req, res) => {
-    // ▼▼▼ textList の代わりに centralSheetId を受け取る ▼▼▼
     const { centralSheetId, clinicName, columnType } = req.body;
     console.log(`POST /api/generateDetailedAnalysis called for ${clinicName}, type: ${columnType}, SheetID: ${centralSheetId}`);
 
@@ -45,10 +43,6 @@ exports.generateDetailedAnalysis = async (req, res) => {
         return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, columnType が必要です。');
     }
 
-    // ▼▼▼ キャッシュロジックは削除 ▼▼▼
-    // (Google Sheetが永続キャッシュとなるため)
-
-    // AIへの指示（プロンプト）を生成 (変更なし)
     const systemPrompt = getSystemPromptForDetailAnalysis(clinicName, columnType);
     if (!systemPrompt) {
         console.error(`[/api/generateDetailedAnalysis] Invalid analysis type: ${columnType}`);
@@ -56,15 +50,16 @@ exports.generateDetailedAnalysis = async (req, res) => {
     }
 
     try {
-        // 1. ▼▼▼ 集計スプシから分析対象のテキストリストを取得 ▼▼▼
+        // 1. 集計スプシから分析対象のテキストリストを取得
         console.log(`[/api/generateDetailedAnalysis] Fetching chart data to get textList...`);
+        // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts を呼び出す
         const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
         
         let textList = [];
         switch (columnType) {
             case 'L': textList = reportData.npsData.rawText || []; break;
             case 'I_good': textList = reportData.feedbackData.i_column.results || []; break;
-            case 'I_bad': textList = reportData.feedbackData.i_column.results || []; break; // I_good と同じソース
+            case 'I_bad': textList = reportData.feedbackData.i_column.results || []; break; 
             case 'J': textList = reportData.feedbackData.j_column.results || []; break;
             case 'M': textList = reportData.feedbackData.m_column.results || []; break;
             default: throw new Error(`無効な分析タイプです: ${columnType}`);
@@ -85,11 +80,11 @@ exports.generateDetailedAnalysis = async (req, res) => {
         // 3. OpenAI API 呼び出し (変更なし)
         const analysisJson = await openaiService.generateJsonAnalysis(systemPrompt, inputText);
         
-        // 4. ▼▼▼ 結果をGoogleスプレッドシートに保存 ▼▼▼
+        // 4. 結果をGoogleスプレッドシートに保存 (変更なし)
         console.log(`[/api/generateDetailedAnalysis] Saving analysis results to Google Sheet...`);
         await googleSheetsService.saveAIAnalysisToSheet(centralSheetId, clinicName, columnType, analysisJson);
 
-        // 5. ▼▼▼ AIが生成した生のJSONをクライアントに返す (初回表示用) ▼▼▼
+        // 5. AIが生成した生のJSONをクライアントに返す (変更なし)
         res.json(analysisJson);
 
     } catch (error) {
@@ -99,8 +94,7 @@ exports.generateDetailedAnalysis = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 新規API (1/2) ▼▼▼ ===
-// AI詳細分析（保存済み）の「読み出し」
+// === (変更なし) AI詳細分析 (読み出し) ===
 // =================================================================
 exports.getDetailedAnalysis = async (req, res) => {
     const { centralSheetId, clinicName, columnType } = req.body;
@@ -112,10 +106,7 @@ exports.getDetailedAnalysis = async (req, res) => {
     
     try {
         const analysisData = await googleSheetsService.getAIAnalysisFromSheet(centralSheetId, clinicName, columnType);
-        
-        // analysisData は { analysis: "...", suggestions: "...", overall: "..." } の形式
         res.json(analysisData);
-        
     } catch (err) {
         console.error('[/api/getDetailedAnalysis] Error:', err);
         res.status(500).send(err.message || 'AI分析結果の読み込みに失敗しました。');
@@ -123,8 +114,7 @@ exports.getDetailedAnalysis = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 新規API (2/2) ▼▼▼ ===
-// AI詳細分析（編集後）の「更新（保存）」
+// === (変更なし) AI詳細分析 (更新・保存) ===
 // =================================================================
 exports.updateDetailedAnalysis = async (req, res) => {
     const { centralSheetId, sheetName, content } = req.body;
@@ -144,11 +134,9 @@ exports.updateDetailedAnalysis = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 更新API ▼▼▼ ===
-// 市区町村レポート生成
+// === ▼▼▼ 更新API (要求 #3 市区町村レポート) ▼▼▼ ===
 // =================================================================
 exports.generateMunicipalityReport = async (req, res) => {
-    // ▼▼▼ postalCodeCounts の代わりに centralSheetId と clinicName を受け取る ▼▼▼
     const { centralSheetId, clinicName } = req.body;
     console.log(`POST /api/generateMunicipalityReport called for ${clinicName}, SheetID: ${centralSheetId}`);
 
@@ -156,19 +144,24 @@ exports.generateMunicipalityReport = async (req, res) => {
         return res.status(400).send('不正なリクエスト: centralSheetId と clinicName が必要です。');
     }
 
-    // ▼▼▼ キャッシュキーを変更 ▼▼▼
-    const cacheKey = `${centralSheetId}-${clinicName}`;
-    if (municipalityReportCache[cacheKey]) {
-        console.log(`[/api/generateMunicipalityReport] Returning cached municipality report for ${cacheKey}`);
-        return res.json(municipalityReportCache[cacheKey]);
-    }
-    
-    const addressAggregates = {}; // { "都道府県-市区町村": count }
-    let totalValidCodesCount = 0;
+    // ▼▼▼ [変更点] 保存するシート名を定義 ▼▼▼
+    const municipalitySheetName = `${clinicName}-地域`;
 
     try {
-        // 1. ▼▼▼ 集計スプシから郵便番号データを取得 ▼▼▼
+        // 1. ▼▼▼ [変更点] まず、保存済みシートの読み取りを試みる ▼▼▼
+        console.log(`[/api/generateMunicipalityReport] Trying to read from sheet: "${municipalitySheetName}"`);
+        const existingData = await googleSheetsService.readMunicipalityData(centralSheetId, municipalitySheetName);
+        
+        if (existingData) {
+            console.log(`[/api/generateMunicipalityReport] Found existing data in sheet. Returning.`);
+            return res.json(existingData); // 既存データを返す
+        }
+
+        // 2. ▼▼▼ 既存データがない場合のみ、集計処理を実行 ▼▼▼
+        console.log(`[/api/generateMunicipalityReport] No existing sheet. Generating new report...`);
         console.log(`[/api/generateMunicipalityReport] Fetching postal code data...`);
+        
+        // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts を呼び出す
         const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
         
         const postalCodeCounts = reportData.postalCodeData.counts;
@@ -177,13 +170,17 @@ exports.generateMunicipalityReport = async (req, res) => {
             return res.json([]);
         }
 
-        // 2. 郵便番号APIで住所を検索 (変更なし)
+        // 3. 郵便番号APIで住所を検索 (変更なし)
         const uniquePostalCodes = Object.keys(postalCodeCounts);
         console.log(`[/api/generateMunicipalityReport] Looking up ${uniquePostalCodes.length} unique postal codes...`);
+        
+        const addressAggregates = {}; // { "都道府県-市区町村": count }
+        let totalValidCodesCount = 0;
 
         const lookupPromises = uniquePostalCodes.map(async (postalCode) => {
             const count = postalCodeCounts[postalCode];
-            const address = await postalCodeService.lookupPostalCode(postalCode); // 既存サービス呼び出し
+            // ★ 要求 #1 (市区町村の整形) に対応した postalCodeService を呼び出す
+            const address = await postalCodeService.lookupPostalCode(postalCode); 
             
             if (address && address.prefecture && address.municipality) {
                 const key = `${address.prefecture}-${address.municipality}`;
@@ -194,7 +191,7 @@ exports.generateMunicipalityReport = async (req, res) => {
             totalValidCodesCount += count;
         });
 
-        // 3. 集計 (変更なし)
+        // 4. 集計 (変更なし)
         await Promise.all(lookupPromises);
         
         if (totalValidCodesCount === 0) {
@@ -207,17 +204,24 @@ exports.generateMunicipalityReport = async (req, res) => {
                 prefecture: prefecture,
                 municipality: municipality,
                 count: count,
-                percentage: (count / totalValidCodesCount) * 100
+                percentage: (count / totalValidCodesCount) // 割合 (0.123 形式)
             };
         });
         
         finalTable.sort((a, b) => b.count - a.count);
         
-        // サーバーキャッシュに保存
-        municipalityReportCache[cacheKey] = finalTable;
-        console.log(`[/api/generateMunicipalityReport] Generated and cached report for ${cacheKey}`);
+        // 5. ▼▼▼ [変更点] 結果をスプレッドシートに保存 ▼▼▼
+        console.log(`[/api/generateMunicipalityReport] Saving ${finalTable.length} rows to sheet: "${municipalitySheetName}"`);
+        await googleSheetsService.saveMunicipalityData(centralSheetId, municipalitySheetName, finalTable);
+
+        // 6. ▼▼▼ [変更点] フロントエンドには割合を % に変換して返す ▼▼▼
+        const frontendTable = finalTable.map(row => ({
+            ...row,
+            percentage: row.percentage * 100 // 0.123 -> 12.3
+        }));
         
-        res.json(finalTable);
+        console.log(`[/api/generateMunicipalityReport] Generated and saved report.`);
+        res.json(frontendTable);
 
     } catch (error) {
         console.error('[/api/generateMunicipalityReport] Error during municipality report generation:', error);
@@ -229,12 +233,7 @@ exports.generateMunicipalityReport = async (req, res) => {
 // =================================================================
 // === (変更なし) おすすめ理由の「その他」分類 ===
 // =================================================================
-/**
- * N列（おすすめ理由）の「その他」項目をAIで分類するAPI
- */
 exports.classifyRecommendationOthers = async (req, res) => {
-    // (このAPIはクライアントから textList を受け取るため、変更なし)
-    
     const { clinicName, otherList, fixedKeys } = req.body;
     console.log(`POST /api/classifyRecommendations called for ${clinicName}`);
 
