@@ -1,4 +1,4 @@
-k<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -37,6 +37,23 @@ k<!DOCTYPE html>
         min-height: 400px; /* 高さを確保 */
     }
     /* ▲▲▲ AI分析 編集用Textarea ▲▲▲ */
+
+    /* ▼▼▼ [新規] DLボタン用のスタイル ▼▼▼ */
+    /* (既存のbtnクラスを流用しつつ、小さくする) */
+    .btn-sm {
+        @apply py-1 px-3 text-xs tracking-normal;
+    }
+    
+    /* ▼▼▼ [新規] ローディングスピナー (DLボタン用) ▼▼▼ */
+    .spinner {
+        @apply inline-block animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current;
+    }
+    
+    /* ▼▼▼ [変更] 転記済みリストのカーソル制御 ▼▼▼ */
+    /* コンテナ全体ではなく、名前(view-report-btn)だけカーソルを変える */
+    .view-report-btn {
+        @apply cursor-pointer hover:text-blue-600 transition-colors;
+    }
   </style>
 </head>
 <body class="text-gray-900">
@@ -266,7 +283,7 @@ k<!DOCTYPE html>
     </main>
   </div>
   <script>
-  // --- グローバル変数 (変更) ---
+  // --- グローバル変数 (変更なし) ---
   let selectedPeriod = {}; 
   // ▼▼▼ [変更点] issuedReports は不要 (要求 #6) ▼▼▼
   // let issuedReports = {}; 
@@ -302,7 +319,11 @@ k<!DOCTYPE html>
   function setupEventListeners() {
     document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); 
     document.getElementById('issue-btn').addEventListener('click', handleIssueReport); 
-    document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClick);
+    // ▼▼▼ [変更] issued-list-container のクリックイベント委譲 ▼▼▼
+    document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClickDelegator);
+    
+    // ▼▼▼ [削除] 古いリスナー (要求 #7) ▼▼▼
+    // document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClick);
     
     // ▼▼▼ [削除] モーダル関連のリスナー (要求 #7) ▼▼▼
     // document.getElementById('report-type-modal').addEventListener('click', handleReportModalClick);
@@ -341,7 +362,7 @@ k<!DOCTYPE html>
   }
 
   // =================================================================
-  // === ▼▼▼ 画面1 (期間選択) 処理 (変更) ▼▼▼ ===
+  // === ▼▼▼ 画面1 (期間選択) 処理 (変更なし) ▼▼▼ ===
   // =================================================================
   function populateDateSelectors() { const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sm.value=String(now.getMonth()+1).padStart(2,'0'); }
 
@@ -407,7 +428,7 @@ k<!DOCTYPE html>
   // === ▼▼▼ 画面2 (クリニック選択・転記) 処理 (変更) ▼▼▼ ===
   // =================================================================
 
-  // ▼▼▼ [変更点] loadClinics (要求 #6) ▼▼▼
+  // ▼▼▼ [変更] loadClinics (AIステータス反映) (要求 #6) ▼▼▼
   async function loadClinics() {
     console.log('loadClinics (new)...');
     showLoading(true, 'クリニック一覧と転記状況を読込中...');
@@ -420,7 +441,7 @@ k<!DOCTYPE html>
     document.getElementById('issue-btn').disabled = true; // デフォルトは無効
 
     try {
-        // 1. APIを並列呼び出し
+        // 1. APIを呼び出し
         const [clinicListRes, transferredListRes] = await Promise.all([
             fetch('/api/getClinicList'),
             fetch('/api/getTransferredList', {
@@ -434,7 +455,10 @@ k<!DOCTYPE html>
         if (!transferredListRes.ok) throw new Error(`転記済み一覧の取得失敗: ${await transferredListRes.text()}`);
         
         const masterClinics = await clinicListRes.json(); // ["クリニックA", "クリニックB"]
-        const { sheetTitles } = await transferredListRes.json(); // ["全体", "クリニックA", "AI-...", ...]
+        // ▼▼▼ [変更] AI完了ステータスを受け取る ▼▼▼
+        const { sheetTitles, aiCompletionStatus } = await transferredListRes.json(); 
+        // sheetTitles = ["全体", "クリニックA", ...]
+        // aiCompletionStatus = { "クリニックA": true, "クリニックB": false }
         
         const transferredTitlesSet = new Set(sheetTitles); // 検索用Set
         
@@ -452,10 +476,27 @@ k<!DOCTYPE html>
             masterClinics.forEach(clinicName => {
                 if (transferredTitlesSet.has(clinicName)) {
                     // (B) 転記済み -> 右側
+                    
+                    // ▼▼▼ [変更] DLボタンを追加したHTMLに変更 ▼▼▼
                     const d = document.createElement('div');
-                    d.className = 'p-4 border rounded-lg cursor-pointer hover:bg-gray-50 hover:shadow-md transition-all duration-200';
-                    d.dataset.clinicName = clinicName;
-                    d.innerHTML = `<p class="font-bold text-base">${clinicName}</p>`;
+                    d.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 hover:shadow-md transition-all duration-200';
+                    
+                    // AI分析が完了しているか？
+                    const isAiComplete = aiCompletionStatus[clinicName] === true;
+                    
+                    d.innerHTML = `
+                        <p class="font-bold text-base view-report-btn" data-clinic-name="${clinicName}">${clinicName}</p>
+                        <button 
+                            class="btn btn-sm download-slide-btn" 
+                            data-clinic-name="${clinicName}" 
+                            ${isAiComplete ? '' : 'disabled'}
+                            title="${isAiComplete ? 'スライドをダウンロード' : 'AI分析が完了するまでお待ちください'}">
+                            <span class="spinner hidden"></span>
+                            DL
+                        </button>
+                    `;
+                    // ▲▲▲
+                    
                     issuedListContainer.appendChild(d);
                     transferredCount++;
                 } else {
@@ -472,7 +513,7 @@ k<!DOCTYPE html>
             });
         }
         
-        // 4. コンテナが空の場合のメッセージ
+        // 4. コンテナが空の場合のメッセージ (変更なし)
         if (untransferredCount === 0) {
             clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">未転記のクリニックはありません</p>';
         }
@@ -480,9 +521,12 @@ k<!DOCTYPE html>
             issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-8">転記済みレポートなし</p>';
         }
 
-        // 5. チェックボックスのリスナー設定
+        // 5. チェックボックスのリスナー設定 (変更なし)
         clinicListContainer.removeEventListener('change', handleClinicCheckboxChange);
         clinicListContainer.addEventListener('change', handleClinicCheckboxChange);
+        
+        // 6. ▼▼▼ [新規] 10件制限を初期化 (もしチェックが残っていた場合用) ▼▼▼
+        handleClinicCheckboxChange();
 
     } catch(err) {
         console.error('!!! Load failed:', err);
@@ -493,27 +537,69 @@ k<!DOCTYPE html>
     }
   }
 
-  // ▼▼▼ [変更点] 転記ボタンの有効/無効 (要求 #6) ▼▼▼
-  function handleClinicCheckboxChange() {
-    // チェックが1つでもあれば有効
-    const checkedCount = document.querySelectorAll('#clinic-list-container input:checked').length;
-    document.getElementById('issue-btn').disabled = (checkedCount === 0);
+  // ▼▼▼ [変更] 転記ボタンの有効/無効 (要求 #6) + (要求 #2 10件制限) ▼▼▼
+  function handleClinicCheckboxChange(event) {
+    const checkedCheckboxes = document.querySelectorAll('#clinic-list-container input:checked');
+    const checkedCount = checkedCheckboxes.length;
+    const issueBtn = document.getElementById('issue-btn');
+    
+    // 1. 転記ボタンの有効/無効
+    issueBtn.disabled = (checkedCount === 0);
+    
+    // 2. 10件制限
+    if (checkedCount > 10) {
+        alert('一度に選択できる件数は10件までです。');
+        // 10件を超えてチェックを入れようとした場合、そのチェックを強制的に外す
+        if (event && event.target) {
+            event.target.checked = false;
+        }
+        // 転記ボタンは有効のまま (10件は選択されているため)
+    }
+    
+    // 3. 他のチェックボックスの無効化
+    // (チェック数が10件に達したら、他の未チェックのチェックボックスを無効化)
+    const allCheckboxes = document.querySelectorAll('#clinic-list-container input[type="checkbox"]');
+    // チェックが10件以上かどうかを再計算 (event.target.checked = false; の可能性があるため)
+    const finalCheckedCount = document.querySelectorAll('#clinic-list-container input:checked').length;
+    
+    allCheckboxes.forEach(cb => {
+        if (!cb.checked) {
+            // チェック数が10件以上の場合、未チェックのものは無効
+            cb.disabled = (finalCheckedCount >= 10);
+        } else {
+            // チェックされているものは常に有効 (チェックを外せるように)
+            cb.disabled = false; 
+        }
+    });
+    
+    // 4. 最終的に10件を超えていないか確認 (念のため)
+    if (finalCheckedCount > 10) {
+        issueBtn.disabled = true; // 10件オーバーの不正な状態ならボタンを無効化
+    } else {
+        issueBtn.disabled = (finalCheckedCount === 0);
+    }
   }
 
-  // ▼▼▼ [変更点] 転記実行 (要求 #6) ▼▼▼
+  // ▼▼▼ [変更] 転記実行 (要求 #6) ▼▼▼
   async function handleIssueReport() {
     console.log('Issue report (ETL).');
-    showLoading(true, '集計スプレッドシートへデータ転記中...');
     
-    // (変更なし) チェックされたクリニックのみを対象
     const sc = Array.from(document.querySelectorAll('#clinic-list-container input:checked'))
                   .map(cb => cb.value);
                   
     if (sc.length === 0) {
         alert('転記対象のクリニックが選択されていません。');
-        showLoading(false);
         return;
     }
+    
+    // ▼▼▼ [変更] 10件制限の最終確認 ▼▼▼
+    if (sc.length > 10) {
+        alert('一度に選択できる件数は10件までです。チェックを減らしてください。');
+        return;
+    }
+
+    // ▼▼▼ [変更] AI分析がバックグラウンドで実行されることをユーザーに通知 ▼▼▼
+    showLoading(true, '集計スプレッドシートへデータ転記中...\n完了後、バックグラウンドでAI分析が自動実行されます。');
 
     console.log('Selected for ETL:', sc);
     console.log('Using CentralSheetID:', currentCentralSheetId);
@@ -534,7 +620,8 @@ k<!DOCTYPE html>
         const data = await r.json(); 
         console.log('ETL process finished:', data);
 
-        // ▼▼▼ [変更点] issuedReports 変数を更新する代わりに、リスト全体を再読み込みする ▼▼▼
+        // ▼▼▼ [変更] 転記が完了したら、リスト全体を再読み込みする ▼▼▼
+        // (AI分析が始まったので、DLボタンが disabled の状態で右側に表示される)
         loadClinics(); 
 
     } catch(err) {
@@ -553,17 +640,60 @@ k<!DOCTYPE html>
   // === ▼▼▼ 画面3 (グラフ・レポート表示) 処理 (変更) ▼▼▼ ===
   // =================================================================
 
-  // ▼▼▼ [変更点] 転記済みレポートクリック (要求 #7) ▼▼▼
-  function handleIssuedListClick(e) {
-    const t = e.target.closest('[data-clinic-name]');
-    if (t) {
-        currentClinicForModal = t.dataset.clinicName;
-        console.log(`Issued clinic clicked: ${currentClinicForModal}`);
-        
-        // ▼▼▼ [変更点] モーダルを廃止し、NPSスコアレポートを直接表示 ▼▼▼
-        // showReportModal(true);
-        prepareAndShowReport('nps_score');
+  // ▼▼▼ [新規] イベント委譲ハンドラ (要求 #7) ▼▼▼
+  function handleIssuedListClickDelegator(e) {
+    const viewBtn = e.target.closest('.view-report-btn');
+    const dlBtn = e.target.closest('.download-slide-btn');
+
+    if (viewBtn) {
+        // (A) クリニック名がクリックされた場合 (レポート閲覧)
+        handleIssuedListClick(viewBtn.dataset.clinicName);
+    } else if (dlBtn) {
+        // (B) DLボタンがクリックされた場合
+        handleDownloadSlideClick(dlBtn);
     }
+  }
+
+  // ▼▼▼ [変更] 転記済みレポートクリック (要求 #7) ▼▼▼
+  // (中身を clinicName を引数に取るように変更)
+  function handleIssuedListClick(clinicName) {
+    // const t = e.target.closest('[data-clinic-name]');
+    // if (t) {
+    //     currentClinicForModal = t.dataset.clinicName;
+    currentClinicForModal = clinicName;
+    console.log(`Issued clinic clicked: ${currentClinicForModal}`);
+    
+    // ▼▼▼ [変更点] モーダルを廃止し、NPSスコアレポートを直接表示 ▼▼▼
+    // showReportModal(true);
+    prepareAndShowReport('nps_score');
+    // }
+  }
+  
+  // ▼▼▼ [新規] DLボタンクリックハンドラ (中身は未実装) ▼▼▼
+  function handleDownloadSlideClick(buttonElement) {
+    const clinicName = buttonElement.dataset.clinicName;
+    console.log(`Download Slide clicked for: ${clinicName}`);
+    
+    if (buttonElement.disabled) {
+        console.warn('DL button is disabled, ignoring click.');
+        return;
+    }
+    
+    alert(`「${clinicName}」のスライド複製 (GAS①) を実行します。\n(現在は機能未実装です)`);
+    
+    // (将来のロジック: スピナーを表示し、GAS APIを呼び出す)
+    // const spinner = buttonElement.querySelector('.spinner');
+    // spinner.classList.remove('hidden');
+    // buttonElement.disabled = true;
+    
+    // try {
+    //     await fetch('/api/generateSlide', { ... });
+    // } catch (e) {
+    //     alert('スライド生成失敗');
+    // } finally {
+    //     spinner.classList.add('hidden');
+    //     buttonElement.disabled = false; 
+    // }
   }
 
   // ▼▼▼ [削除] モーダルクリック処理 (要求 #7) ▼▼▼
@@ -650,6 +780,8 @@ k<!DOCTYPE html>
         console.error('Chart data fetch error:', e);
         document.getElementById('slide-body').innerHTML = `<p class="text-center text-red-500">グラフデータ取得失敗<br>(${e.message})</p>`;
         showLoading(false);
+        // ▼▼▼ [変更点] screen3 に遷移してからエラーにする (要求 #7) ▼▼▼
+        showScreen('screen3'); 
         return;
     }
     

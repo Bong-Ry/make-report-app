@@ -1,5 +1,7 @@
 const googleSheetsService = require('../services/googleSheets');
 const pdfGeneratorService = require('../services/pdfGenerator');
+// ▼▼▼ [新規] AI分析サービスを読み込む ▼▼▼
+const aiAnalysisService = require('../services/aiAnalysisService');
 
 // --- (変更なし) クリニック一覧取得 ---
 exports.getClinicList = async (req, res) => {
@@ -15,11 +17,10 @@ exports.getClinicList = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 新規API (要求 #6 転記状況の確認) ▼▼▼ ===
+// === ▼▼▼ [変更] 転記状況の確認 (AI完了ステータスを追加) ▼▼▼ ===
 // =================================================================
 /**
- * [新規] 集計スプレッドシート内の全タブ名を取得する
- * (フロントエンドが「転記済みか」を判断するために使う)
+ * [変更] 集計スプレッドシート内の全タブ名と、AI分析の完了状況を取得する
  */
 exports.getTransferredList = async (req, res) => {
     const { centralSheetId } = req.body;
@@ -30,9 +31,47 @@ exports.getTransferredList = async (req, res) => {
     }
     
     try {
+        // 1. 全シート名を取得 (既存)
         const sheetTitles = await googleSheetsService.getSheetTitles(centralSheetId);
-        // sheetTitles = ["全体", "フォームの回答 1", "あらかわレディースクリニック", "サンプルクリニック", ...]
-        res.json({ sheetTitles: sheetTitles });
+        const sheetTitlesSet = new Set(sheetTitles); // 高速検索用のSet
+
+        // 2. マスターからクリニック一覧を取得
+        // (どのクリニックのAI分析状況をチェックすべきか知るため)
+        const masterClinics = await googleSheetsService.getMasterClinicList();
+
+        // 3. AI分析の完了ステータスを計算
+        const aiCompletionStatus = {};
+        // AI分析は5種類
+        const requiredTypes = ['L', 'I_good', 'I_bad', 'J', 'M'];
+
+        for (const clinicName of masterClinics) {
+            // このクリニックが転記済み (タブが存在する) か？
+            if (sheetTitlesSet.has(clinicName)) {
+                let isAllComplete = true;
+                
+                // 5種類すべてのAI分析シート (例: "クリニック名-AI分析-L-分析") が存在するかチェック
+                for (const type of requiredTypes) {
+                    //
+                    const aiSheetName = `${clinicName}-AI分析-${type}-分析`;
+                    if (!sheetTitlesSet.has(aiSheetName)) {
+                        isAllComplete = false;
+                        break; // 1つでも欠けていたらチェック終了
+                    }
+                }
+                aiCompletionStatus[clinicName] = isAllComplete;
+            } else {
+                aiCompletionStatus[clinicName] = false; // 転記自体されていない
+            }
+        }
+        
+        console.log(`[/api/getTransferredList] AI Status:`, aiCompletionStatus);
+        
+        // 4. シート名リストとAI完了ステータスの両方を返す
+        res.json({ 
+            sheetTitles: sheetTitles,
+            aiCompletionStatus: aiCompletionStatus // { "クリニックA": true, "クリニックB": false, ... }
+        });
+
     } catch (err) {
         console.error('[/api/getTransferredList] Error:', err);
         res.status(500).send(err.message || '転記済みシート一覧の取得に失敗しました。');
@@ -61,8 +100,7 @@ exports.findOrCreateSheet = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 更新API (2/3) (バグ修正) ▼▼▼ ===
-// (前回修正した getSpreadsheetIdFromUrl のロジックが間違っていたため修正)
+// === ▼▼▼ [変更] getReportData (AIバックグラウンド実行) (2/3) ▼▼▼ ===
 // =================================================================
 exports.getReportData = async (req, res) => {
     const { period, selectedClinics, centralSheetId } = req.body;
@@ -73,6 +111,13 @@ exports.getReportData = async (req, res) => {
         console.error('[/api/getReportData] Invalid request body:', req.body);
         return res.status(400).send('Invalid request: period, selectedClinics, and centralSheetId required.');
     }
+    
+    // ▼▼▼ [変更] 10件制限をバックエンドでも強制 (任意) ▼▼▼
+    if (selectedClinics.length > 10) {
+         console.error('[/api/getReportData] Too many clinics selected:', selectedClinics.length);
+        return res.status(400).send('Invalid request: 一度に処理できるのは10件までです。');
+    }
+    // ▲▲▲
 
     try {
         // 1. マスターからURLマップを取得 (変更なし)
@@ -99,9 +144,23 @@ exports.getReportData = async (req, res) => {
         // (IDへの変換は services/googleSheets.js の fetchAndAggregateReportData 側で行われる)
 
         // 2. データを集計スプシに「転記」する (ETL実行)
+        //
         const processedClinics = await googleSheetsService.fetchAndAggregateReportData(clinicUrls, period, centralSheetId);
         
-        console.log('[/api/getReportData] Finished ETL process. Processed clinics:', processedClinics);
+        // 3. ▼▼▼ [新規] AI分析をバックグラウンドで実行 (await しない) ▼▼▼
+        if (processedClinics.length > 0) {
+            console.log(`[/api/getReportData] Triggering background AI analysis for ${processedClinics.length} clinics...`);
+            
+            // AI分析の実行をトリガーする。
+            // `await` を付けないことで、この関数の完了を待たずに
+            // すぐにクライアントに応答を返す (非同期実行)
+            runBackgroundAiAnalysis(centralSheetId, processedClinics);
+            
+        }
+        // ▲▲▲
+        
+        console.log('[/api/getReportData] Finished ETL process. Responding to client.');
+        // 4. AI分析の完了を待たずに、すぐにフロントエンドに応答を返す
         res.json({ status: 'ok', processed: processedClinics });
 
     } catch (err) {
@@ -109,6 +168,47 @@ exports.getReportData = async (req, res) => {
         res.status(500).send(err.message || 'レポートデータ転記中にエラーが発生しました。');
     }
 };
+
+/**
+ * [新規] AI分析をバックグラウンドで実行するラッパー関数
+ * @param {string} centralSheetId 
+ * @param {string[]} clinicNames - 処理対象のクリニック名リスト
+ */
+async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
+    console.log(`[BG-AI] Background task started for ${clinicNames.join(', ')}`);
+    
+    // AI分析は5種類
+    const analysisTypes = ['L', 'I_good', 'I_bad', 'J', 'M'];
+    
+    // 転記されたクリニックごとにループ
+    for (const clinicName of clinicNames) {
+        console.log(`[BG-AI] Starting all 5 analyses for ${clinicName}...`);
+        try {
+            // 5種類のAI分析を順番に実行
+            for (const type of analysisTypes) {
+                try {
+                    console.log(`[BG-AI] Running ${clinicName} - ${type}...`);
+                    // 新しいサービス関数を呼び出す
+                    await aiAnalysisService.runAndSaveAnalysis(centralSheetId, clinicName, type);
+                    console.log(`[BG-AI] SUCCESS: ${clinicName} - ${type}`);
+                } catch (e) {
+                    if (e.message && e.message.includes('テキストデータが0件')) {
+                        console.log(`[BG-AI] SKIP: ${clinicName} - ${type} (No data)`);
+                    } else {
+                        console.error(`[BG-AI] FAILED: ${clinicName} - ${type}: ${e.message}`);
+                    }
+                    // 1つのタイプが失敗しても、次のタイプの分析に進む
+                }
+            }
+            console.log(`[BG-AI] COMPLETED all 5 analyses for ${clinicName}`);
+        } catch (e) {
+            console.error(`[BG-AI] FATAL ERROR for ${clinicName} (e.g., getReportData failed): ${e.message}`);
+            // 1つのクリニックが(データ取得などで)失敗しても、次のクリニックに進む
+        }
+    }
+    console.log('[BG-AI] All background tasks finished.');
+}
+
 
 // =================================================================
 // === (変更なし) getChartData (3/3) ===
@@ -123,6 +223,7 @@ exports.getChartData = async (req, res) => {
     
     try {
         // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts を呼び出す
+        //
         const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, sheetName);
         res.json(reportData);
     } catch (err) {
@@ -146,8 +247,10 @@ exports.generatePdf = async (req, res) => {
     try {
         // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts を呼び出す
         console.log(`[/generate-pdf] Fetching data for PDF from sheet: "${clinicName}"`);
+        //
         const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
         
+        //
         const pdfBuffer = await pdfGeneratorService.generatePdfFromData(clinicName, periodText, reportData);
 
         res.contentType('application/pdf');

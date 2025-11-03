@@ -2,6 +2,8 @@ const kuromojiService = require('../services/kuromoji');
 const openaiService = require('../services/openai');
 const postalCodeService = require('../services/postalCodeService');
 const googleSheetsService = require('../services/googleSheets');
+// ▼▼▼ [新規] AI分析サービスを読み込む ▼▼▼
+const aiAnalysisService = require('../services/aiAnalysisService'); 
 const { getSystemPromptForDetailAnalysis, getSystemPromptForRecommendationAnalysis } = require('../utils/helpers');
 
 // メモリキャッシュ (簡易版)
@@ -32,7 +34,7 @@ exports.analyzeText = async (req, res) => {
 };
 
 // =================================================================
-// === (変更なし) AI詳細分析 (実行・保存) ===
+// === ▼▼▼ [変更] AI詳細分析 (実行・保存) ▼▼▼ ===
 // =================================================================
 exports.generateDetailedAnalysis = async (req, res) => {
     const { centralSheetId, clinicName, columnType } = req.body;
@@ -43,52 +45,21 @@ exports.generateDetailedAnalysis = async (req, res) => {
         return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, columnType が必要です。');
     }
 
-    const systemPrompt = getSystemPromptForDetailAnalysis(clinicName, columnType);
-    if (!systemPrompt) {
-        console.error(`[/api/generateDetailedAnalysis] Invalid analysis type: ${columnType}`);
-        return res.status(400).send('無効な分析タイプです。');
-    }
-
     try {
-        // 1. 集計スプシから分析対象のテキストリストを取得
-        console.log(`[/api/generateDetailedAnalysis] Fetching chart data to get textList...`);
-        // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts を呼び出す
-        const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
+        // ▼▼▼ [変更点] AI分析の実行と保存ロジックをサービスに移譲 ▼▼▼
+        const analysisJson = await aiAnalysisService.runAndSaveAnalysis(centralSheetId, clinicName, columnType);
         
-        let textList = [];
-        switch (columnType) {
-            case 'L': textList = reportData.npsData.rawText || []; break;
-            case 'I_good': textList = reportData.feedbackData.i_column.results || []; break;
-            case 'I_bad': textList = reportData.feedbackData.i_column.results || []; break; 
-            case 'J': textList = reportData.feedbackData.j_column.results || []; break;
-            case 'M': textList = reportData.feedbackData.m_column.results || []; break;
-            default: throw new Error(`無効な分析タイプです: ${columnType}`);
-        }
-        
-        if (textList.length === 0) {
-            console.log(`[/api/generateDetailedAnalysis] No text data (0 items) found for ${columnType}.`);
-            return res.status(404).send('分析対象のテキストデータが0件です。');
-        }
-
-        // 2. 入力テキストを結合・制限 (変更なし)
-        const truncatedList = textList.length > 100 ? textList.slice(0, 100) : textList;
-        const combinedText = truncatedList.join('\n\n---\n\n');
-        const inputText = combinedText.substring(0, 15000);
-
-        console.log(`[/api/generateDetailedAnalysis] Sending ${truncatedList.length} comments (input text length: ${inputText.length}) to OpenAI...`);
-
-        // 3. OpenAI API 呼び出し (変更なし)
-        const analysisJson = await openaiService.generateJsonAnalysis(systemPrompt, inputText);
-        
-        // 4. 結果をGoogleスプレッドシートに保存 (変更なし)
-        console.log(`[/api/generateDetailedAnalysis] Saving analysis results to Google Sheet...`);
-        await googleSheetsService.saveAIAnalysisToSheet(centralSheetId, clinicName, columnType, analysisJson);
-
-        // 5. AIが生成した生のJSONをクライアントに返す (変更なし)
+        // 5. AIが生成した生のJSONをクライアントに返す
         res.json(analysisJson);
 
     } catch (error) {
         console.error('[/api/generateDetailedAnalysis] Error generating detailed analysis:', error);
+        
+        // ▼▼▼ [変更点] サービスからの 404 エラーをハンドル ▼▼▼
+        if (error.message && error.message.includes('テキストデータが0件')) {
+            return res.status(404).send(error.message);
+        }
+        
         res.status(500).send(`AI分析中にエラーが発生しました: ${error.message}`);
     }
 };
