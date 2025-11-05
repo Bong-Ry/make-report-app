@@ -1,8 +1,10 @@
 // services/aiAnalysisService.js (新規作成)
 
-const openaiService = require('./openai');
-const googleSheetsService = require('./googleSheets');
-const { getSystemPromptForDetailAnalysis } = require('../utils/helpers');
+// ▼▼▼ [変更] パスを修正 ▼▼▼
+const openaiService = require('./services/openai');
+const googleSheetsService = require('./services/googleSheets');
+const { getSystemPromptForDetailAnalysis } = require('./utils/helpers');
+// ▲▲▲
 
 /**
  * [新規] AI分析を実行し、結果をシートに保存する共通ロジック
