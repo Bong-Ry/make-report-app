@@ -2,8 +2,8 @@ const kuromojiService = require('../services/kuromoji');
 const openaiService = require('../services/openai');
 const postalCodeService = require('../services/postalCodeService');
 const googleSheetsService = require('../services/googleSheets');
-// ▼▼▼ [新規] AI分析サービスを読み込む ▼▼▼
-const aiAnalysisService = require('../services/aiAnalysisService'); 
+// ▼▼▼ [変更] パスを修正 (services フォルダから外す) ▼▼▼
+const aiAnalysisService = require('../aiAnalysisService'); 
 const { getSystemPromptForDetailAnalysis, getSystemPromptForRecommendationAnalysis } = require('../utils/helpers');
 
 // メモリキャッシュ (簡易版)
