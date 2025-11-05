@@ -137,9 +137,8 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
         console.log(`[googleSheetsService-ETL] Processing ${clinicName} (Source ID: ${sourceSheetId})`);
 
         try {
-            // 1. 元データ（フォームの回答 1）を読み取る
             // (ユーザーの保存済み指示「フォームの回答 1」を参照)
-            const range = "'フォームの回答 1'!A:R"; // R列(郵便番号)まで
+            const range = "'フォームの回答 1'!A:R"; 
             const clinicDataResponse = await sheets.spreadsheets.values.get({
                 spreadsheetId: sourceSheetId, 
                 range: range,
@@ -173,14 +172,11 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
 
             if (filteredRows.length > 0) {
                 // 3. 集計スプシに「クリニック名」のタブを作成（またはクリア） (変更なし)
-                // (ご要望: `[クリニック名]` タブ)
                 const clinicSheetTitle = clinicName; 
                 await findOrCreateSheet(centralSheetId, clinicSheetTitle);
                 
                 // 4. データを「クリニック名」タブに書き込み
                 await clearSheet(centralSheetId, clinicSheetTitle);
-                
-                // (ヘッダーなしで書き込む)
                 await writeData(centralSheetId, clinicSheetTitle, filteredRows);
                 console.log(`[googleSheetsService-ETL] Wrote ${filteredRows.length} rows to sheet: "${clinicSheetTitle}" (HEADERLESS)`);
 
@@ -192,13 +188,12 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
             processedClinics.push(clinicName);
 
         } catch (e) {
-            // (ユーザーの保存済み指示「フォームの回答 1」を参照)
             if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
                 console.error(`[googleSheetsService-ETL] Error for ${clinicName}: Sheet 'フォームの回答 1' not found or invalid range. Skipping. Error: ${e.toString()}`);
             } else {
                 console.error(`[googleSheetsService-ETL] Error processing sheet for ${clinicName}: ${e.toString()}`, e.stack);
             }
-            continue; // 次のクリニックへ
+            continue; 
         }
     }
     
@@ -350,21 +345,7 @@ function buildReportDataObject(data) {
 
 
 // =================================================================
-// === ▼▼▼ [削除] 古い分析I/O関数 (5/X, 6/X, 7/X, 8/X, 9/X) ▼▼▼ ===
-// =================================================================
-// exports.saveAIAnalysisToSheet ... (削除)
-// exports.getAIAnalysisFromSheet ... (削除)
-// exports.updateAIAnalysisInSheet ... (削除)
-// exports.saveMunicipalityData ... (削除)
-// exports.readMunicipalityData ... (削除)
-// (古いセルベースのI/O関数)
-// exports.saveToAnalysisSheet ... (削除)
-// exports.readFromAnalysisSheet ... (削除)
-// exports.readCompletionMarker ... (削除)
-
-// =================================================================
 // === (変更なし) 関数 (10/X) (シート名一覧取得) ===
-// (「押せない」問題の修正で、タブの存在チェックに使うため)
 // =================================================================
 exports.getSheetTitles = async (spreadsheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
@@ -386,28 +367,21 @@ exports.getSheetTitles = async (spreadsheetId) => {
 
 
 // =================================================================
-// === ▼▼▼ [新規] 分析タブ用 汎用I/O関数群 (11/X) ▼▼▼ ===
+// === (変更なし) 分析タブ用 汎用I/O関数群 (11/X) ===
 // =================================================================
 
 /**
- * [新規] テーブルデータ（市区町村、おすすめ理由）を専用タブに書き込む
- * @param {string} centralSheetId
- * @param {string} sheetName (例: "クリニックA_市区町村")
- * @param {string[][]} dataRows (ヘッダー行を含む2D配列)
+ * [変更なし] テーブルデータ（市区町村、おすすめ理由）を専用タブに書き込む
  */
 exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     console.log(`[googleSheetsService] Saving Table to Sheet: "${sheetName}"`);
     
     try {
-        // 1. シートを作成（またはクリア）
         await findOrCreateSheet(centralSheetId, sheetName);
         await clearSheet(centralSheetId, sheetName);
-        
-        // 2. データを書き込み (ヘッダー + データ)
         await writeData(centralSheetId, sheetName, dataRows);
         
-        // 3. [装飾] 列幅を自動調整 (A-D列)
         const sheetId = await getSheetId(centralSheetId, sheetName);
         if (sheetId) {
              await sheets.spreadsheets.batchUpdate({
@@ -429,45 +403,35 @@ exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
 };
 
 /**
- * [新規] AI分析データ (Map) を専用タブに (A列キー, B列値) 形式で書き込む
- * @param {string} centralSheetId
- * @param {string} sheetName (例: "クリニックA_AI分析")
- * @param {Map<string, string>} aiDataMap (キー: "L_ANALYSIS", 値: "分析文...")
+ * [変更なし] AI分析データ (Map) を専用タブに (A列キー, B列値) 形式で書き込む
  */
 exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     console.log(`[googleSheetsService] Saving AI Key-Value Data to Sheet: "${sheetName}"`);
     
     try {
-        // 1. シートを作成（またはクリア）
         await findOrCreateSheet(centralSheetId, sheetName);
         await clearSheet(centralSheetId, sheetName);
         
-        // 2. Map を A/B列の2D配列に変換 (ご要望: A列に一行ずつ)
-        const allKeys = getAiAnalysisKeys(); // helpers から 15個のキー配列を取得
+        const allKeys = getAiAnalysisKeys(); 
         const dataRows = allKeys.map(key => {
             const value = aiDataMap.get(key) || '（データなし）';
             return [key, value]; // [A列, B列]
         });
         
-        // 3. ヘッダーを追加
         const header = ['項目キー', '分析文章データ'];
         const finalData = [header, ...dataRows];
 
-        // 4. データを書き込み (A1から)
         await writeData(centralSheetId, `'${sheetName}'!A1`, finalData);
         
-        // 5. [装飾] 列幅を調整
         const sheetId = await getSheetId(centralSheetId, sheetName);
         if (sheetId) {
              await sheets.spreadsheets.batchUpdate({
                 spreadsheetId: centralSheetId,
                 resource: { requests: [
-                    // A列 (キー) を自動調整
                     { autoResizeDimensions: {
                         dimensions: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }
                     }},
-                    // B列 (本文) を 800px に固定
                     { updateDimensionProperties: {
                         range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 },
                         properties: { pixelSize: 800 },
@@ -486,23 +450,18 @@ exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
 };
 
 /**
- * [新規] AI分析タブ (A列キー, B列値) からデータを読み込み、Map形式で返す
- * @param {string} centralSheetId
- * @param {string} sheetName (例: "クリニックA_AI分析")
- * @returns {Promise<Map<string, string>>} (キー: "L_ANALYSIS", 値: "分析文...")
+ * [変更なし] AI分析タブ (A列キー, B列値) からデータを読み込み、Map形式で返す
  */
 exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     console.log(`[googleSheetsService] Reading AI Key-Value Data from Sheet: "${sheetName}"`);
     
     const aiDataMap = new Map();
-    // (念のため、helpers からキーの完全なリストを取得し、データがなくてもキーをセットする)
     getAiAnalysisKeys().forEach(key => {
         aiDataMap.set(key, '（データがありません）');
     });
 
     try {
-        // A:B 列を読み込む (ヘッダー含む)
         const range = `'${sheetName}'!A:B`;
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: centralSheetId,
@@ -512,14 +471,13 @@ exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
 
         const rows = response.data.values;
 
-        if (!rows || rows.length < 2) { // (ヘッダー + データ)
+        if (!rows || rows.length < 2) { 
             console.log(`[googleSheetsService] No data found in "${sheetName}".`);
-            return aiDataMap; // 空のMap（デフォルト値入り）を返す
+            return aiDataMap; 
         }
 
         rows.shift(); // ヘッダーを捨てる
 
-        // データをMapに格納
         rows.forEach(row => {
             const key = row[0];
             const value = row[1];
@@ -538,6 +496,116 @@ exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
         }
         console.error(`[googleSheetsService] Error reading AI Key-Value data: ${e.message}`, e);
         throw new Error(`AI分析(Key-Value)のシート読み込みに失敗しました: ${e.message}`);
+    }
+};
+
+
+// =================================================================
+// === ▼▼▼ [新規] 完了マーカー (管理シート) I/O関数 (12/X) ▼▼▼ ===
+// =================================================================
+const MANAGEMENT_SHEET_NAME = '管理'; // (ご要望: 管理シート)
+
+/**
+ * [新規] 「管理」タブのA列にクリニック名を追記する (分析開始時)
+ * @param {string} centralSheetId
+ * @param {string} clinicName
+ */
+exports.writeInitialMarker = async (centralSheetId, clinicName) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService-Marker] Writing Initial Marker for: "${clinicName}"`);
+    try {
+        await findOrCreateSheet(centralSheetId, MANAGEMENT_SHEET_NAME);
+        
+        // (ご要望: 空白行に入力)
+        await writeData(centralSheetId, MANAGEMENT_SHEET_NAME, [[clinicName]], true); // append = true
+        
+    } catch (e) {
+        console.error(`[googleSheetsService-Marker] Error writing initial marker: ${e.message}`, e);
+        // (このエラーは致命的ではないため、スローしない)
+    }
+};
+
+/**
+ * [新規] 「管理」タブのB列に "Complete" と書き込む (分析完了時)
+ * @param {string} centralSheetId
+ * @param {string} clinicName
+ */
+exports.writeCompletionMarker = async (centralSheetId, clinicName) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService-Marker] Writing Completion Marker for: "${clinicName}"`);
+    try {
+        await findOrCreateSheet(centralSheetId, MANAGEMENT_SHEET_NAME);
+        
+        // 1. A列を読み込み、該当クリニックの行番号(0-based)を探す
+        const range = `'${MANAGEMENT_SHEET_NAME}'!A:A`;
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: range,
+        });
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            throw new Error('「管理」シートが空です。');
+        }
+
+        const rowIndex = rows.findIndex(row => row[0] === clinicName);
+        
+        if (rowIndex === -1) {
+            console.warn(`[googleSheetsService-Marker] Clinic name "${clinicName}" not found in management sheet A-column.`);
+            // (見つからない場合、最終行に追記)
+            await writeData(centralSheetId, MANAGEMENT_SHEET_NAME, [[clinicName, 'Complete']], true); // append
+        } else {
+            // 2. 該当行のB列 (B{rowIndex + 1}) に "Complete" と書き込む
+            const cellToUpdate = `'${MANAGEMENT_SHEET_NAME}'!B${rowIndex + 1}`;
+            await writeData(centralSheetId, cellToUpdate, [['Complete']], false); // (上書き)
+        }
+
+    } catch (e) {
+        console.error(`[googleSheetsService-Marker] Error writing completion marker: ${e.message}`, e);
+        // (このエラーは致命的ではないため、スローしない)
+    }
+};
+
+/**
+ * [新規] 「管理」タブを読み込み、完了ステータスのMapを作成する (DLボタンチェック用)
+ * @param {string} centralSheetId
+ * @returns {Promise<Record<string, boolean>>} (例: { "クリニックA": true, "クリニックB": false })
+ */
+exports.readCompletionStatusMap = async (centralSheetId) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService-Marker] Reading Completion Status Map...`);
+    
+    const statusMap = {};
+    
+    try {
+        await findOrCreateSheet(centralSheetId, MANAGEMENT_SHEET_NAME);
+        
+        // A列とB列を読み込む
+        const range = `'${MANAGEMENT_SHEET_NAME}'!A:B`;
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: range,
+        });
+
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return statusMap; // 空のMap
+        }
+        
+        // (ヘッダー行は無い前提)
+        rows.forEach(row => {
+            const clinicName = row[0];
+            const status = row[1];
+            if (clinicName) {
+                statusMap[clinicName] = (status === 'Complete');
+            }
+        });
+        
+        return statusMap;
+
+    } catch (e) {
+        // (シートが存在しない場合なども含む)
+        console.error(`[googleSheetsService-Marker] Error reading status map: ${e.message}`, e);
+        return statusMap; // 空のMap
     }
 };
 

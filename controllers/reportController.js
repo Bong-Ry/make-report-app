@@ -4,8 +4,8 @@ const googleSheetsService = require('../services/googleSheets');
 const pdfGeneratorService = require('../services/pdfGenerator');
 const aiAnalysisService = require('../aiAnalysisService');
 const googleSlidesService = require('../services/googleSlidesService');
-// ▼▼▼ [変更] タブ名を取得するヘルパーをインポート ▼▼▼
-const { getAnalysisSheetName } = require('../utils/helpers');
+// ▼▼▼ [変更] タブ名を取得するヘルパー (不要になったため削除) ▼▼▼
+// const { getAnalysisSheetName } = require('../utils/helpers');
 
 // ▼▼▼ [変更なし] p-limit (並列2) ▼▼▼
 const pLimit = async () => (await import('p-limit')).default;
@@ -51,39 +51,31 @@ exports.getTransferredList = async (req, res) => {
     }
     
     try {
-        // 1. 全シート名を取得 (既存)
+        // 1. 全シート名を取得 (転記済みかどうかの判定に必要)
         const sheetTitles = await googleSheetsService.getSheetTitles(centralSheetId);
         const sheetTitlesSet = new Set(sheetTitles);
 
         // 2. マスターからクリニック一覧を取得
         const masterClinics = await googleSheetsService.getMasterClinicList();
 
-        // 3. ▼▼▼ [変更] 分析完了ステータスを計算 ▼▼▼
+        // 3. ▼▼▼ [変更] 「管理」シートから完了ステータスMapを取得 ▼▼▼
+        const completionMap = await googleSheetsService.readCompletionStatusMap(centralSheetId);
+        
         const aiCompletionStatus = {};
 
         for (const clinicName of masterClinics) {
             // このクリニックが転記済み (タブが存在する) か？
             if (sheetTitlesSet.has(clinicName)) {
                 
-                // [変更] ご要望に基づき、3つの分析タブがすべて存在するかチェック
-                const aiTab = getAnalysisSheetName(clinicName, 'AI');
-                const muniTab = getAnalysisSheetName(clinicName, 'MUNICIPALITY');
-                const recTab = getAnalysisSheetName(clinicName, 'RECOMMENDATION');
-                
-                if (sheetTitlesSet.has(aiTab) && 
-                    sheetTitlesSet.has(muniTab) && 
-                    sheetTitlesSet.has(recTab)) {
-                    aiCompletionStatus[clinicName] = true;
-                } else {
-                    aiCompletionStatus[clinicName] = false; // 分析タブが揃っていない
-                }
+                // [変更] ご要望に基づき、管理シートのMapを参照
+                aiCompletionStatus[clinicName] = (completionMap[clinicName] === true);
                 
             } else {
                 aiCompletionStatus[clinicName] = false; // 転記自体されていない
             }
         }
         
-        console.log(`[/api/getTransferredList] AI Status:`, aiCompletionStatus);
+        console.log(`[/api/getTransferredList] AI Status (from Management Sheet):`, aiCompletionStatus);
         
         // 4. シート名リストとAI完了ステータスの両方を返す
         res.json({ 
@@ -180,7 +172,7 @@ exports.getReportData = async (req, res) => {
 };
 
 /**
- * [変更] AI分析をバックグラウンドで実行（並列数 2）
+ * [変更] AI分析をバックグラウンドで実行（「管理」シートマーカー対応）
  * @param {string} centralSheetId 
  * @param {string[]} clinicNames - 処理対象のクリニック名リスト
  */
@@ -198,13 +190,10 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
     
     console.log(`[BG-AI] Background task started for ${clinicNames.join(', ')}`);
     
-    // ▼▼▼ [変更] タスクをご要望の3種類に再編成 ▼▼▼
+    // ▼▼▼ [変更なし] タスクは3種類 ▼▼▼
     const analysisTasks = [
-        // 1. AI 5種をまとめて実行し、`_AI分析` タブに保存
         { type: 'AI_ALL', func: aiAnalysisService.runAllAiAnalysesAndSave },
-        // 2. 市区町村を実行し、`_市区町村` タブに保存
         { type: 'MUNICIPALITY', func: aiAnalysisService.runAndSaveMunicipalityAnalysis },
-        // 3. おすすめ理由を実行し、`_おすすめ理由` タブに保存
         { type: 'RECOMMENDATION', func: aiAnalysisService.runAndSaveRecommendationAnalysis }
     ];
     
@@ -213,20 +202,19 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
         console.log(`[BG-AI] Starting all 3 analyses for ${clinicName} (Concurrency: 2)...`);
         
         try {
-            // ▼▼▼ [変更] 3種類のタスクを並列数 2 で実行 ▼▼▼
+            // ▼▼▼ [新規] 1. 分析開始時に「管理」シートのA列に名前を書き込む ▼▼▼
+            await googleSheetsService.writeInitialMarker(centralSheetId, clinicName);
+
+            // ▼▼▼ [変更なし] 3種類のタスクを並列数 2 で実行 ▼▼▼
             const promises = analysisTasks.map(task => {
                 // p-limit (limit) でラップして呼び出す
                 return limit(async () => {
                     try {
                         console.log(`[BG-AI] Running ${clinicName} - ${task.type}...`);
-                        
-                        // (aiAnalysisService の各関数は (centralSheetId, clinicName) の引数のみ)
                         await task.func(centralSheetId, clinicName);
-                        
                         console.log(`[BG-AI] SUCCESS: ${clinicName} - ${task.type}`);
                         return { type: task.type, status: 'success' };
                     } catch (e) {
-                        // (aiAnalysisService で throw されるエラーメッセージで判定)
                         if (e.message && (
                             e.message.includes('テキストデータが0件') ||
                             e.message.includes('郵便番号データが0件') ||
@@ -240,25 +228,24 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
                         }
                     }
                 });
-            }); // promises.map 終了
+            }); 
             
-            // このクリニックの全タスク(3件)の完了を待つ
+            // 2. [変更なし] このクリニックの全タスク(3件)の完了を待つ
             const results = await Promise.all(promises);
             
-            // 1件でも失敗(failed)があったか？ (skipped は除く)
             const hasFailed = results.some(r => r.status === 'failed');
             
             if (hasFailed) {
-                 console.error(`[BG-AI] COMPLETED (WITH FAILURES) for ${clinicName}.`);
+                 console.error(`[BG-AI] COMPLETED (WITH FAILURES) for ${clinicName}. Completion marker will NOT be set.`);
             } else {
-                // 3件すべてが success または skipped の場合
+                // 3. [変更] 3件すべてが success または skipped の場合
                 console.log(`[BG-AI] COMPLETED (SUCCESS/SKIP) all 3 analyses for ${clinicName}.`);
-                // ▼▼▼ [削除] 完了マーカーは不要になったため削除 ▼▼▼
-                // await googleSheetsService.saveToAnalysisSheet(centralSheetId, clinicName, 'COMPLETION_MARKER', 'COMPLETED');
+                // ▼▼▼ [変更] 「管理」シートのB列に "Complete" と書き込む ▼▼▼
+                await googleSheetsService.writeCompletionMarker(centralSheetId, clinicName);
+                console.log(`[BG-AI] Set COMPLETION MARKER for ${clinicName}.`);
             }
 
         } catch (e) {
-            // (p-limit 自体のエラーなど、予期せぬエラー)
             console.error(`[BG-AI] FATAL ERROR during parallel execution for ${clinicName}: ${e.message}`);
         }
     }
@@ -268,7 +255,6 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
 
 // =================================================================
 // === (変更なし) getChartData (3/3) ===
-// (生データを `[クリニック名]` タブから読み取る)
 // =================================================================
 exports.getChartData = async (req, res) => {
     const { centralSheetId, sheetName } = req.body;
@@ -318,7 +304,7 @@ exports.generatePdf = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ [変更] スライド生成 (AIデータ読込先を修正) ▼▼▼ ===
+// === (変更なし) スライド生成 ===
 // =================================================================
 exports.generateSlide = async (req, res) => {
     console.log("POST /api/generateSlide called");
@@ -337,8 +323,7 @@ exports.generateSlide = async (req, res) => {
     try {
         console.log(`[/api/generateSlide] Starting slide generation for: ${clinicName}`);
         
-        // ▼▼▼ [変更] googleSlidesService は、
-        // (内部で `readAiAnalysisData` を呼び出すように修正された)
+        // (googleSlidesService.js は `readAiAnalysisData` を使うよう修正済み)
         const newSlideUrl = await googleSlidesService.generateSlideReport(
             clinicName,
             centralSheetId,
@@ -348,7 +333,6 @@ exports.generateSlide = async (req, res) => {
         
         console.log(`[/api/generateSlide] Successfully generated slide. URL: ${newSlideUrl}`);
         
-        // 成功したら、クライアントに新しいスライドのURLを返す
         res.json({
             status: 'ok',
             newSlideUrl: newSlideUrl
