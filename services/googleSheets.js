@@ -1,28 +1,38 @@
 const { google } = require('googleapis');
 const { getSpreadsheetIdFromUrl } = require('../utils/helpers'); // 既存のヘルパー
 
-// ▼▼▼ GAS WebアプリURL (設定済み) ▼▼▼
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
+// ▼▼▼ [新規] GAS WebアプリURL (デプロイ済み) ▼▼▼
+exports.GAS_SLIDE_GENERATOR_URL = 'https://script.google.com/macros/s/AKfycby-b31JKqSR5HNLi1fQxK1hePsxkpDL2StBhd1gsP_dKqFvjNRoqcTsca0hLSEzE3x2Xg/exec';
+
+// ▼▼▼ [変更] 既存のGAS WebアプリURL ▼▼▼
+const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
 
 const KEYFILEPATH = '/etc/secrets/credentials.json';
+// ▼▼▼ [変更] SCOPESにスライド(presentations)を追加 ▼▼▼
 const SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets', // 読み書き
-    'https://www.googleapis.com/auth/drive.file'    // ファイルの検索・移動・作成
+    'https://www.googleapis.com/auth/drive.file',    // ファイルの検索・移動・作成
+    'https://www.googleapis.com/auth/presentations' // [新規] スライドの読み書き
 ];
 const MASTER_FOLDER_ID = '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj'; // 集計スプシ作成先フォルダ
 
 let sheets;
 let drive; // Drive API クライアント
+let slides; // [新規] Slides API クライアント
 
-// --- 初期化 (変更なし) ---
+// --- 初期化 (変更) ---
 try {
     const auth = new google.auth.GoogleAuth({ keyFile: KEYFILEPATH, scopes: SCOPES });
     sheets = google.sheets({ version: 'v4', auth });
     drive = google.drive({ version: 'v3', auth }); // Drive APIを初期化
-    console.log('Google Sheets (R/W) and Drive API clients initialized successfully.');
+    slides = google.slides({ version: 'v1', auth }); // [新規] Slides APIを初期化
+    console.log('Google Sheets, Drive, and Slides API clients initialized successfully.');
 } catch (err) {
     console.error('Failed to initialize Google API clients:', err);
 }
+
+// [新規] Slides APIクライアントをエクスポート
+exports.slides = slides;
 
 // --- (変更なし) マスターシートからクリニックリストを取得 ---
 exports.getMasterClinicList = async () => {
@@ -72,13 +82,14 @@ exports.getMasterClinicUrls = async () => {
 };
 
 // =================================================================
-// === ▼▼▼ 関数 (1/X) (GAS呼び出し・変更なし) ▼▼▼ ===
+// === ▼▼▼ 関数 (1/X) (GAS呼び出し・変更) ▼▼▼ ===
 // =================================================================
 exports.findOrCreateCentralSheet = async (periodText) => {
     const fileName = periodText;
     console.log(`[googleSheetsService] Finding or creating central sheet via GAS: "${fileName}"`);
     try {
-        const response = await fetch(GAS_WEB_APP_URL, {
+        // ▼▼▼ [変更] URLを定数から取得 ▼▼▼
+        const response = await fetch(GAS_SHEET_FINDER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

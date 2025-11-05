@@ -54,6 +54,12 @@
     .view-report-btn {
         @apply cursor-pointer hover:text-blue-600 transition-colors;
     }
+    
+    /* ▼▼▼ [新規] URLリンク用スタイル ▼▼▼ */
+    .btn-url {
+        @apply !bg-green-600 !text-white !border-green-600 hover:!bg-green-700;
+        /* ! で既存の .btn スタイルを上書き */
+    }
   </style>
 </head>
 <body class="text-gray-900">
@@ -492,7 +498,7 @@
                             ${isAiComplete ? '' : 'disabled'}
                             title="${isAiComplete ? 'スライドをダウンロード' : 'AI分析が完了するまでお待ちください'}">
                             <span class="spinner hidden"></span>
-                            DL
+                            <span class="button-text">DL</span>
                         </button>
                     `;
                     // ▲▲▲
@@ -650,6 +656,7 @@
         handleIssuedListClick(viewBtn.dataset.clinicName);
     } else if (dlBtn) {
         // (B) DLボタンがクリックされた場合
+        // ▼▼▼ [変更] API呼び出し ▼▼▼
         handleDownloadSlideClick(dlBtn);
     }
   }
@@ -669,8 +676,8 @@
     // }
   }
   
-  // ▼▼▼ [新規] DLボタンクリックハンドラ (中身は未実装) ▼▼▼
-  function handleDownloadSlideClick(buttonElement) {
+  // ▼▼▼ [変更] DLボタンクリックハンドラ ▼▼▼
+  async function handleDownloadSlideClick(buttonElement) {
     const clinicName = buttonElement.dataset.clinicName;
     console.log(`Download Slide clicked for: ${clinicName}`);
     
@@ -679,21 +686,65 @@
         return;
     }
     
-    alert(`「${clinicName}」のスライド複製 (GAS①) を実行します。\n(現在は機能未実装です)`);
-    
     // (将来のロジック: スピナーを表示し、GAS APIを呼び出す)
-    // const spinner = buttonElement.querySelector('.spinner');
-    // spinner.classList.remove('hidden');
-    // buttonElement.disabled = true;
+    const spinner = buttonElement.querySelector('.spinner');
+    const buttonText = buttonElement.querySelector('.button-text');
     
-    // try {
-    //     await fetch('/api/generateSlide', { ... });
-    // } catch (e) {
-    //     alert('スライド生成失敗');
-    // } finally {
-    //     spinner.classList.add('hidden');
-    //     buttonElement.disabled = false; 
-    // }
+    spinner.classList.remove('hidden');
+    buttonText.classList.add('hidden'); // "DL" の文字を隠す
+    buttonElement.disabled = true;
+    
+    try {
+        // APIを呼び出す
+        const response = await fetch('/api/generateSlide', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clinicName: clinicName,
+                centralSheetId: currentCentralSheetId,
+                period: selectedPeriod, // { start, end }
+                periodText: currentPeriodText // "YYYY-MM～YYYY-MM"
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`スライド生成APIエラー (${response.status}): ${await response.text()}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.status === 'ok' && result.newSlideUrl) {
+            // 成功した場合、ボタンをURLリンクに変更
+            console.log('Slide generation success:', result.newSlideUrl);
+            buttonElement.classList.add('btn-url'); // 緑色にする
+            buttonText.textContent = 'OPEN'; // "DL" -> "OPEN"
+            buttonElement.disabled = false;
+            // ボタンをaタグに変更し、URLを設定
+            const link = document.createElement('a');
+            link.href = result.newSlideUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            // buttonElement のクラスと中身をコピー
+            link.className = buttonElement.className;
+            link.innerHTML = buttonElement.innerHTML;
+            link.querySelector('.spinner').classList.add('hidden');
+            link.querySelector('.button-text').classList.remove('hidden');
+            
+            // buttonElement を link に置き換える
+            buttonElement.parentNode.replaceChild(link, buttonElement);
+            
+        } else {
+            throw new Error('APIから成功ステータスまたはURLが返されませんでした。');
+        }
+
+    } catch (e) {
+        console.error('Slide generation failed:', e);
+        alert(`スライド生成に失敗しました。\n${e.message}`);
+        // 失敗したらスピナーを非表示にし、ボタンを元に戻す
+        spinner.classList.add('hidden');
+        buttonText.classList.remove('hidden'); // "DL" の文字を戻す
+        buttonElement.disabled = false; 
+    }
   }
 
   // ▼▼▼ [削除] モーダルクリック処理 (要求 #7) ▼▼▼

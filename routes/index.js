@@ -29,6 +29,10 @@ router.post('/api/getChartData', reportController.getChartData);
 // 4. (画面2) [新規] 転記済みのタブリストを取得
 router.post('/api/getTransferredList', reportController.getTransferredList);
 
+// 5. ▼▼▼ [新規] スライド生成 (DLボタン) ▼▼▼
+router.post('/api/generateSlide', reportController.generateSlide);
+// ▲▲▲
+
 
 // =================================================================
 // === ▼▼▼ 分析系APIルート ▼▼▼ ===

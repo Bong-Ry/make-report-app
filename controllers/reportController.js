@@ -1,7 +1,8 @@
 const googleSheetsService = require('../services/googleSheets');
 const pdfGeneratorService = require('../services/pdfGenerator');
-// ▼▼▼ [新規] AI分析サービスを読み込む ▼▼▼
 const aiAnalysisService = require('../services/aiAnalysisService');
+// ▼▼▼ [新規] スライド生成サービスを読み込む ▼▼▼
+const googleSlidesService = require('../services/googleSlidesService');
 
 // --- (変更なし) クリニック一覧取得 ---
 exports.getClinicList = async (req, res) => {
@@ -262,5 +263,47 @@ exports.generatePdf = async (req, res) => {
     } catch (error) {
         console.error('[/generate-pdf] PDF generation failed:', error);
         res.status(500).send(`PDF生成失敗: ${error.message}`);
+    }
+};
+
+// =================================================================
+// === ▼▼▼ [新規] スライド生成 ▼▼▼ ===
+// =================================================================
+exports.generateSlide = async (req, res) => {
+    console.log("POST /api/generateSlide called");
+    const { clinicName, centralSheetId, period, periodText } = req.body;
+
+    if (!clinicName || !centralSheetId || !period || !periodText) {
+        console.error('[/api/generateSlide] Missing data:', { 
+            clinicName: !!clinicName, 
+            centralSheetId: !!centralSheetId,
+            period: !!period,
+            periodText: !!periodText
+        });
+        return res.status(400).send('スライド生成に必要なデータ(clinicName, centralSheetId, period, periodText)が不足しています。');
+    }
+
+    try {
+        console.log(`[/api/generateSlide] Starting slide generation for: ${clinicName}`);
+        
+        // 新しいスライドサービスを呼び出す
+        const newSlideUrl = await googleSlidesService.generateSlideReport(
+            clinicName,
+            centralSheetId,
+            period,
+            periodText
+        );
+        
+        console.log(`[/api/generateSlide] Successfully generated slide. URL: ${newSlideUrl}`);
+        
+        // 成功したら、クライアントに新しいスライドのURLを返す
+        res.json({
+            status: 'ok',
+            newSlideUrl: newSlideUrl
+        });
+
+    } catch (error) {
+        console.error(`[/api/generateSlide] Slide generation failed for ${clinicName}:`, error);
+        res.status(500).send(`スライド生成失敗: ${error.message}`);
     }
 };
