@@ -1,7 +1,7 @@
 const googleSheetsService = require('../services/googleSheets');
 const pdfGeneratorService = require('../services/pdfGenerator');
-const aiAnalysisService = require('../services/aiAnalysisService');
-// ▼▼▼ [新規] スライド生成サービスを読み込む ▼▼▼
+// ▼▼▼ [変更] パスを修正 (services フォルダから外す) ▼▼▼
+const aiAnalysisService = require('../aiAnalysisService');
 const googleSlidesService = require('../services/googleSlidesService');
 
 // --- (変更なし) クリニック一覧取得 ---
