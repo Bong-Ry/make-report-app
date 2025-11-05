@@ -4,20 +4,20 @@ const googleSheetsService = require('../services/googleSheets');
 const pdfGeneratorService = require('../services/pdfGenerator');
 const aiAnalysisService = require('../aiAnalysisService');
 const googleSlidesService = require('../services/googleSlidesService');
+// ▼▼▼ [変更] タブ名を取得するヘルパーをインポート ▼▼▼
+const { getAnalysisSheetName } = require('../utils/helpers');
 
-// ▼▼▼ [新規] p-limit をインポート (package.json に "p-limit": "^5.0.0" を追加し、npm install が必要) ▼▼▼
+// ▼▼▼ [変更なし] p-limit (並列2) ▼▼▼
 const pLimit = async () => (await import('p-limit')).default;
 let limit; // p-limit のインスタンス
 (async () => {
     try {
         const PLimit = await pLimit();
-        // ▼▼▼ [変更] ご要望に基づき、並列実行数を 2 に制限 ▼▼▼
         limit = PLimit(2); 
     } catch (e) {
         console.error("p-limit の動的インポートに失敗しました。", e);
-        // フォールバックとして、逐次実行(1)に設定
         const PLimitSync = require('p-limit');
-        limit = PLimitSync(1);
+        limit = PLimitSync(2);
     }
 })();
 // ▲▲▲
@@ -40,7 +40,7 @@ exports.getClinicList = async (req, res) => {
 // === ▼▼▼ [変更] 転記状況の確認 (「押せない」問題の修正) ▼▼▼ ===
 // =================================================================
 /**
- * [変更] 集計スプレッドシート内の全タブ名と、*バックグラウンド分析* の完了状況を取得する
+ * [変更] 集計スプレッドシート内の全タブ名と、AI分析の完了状況を取得する
  */
 exports.getTransferredList = async (req, res) => {
     const { centralSheetId } = req.body;
@@ -61,20 +61,27 @@ exports.getTransferredList = async (req, res) => {
         // 3. ▼▼▼ [変更] 分析完了ステータスを計算 ▼▼▼
         const aiCompletionStatus = {};
 
-        // (Promise.all で全クリニックのマーカー読み取りを並列化)
-        await Promise.all(masterClinics.map(async (clinicName) => {
+        for (const clinicName of masterClinics) {
             // このクリニックが転記済み (タブが存在する) か？
             if (sheetTitlesSet.has(clinicName)) {
                 
-                // [変更] 多数の分析シートの有無をチェックする代わりに、
-                //       単一分析シートの「完了マーカー」を読み取る (ご要望: 揃ってい流のに押せない)
-                const isComplete = await googleSheetsService.readCompletionMarker(centralSheetId, clinicName);
-                aiCompletionStatus[clinicName] = isComplete;
+                // [変更] ご要望に基づき、3つの分析タブがすべて存在するかチェック
+                const aiTab = getAnalysisSheetName(clinicName, 'AI');
+                const muniTab = getAnalysisSheetName(clinicName, 'MUNICIPALITY');
+                const recTab = getAnalysisSheetName(clinicName, 'RECOMMENDATION');
+                
+                if (sheetTitlesSet.has(aiTab) && 
+                    sheetTitlesSet.has(muniTab) && 
+                    sheetTitlesSet.has(recTab)) {
+                    aiCompletionStatus[clinicName] = true;
+                } else {
+                    aiCompletionStatus[clinicName] = false; // 分析タブが揃っていない
+                }
                 
             } else {
                 aiCompletionStatus[clinicName] = false; // 転記自体されていない
             }
-        }));
+        }
         
         console.log(`[/api/getTransferredList] AI Status:`, aiCompletionStatus);
         
@@ -174,85 +181,80 @@ exports.getReportData = async (req, res) => {
 
 /**
  * [変更] AI分析をバックグラウンドで実行（並列数 2）
- * (ご要望: 市区町村・おすすめ理由 も / 最大2つ)
  * @param {string} centralSheetId 
  * @param {string[]} clinicNames - 処理対象のクリニック名リスト
  */
 async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
     if (!limit) {
         console.error('[BG-AI] p-limit is not initialized! Running sequentially.');
-        // p-limit の動的インポートがまだ完了していない場合のフォールバック
-        const PLimit = (await pLimit()).default;
-        limit = PLimit(2); // ここで再設定
+        try {
+            const PLimit = (await pLimit()).default;
+            limit = PLimit(2); // ここで再設定
+        } catch (e) {
+            const PLimitSync = require('p-limit');
+            limit = PLimitSync(2);
+        }
     }
     
     console.log(`[BG-AI] Background task started for ${clinicNames.join(', ')}`);
     
-    // ▼▼▼ [変更] タスクを7種類に増やす (ご要望: 市区町村・おすすめ理由 も) ▼▼▼
+    // ▼▼▼ [変更] タスクをご要望の3種類に再編成 ▼▼▼
     const analysisTasks = [
-        { type: 'L', func: aiAnalysisService.runAndSaveAnalysis },
-        { type: 'I_good', func: aiAnalysisService.runAndSaveAnalysis },
-        { type: 'I_bad', func: aiAnalysisService.runAndSaveAnalysis },
-        { type: 'J', func: aiAnalysisService.runAndSaveAnalysis },
-        { type: 'M', func: aiAnalysisService.runAndSaveAnalysis },
+        // 1. AI 5種をまとめて実行し、`_AI分析` タブに保存
+        { type: 'AI_ALL', func: aiAnalysisService.runAllAiAnalysesAndSave },
+        // 2. 市区町村を実行し、`_市区町村` タブに保存
         { type: 'MUNICIPALITY', func: aiAnalysisService.runAndSaveMunicipalityAnalysis },
+        // 3. おすすめ理由を実行し、`_おすすめ理由` タブに保存
         { type: 'RECOMMENDATION', func: aiAnalysisService.runAndSaveRecommendationAnalysis }
     ];
     
     // 転記されたクリニックごとにループ
     for (const clinicName of clinicNames) {
-        console.log(`[BG-AI] Starting all 7 analyses for ${clinicName} (Concurrency: 2)...`);
+        console.log(`[BG-AI] Starting all 3 analyses for ${clinicName} (Concurrency: 2)...`);
         
         try {
-            // ▼▼▼ [変更] 7種類のタスクを並列数 2 で実行 (ご要望: 最大2つ) ▼▼▼
+            // ▼▼▼ [変更] 3種類のタスクを並列数 2 で実行 ▼▼▼
             const promises = analysisTasks.map(task => {
                 // p-limit (limit) でラップして呼び出す
                 return limit(async () => {
                     try {
                         console.log(`[BG-AI] Running ${clinicName} - ${task.type}...`);
                         
-                        if (task.type === 'MUNICIPALITY' || task.type === 'RECOMMENDATION') {
-                            // 市区町村・おすすめ理由
-                            await task.func(centralSheetId, clinicName);
-                        } else {
-                            // AI 5種
-                            await task.func(centralSheetId, clinicName, task.type);
-                        }
+                        // (aiAnalysisService の各関数は (centralSheetId, clinicName) の引数のみ)
+                        await task.func(centralSheetId, clinicName);
                         
                         console.log(`[BG-AI] SUCCESS: ${clinicName} - ${task.type}`);
                         return { type: task.type, status: 'success' };
                     } catch (e) {
-                        if (e.message && e.message.includes('テキストデータが0件')) {
+                        // (aiAnalysisService で throw されるエラーメッセージで判定)
+                        if (e.message && (
+                            e.message.includes('テキストデータが0件') ||
+                            e.message.includes('郵便番号データが0件') ||
+                            e.message.includes('おすすめ理由データが0件')
+                        )) {
                             console.log(`[BG-AI] SKIP: ${clinicName} - ${task.type} (No data)`);
                             return { type: task.type, status: 'skipped' };
-                        } else if (e.message && e.message.includes('郵便番号データが0件')) {
-                             console.log(`[BG-AI] SKIP: ${clinicName} - ${task.type} (No data)`);
-                            return { type: task.type, status: 'skipped' };
-                        } else if (e.message && e.message.includes('おすすめ理由データが0件')) {
-                             console.log(`[BG-AI] SKIP: ${clinicName} - ${task.type} (No data)`);
-                            return { type: task.type, status: 'skipped' };
                         } else {
-                            console.error(`[BG-AI] FAILED: ${clinicName} - ${task.type}: ${e.message}`);
+                            console.error(`[BG-AI] FAILED: ${clinicName} - ${task.type}: ${e.message}`, e.stack);
                             return { type: task.type, status: 'failed', error: e.message };
                         }
                     }
                 });
             }); // promises.map 終了
             
-            // このクリニックの全タスク(7件)の完了を待つ
+            // このクリニックの全タスク(3件)の完了を待つ
             const results = await Promise.all(promises);
             
             // 1件でも失敗(failed)があったか？ (skipped は除く)
             const hasFailed = results.some(r => r.status === 'failed');
             
             if (hasFailed) {
-                 console.error(`[BG-AI] COMPLETED (WITH FAILURES) for ${clinicName}. Completion marker will NOT be set.`);
+                 console.error(`[BG-AI] COMPLETED (WITH FAILURES) for ${clinicName}.`);
             } else {
-                // 7件すべてが success または skipped の場合
-                console.log(`[BG-AI] COMPLETED (SUCCESS/SKIP) all 7 analyses for ${clinicName}.`);
-                // ▼▼▼ [新規] 完了マーカーを書き込む (ご要望: 揃ってい流のに押せない) ▼▼▼
-                await googleSheetsService.saveToAnalysisSheet(centralSheetId, clinicName, 'COMPLETION_MARKER', 'COMPLETED');
-                console.log(`[BG-AI] Set COMPLETION MARKER for ${clinicName}.`);
+                // 3件すべてが success または skipped の場合
+                console.log(`[BG-AI] COMPLETED (SUCCESS/SKIP) all 3 analyses for ${clinicName}.`);
+                // ▼▼▼ [削除] 完了マーカーは不要になったため削除 ▼▼▼
+                // await googleSheetsService.saveToAnalysisSheet(centralSheetId, clinicName, 'COMPLETION_MARKER', 'COMPLETED');
             }
 
         } catch (e) {
@@ -266,6 +268,7 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
 
 // =================================================================
 // === (変更なし) getChartData (3/3) ===
+// (生データを `[クリニック名]` タブから読み取る)
 // =================================================================
 exports.getChartData = async (req, res) => {
     const { centralSheetId, sheetName } = req.body;
@@ -315,7 +318,7 @@ exports.generatePdf = async (req, res) => {
 };
 
 // =================================================================
-// === (変更なし) スライド生成 ===
+// === ▼▼▼ [変更] スライド生成 (AIデータ読込先を修正) ▼▼▼ ===
 // =================================================================
 exports.generateSlide = async (req, res) => {
     console.log("POST /api/generateSlide called");
@@ -334,7 +337,8 @@ exports.generateSlide = async (req, res) => {
     try {
         console.log(`[/api/generateSlide] Starting slide generation for: ${clinicName}`);
         
-        // ▼▼▼ [変更] googleSheetsService から AI データを読み込むロジックを修正 ▼▼▼
+        // ▼▼▼ [変更] googleSlidesService は、
+        // (内部で `readAiAnalysisData` を呼び出すように修正された)
         const newSlideUrl = await googleSlidesService.generateSlideReport(
             clinicName,
             centralSheetId,

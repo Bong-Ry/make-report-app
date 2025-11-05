@@ -9,7 +9,9 @@ const aiAnalysisService = require('../aiAnalysisService');
 const { 
     getSystemPromptForDetailAnalysis, 
     getSystemPromptForRecommendationAnalysis,
-    getAnalysisTaskTypeForEdit // (AI分析の編集・保存用)
+    getAnalysisSheetName, // (タブ名取得用)
+    formatAiJsonToMap,     // (AI結果をMapに変換用)
+    getAiAnalysisKeys    // (AI分析のキー一覧取得用)
 } = require('../utils/helpers');
 // ▲▲▲
 
@@ -34,38 +36,76 @@ exports.analyzeText = async (req, res) => {
 };
 
 // =================================================================
-// === (変更なし) AI詳細分析 (実行・保存) ===
+// === ▼▼▼ [変更] AI詳細分析 (再実行) ▼▼▼ ===
 // =================================================================
-// (このAPIは、手動で「再実行」ボタンが押された場合にのみ使用される)
+// (このAPIは、手動で「再実行」ボタンが押された場合に使用される)
 exports.generateDetailedAnalysis = async (req, res) => {
     const { centralSheetId, clinicName, columnType } = req.body;
-    console.log(`POST /api/generateDetailedAnalysis called for ${clinicName}, type: ${columnType}, SheetID: ${centralSheetId}`);
+    console.log(`POST /api/generateDetailedAnalysis called for ${clinicName}, type: ${columnType}`);
 
     if (!centralSheetId || !clinicName || !columnType) {
-        console.error('[/api/generateDetailedAnalysis] Invalid request:', req.body);
         return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, columnType が必要です。');
     }
 
+    const aiSheetName = getAnalysisSheetName(clinicName, 'AI');
+
     try {
-        // (aiAnalysisService.js 側で、新しい saveToAnalysisSheet を使うように修正済み)
-        const analysisJson = await aiAnalysisService.runAndSaveAnalysis(centralSheetId, clinicName, columnType);
+        // 1. [変更] まず、`_AI分析` タブから現在のデータをすべて読み込む
+        console.log(`[/api/generateDetailedAnalysis] Reading existing data from "${aiSheetName}"...`);
+        const existingAiDataMap = await googleSheetsService.readAiAnalysisData(centralSheetId, aiSheetName);
         
-        // AIが生成した生のJSONをクライアントに返す
+        // 2. [変更] 依頼された 1種のAI分析のみ実行 (aiAnalysisService.js には無いので、ここで実行)
+        console.log(`[/api/generateDetailedAnalysis] Running single AI analysis for ${columnType}...`);
+        
+        // 2a. 元データを取得
+        const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
+        let textList = [];
+        switch (columnType) {
+            case 'L': textList = reportData.npsData.rawText || []; break;
+            case 'I_good': textList = reportData.feedbackData.i_column.results || []; break;
+            case 'I_bad': textList = reportData.feedbackData.i_column.results || []; break; 
+            case 'J': textList = reportData.feedbackData.j_column.results || []; break;
+            case 'M': textList = reportData.feedbackData.m_column.results || []; break;
+            default: throw new Error(`無効な分析タイプです: ${columnType}`);
+        }
+        
+        if (textList.length === 0) {
+            throw new Error(`分析対象のテキストデータが0件です。 (Type: ${columnType})`);
+        }
+        
+        // 2b. AI呼び出し
+        const systemPrompt = getSystemPromptForDetailAnalysis(clinicName, columnType);
+        const truncatedList = textList.length > 100 ? textList.slice(0, 100) : textList;
+        const combinedText = truncatedList.join('\n\n---\n\n');
+        const inputText = combinedText.substring(0, 15000);
+        const analysisJson = await openaiService.generateJsonAnalysis(systemPrompt, inputText);
+
+        // 3. [変更] 新しい分析結果 (3キー) をMapに変換
+        const newAnalysisMap = formatAiJsonToMap(analysisJson, columnType);
+
+        // 4. [変更] 既存のMapに、新しい分析結果(3キー)を上書きマージ
+        newAnalysisMap.forEach((value, key) => {
+            existingAiDataMap.set(key, value);
+        });
+        
+        // 5. [変更] マージしたMap (15キー) を `_AI分析` タブに丸ごと上書き保存
+        console.log(`[/api/generateDetailedAnalysis] Saving merged data back to "${aiSheetName}"...`);
+        await googleSheetsService.saveAiAnalysisData(centralSheetId, aiSheetName, existingAiDataMap);
+        
+        // 6. フロントエンドには、今回生成した生のJSONのみ返す
         res.json(analysisJson);
 
     } catch (error) {
         console.error('[/api/generateDetailedAnalysis] Error generating detailed analysis:', error);
-        
         if (error.message && error.message.includes('テキストデータが0件')) {
             return res.status(404).send(error.message);
         }
-        
         res.status(500).send(`AI分析中にエラーが発生しました: ${error.message}`);
     }
 };
 
 // =================================================================
-// === ▼▼▼ [変更] AI詳細分析 (読み出し) (単一シート対応) ▼▼▼ ===
+// === ▼▼▼ [変更] AI詳細分析 (読み出し) ▼▼▼ ===
 // =================================================================
 exports.getDetailedAnalysis = async (req, res) => {
     const { centralSheetId, clinicName, columnType } = req.body;
@@ -76,19 +116,16 @@ exports.getDetailedAnalysis = async (req, res) => {
     }
     
     try {
-        // ▼▼▼ [変更] 古い getAIAnalysisFromSheet の代わりに、新しい汎用I/O関数を3回呼び出す ▼▼▼
-        const [analysisRes, suggestionRes, overallRes] = await Promise.all([
-            googleSheetsService.readFromAnalysisSheet(centralSheetId, clinicName, `${columnType}_ANALYSIS`),
-            googleSheetsService.readFromAnalysisSheet(centralSheetId, clinicName, `${columnType}_SUGGESTIONS`),
-            googleSheetsService.readFromAnalysisSheet(centralSheetId, clinicName, `${columnType}_OVERALL`)
-        ]);
-        
+        // ▼▼▼ [変更] `_AI分析` タブから全データを読み込む ▼▼▼
+        const aiSheetName = getAnalysisSheetName(clinicName, 'AI');
+        const aiDataMap = await googleSheetsService.readAiAnalysisData(centralSheetId, aiSheetName);
+
+        // ▼▼▼ [変更] Mapから要求された3キーを抽出して返す ▼▼▼
         const analysisData = {
-            analysis: analysisRes || '（データがありません）',
-            suggestions: suggestionRes || '（データがありません）',
-            overall: overallRes || '（データがありません）'
+            analysis: aiDataMap.get(`${columnType}_ANALYSIS`) || '（データがありません）',
+            suggestions: aiDataMap.get(`${columnType}_SUGGESTIONS`) || '（データがありません）',
+            overall: aiDataMap.get(`${columnType}_OVERALL`) || '（データがありません）'
         };
-        // ▲▲▲
         
         res.json(analysisData);
     } catch (err) {
@@ -98,10 +135,10 @@ exports.getDetailedAnalysis = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ [変更] AI詳細分析 (更新・保存) (単一シート対応) ▼▼▼ ===
+// === ▼▼▼ [変更] AI詳細分析 (更新・保存) ▼▼▼ ===
 // =================================================================
 exports.updateDetailedAnalysis = async (req, res) => {
-    // ▼▼▼ [変更] sheetName の代わりに、columnType と tabId を受け取る ▼▼▼
+    // ▼▼▼ [変更] sheetName の代わりに、clinicName, columnType, tabId を受け取る ▼▼▼
     const { centralSheetId, clinicName, columnType, tabId, content } = req.body;
     console.log(`POST /api/updateDetailedAnalysis called for ${clinicName} (${columnType} - ${tabId})`);
     
@@ -109,19 +146,34 @@ exports.updateDetailedAnalysis = async (req, res) => {
         return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, columnType, tabId, content が必要です。');
     }
     
+    const aiSheetName = getAnalysisSheetName(clinicName, 'AI');
+    
     try {
-        // 1. 保存先のタスクタイプ (例: "L_ANALYSIS") をヘルパーから取得
-        const taskType = getAnalysisTaskTypeForEdit(columnType, tabId);
+        // 1. [変更] まず、`_AI分析` タブから現在のデータをすべて読み込む
+        console.log(`[/api/updateDetailedAnalysis] Reading existing data from "${aiSheetName}"...`);
+        const existingAiDataMap = await googleSheetsService.readAiAnalysisData(centralSheetId, aiSheetName);
 
-        // 2. ▼▼▼ [変更] 新しい汎用I/O関数で保存 ▼▼▼
-        await googleSheetsService.saveToAnalysisSheet(
-            centralSheetId, 
-            clinicName, 
-            taskType, 
-            content
-        );
+        // 2. [変更] 保存先のキー (例: "L_ANALYSIS") を特定
+        // (helpers.js にこのための関数は無いので、ここで組み立てる)
+        let keyToUpdate;
+        switch(tabId) {
+            case 'analysis': keyToUpdate = `${columnType}_ANALYSIS`; break;
+            case 'suggestions': keyToUpdate = `${columnType}_SUGGESTIONS`; break;
+            case 'overall': keyToUpdate = `${columnType}_OVERALL`; break;
+            default: throw new Error(`無効なタブIDです: ${tabId}`);
+        }
         
-        res.json({ status: 'ok', message: `分析結果 (${taskType}) を更新しました。` });
+        // 3. [変更] 既存のMapの、該当キーの値を上書き
+        if (!getAiAnalysisKeys().includes(keyToUpdate)) {
+             throw new Error(`無効な更新キーです: ${keyToUpdate}`);
+        }
+        existingAiDataMap.set(keyToUpdate, content);
+        console.log(`[/api/updateDetailedAnalysis] Updating key: "${keyToUpdate}"`);
+
+        // 4. [変更] マージしたMap (15キー) を `_AI分析` タブに丸ごと上書き保存
+        await googleSheetsService.saveAiAnalysisData(centralSheetId, aiSheetName, existingAiDataMap);
+        
+        res.json({ status: 'ok', message: `分析結果 (${keyToUpdate}) を更新しました。` });
     } catch (err) {
         console.error('[/api/updateDetailedAnalysis] Error:', err);
         res.status(500).send(err.message || 'AI分析結果の更新に失敗しました。');
@@ -141,24 +193,18 @@ exports.generateMunicipalityReport = async (req, res) => {
 
     try {
         // ▼▼▼ [変更] 分析ロジックを削除し、読み取り専用にする ▼▼▼
-        // (分析・生成は aiAnalysisService.runAndSaveMunicipalityAnalysis がバックグラウンドで行う)
+        const sheetName = getAnalysisSheetName(clinicName, 'MUNICIPALITY');
+        console.log(`[/api/generateMunicipalityReport] Reading table from sheet: "${sheetName}"`);
+
+        // (saveTableToSheet が [ヘッダー, [データ], [データ]] 形式で保存)
+        const tableData = await readTableFromSheet(centralSheetId, sheetName);
         
-        console.log(`[/api/generateMunicipalityReport] Reading 'MUNICIPALITY_TABLE' from sheet...`);
-        const tableData = await googleSheetsService.readFromAnalysisSheet(
-            centralSheetId, 
-            clinicName, 
-            'MUNICIPALITY_TABLE'
-        );
-        
-        if (!tableData || tableData.length < 2) { // (ヘッダー + データ)
-            console.log(`[/api/generateMunicipalityReport] No data found in 'MUNICIPALITY_TABLE'.`);
+        if (!tableData) { // (readTableFromSheet が null を返す)
+            console.log(`[/api/generateMunicipalityReport] No data found in "${sheetName}".`);
             return res.json([]); // データが存在しない
         }
 
-        // 2. ヘッダー行を捨てる
-        tableData.shift(); 
-        
-        // 3. フロントエンドが期待する形式 (割合を 12.3 形式) に変換
+        // 2. フロントエンドが期待する形式 (割合を 12.3 形式) に変換
         const frontendTable = tableData.map(row => ({
             prefecture: row[0] || '',
             municipality: row[1] || '',
@@ -199,25 +245,18 @@ exports.getRecommendationReport = async (req, res) => {
     }
 
     try {
-        // 1. シートから 'RECOMMENDATION_TABLE' を読み込む
-        console.log(`[/api/getRecommendationReport] Reading 'RECOMMENDATION_TABLE' from sheet...`);
-        const tableData = await googleSheetsService.readFromAnalysisSheet(
-            centralSheetId, 
-            clinicName, 
-            'RECOMMENDATION_TABLE'
-        );
+        // 1. シートから `_おすすめ理由` タブを読み込む
+        const sheetName = getAnalysisSheetName(clinicName, 'RECOMMENDATION');
+        console.log(`[/api/getRecommendationReport] Reading table from sheet: "${sheetName}"`);
         
-        if (!tableData || tableData.length < 2) { // (ヘッダー + データ)
-            console.log(`[/api/getRecommendationReport] No data found in 'RECOMMENDATION_TABLE'.`);
-             // (フロントエンドが [[カテゴリ, 件数], ...] の形式を期待しているため、空のヘッダーを返す)
-            return res.json([['カテゴリ', '件数']]);
+        const tableData = await readTableFromSheet(centralSheetId, sheetName);
+
+        if (!tableData) { // (readTableFromSheet が null を返す)
+            console.log(`[/api/getRecommendationReport] No data found in "${sheetName}".`);
+            return res.json([['カテゴリ', '件数']]); // 空のヘッダー
         }
         
-        // 2. ヘッダー行を捨てる
-        tableData.shift(); 
-        
-        // 3. フロントエンドの円グラフが期待する形式 [ [項目, 件数], ... ] に変換
-        // (ご要望: A項目, B件数, C割合 で保存されている)
+        // 2. フロントエンドの円グラフが期待する形式 [ [項目, 件数], ... ] に変換
         const chartData = [['カテゴリ', '件数']]; // ヘッダー
         
         tableData.forEach(row => {
@@ -225,6 +264,7 @@ exports.getRecommendationReport = async (req, res) => {
             const count = parseFloat(row[1]) || 0; // B列: 件数
             // (C列の割合はここでは不要)
             
+            // (バックグラウンドで0件も保存するようにしたので、ここでフィルタリング)
             if (count > 0) {
                 chartData.push([item, count]);
             }
@@ -237,3 +277,45 @@ exports.getRecommendationReport = async (req, res) => {
         res.status(500).send(`おすすめ理由レポートの読み込み中にエラーが発生しました: ${error.message}`);
     }
 };
+
+
+// =================================================================
+// === ▼▼▼ [新規] テーブル読み込み専用ヘルパー ▼▼▼ ===
+// =================================================================
+
+/**
+ * [新規ヘルパー] テーブルデータ（市区町村、おすすめ理由）を読み込む
+ * @param {string} centralSheetId
+ * @param {string} sheetName (例: "クリニックA_市区町村")
+ * @returns {Promise<string[][] | null>} (ヘッダー行を*含まない* 2D配列)
+ */
+async function readTableFromSheet(centralSheetId, sheetName) {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    
+    try {
+        // A:D (市区町村) または A:C (おすすめ理由) の最大範囲を読み込む
+        const range = `'${sheetName}'!A:D`;
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: range,
+            valueRenderOption: 'UNFORMATTED_VALUE' // 割合を 0.123 で取得
+        });
+
+        const rows = response.data.values;
+
+        if (!rows || rows.length < 2) { // (ヘッダー + データ)
+            return null; // データが存在しない
+        }
+
+        rows.shift(); // ヘッダーを捨てる
+        return rows; // データ行のみ返す
+
+    } catch (e) {
+        if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
+            console.warn(`[readTableFromSheet] Sheet "${sheetName}" not found. Returning null.`);
+            return null; // シートが存在しない
+        }
+        console.error(`[readTableFromSheet] Error reading table data: ${e.message}`, e);
+        throw new Error(`分析テーブル(${sheetName})の読み込みに失敗しました: ${e.message}`);
+    }
+}

@@ -38,27 +38,24 @@
     }
     /* ▲▲▲ AI分析 編集用Textarea ▲▲▲ */
 
-    /* ▼▼▼ [新規] DLボタン用のスタイル ▼▼▼ */
-    /* (既存のbtnクラスを流用しつつ、小さくする) */
+    /* ▼▼▼ [変更] DLボタン用のスタイル ▼▼▼ */
     .btn-sm {
         @apply py-1 px-3 text-xs tracking-normal;
     }
     
-    /* ▼▼▼ [新規] ローディングスピナー (DLボタン用) ▼▼▼ */
+    /* ▼▼▼ [変更] ローディングスピナー (DLボタン用) ▼▼▼ */
     .spinner {
         @apply inline-block animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current;
     }
     
     /* ▼▼▼ [変更] 転記済みリストのカーソル制御 ▼▼▼ */
-    /* コンテナ全体ではなく、名前(view-report-btn)だけカーソルを変える */
     .view-report-btn {
         @apply cursor-pointer hover:text-blue-600 transition-colors;
     }
     
-    /* ▼▼▼ [新規] URLリンク用スタイル ▼▼▼ */
+    /* ▼▼▼ [変更] URLリンク用スタイル ▼▼▼ */
     .btn-url {
         @apply !bg-green-600 !text-white !border-green-600 hover:!bg-green-700;
-        /* ! で既存の .btn スタイルを上書き */
     }
   </style>
 </head>
@@ -102,6 +99,10 @@
         <button data-detailed-analysis-type="M" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-お産</button>
       </div>
       <div class="flex items-center gap-4">
+        <button id="download-slide-btn-screen3" class="btn btn-sm" disabled title="AI分析完了後にDL可能">
+            <span class="spinner hidden"></span>
+            <span class="button-text">スライドDL</span>
+        </button>
         <button id="pdf-export-btn" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button>
         <button id="back-to-clinics" class="btn">院一覧へ戻る</button>
       </div>
@@ -156,6 +157,10 @@
             <button data-detailed-analysis-type="M" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-お産</button>
         </div>
         <div class="flex items-center gap-4">
+            <button id="download-slide-btn-screen4" class="btn btn-sm" disabled title="AI分析完了後にDL可能">
+                <span class="spinner hidden"></span>
+                <span class="button-text">スライドDL</span>
+            </button>
             <button id="pdf-export-btn-screen4" class="btn bg-gray-800 text-white hover:bg-gray-700 hidden">PDF出力</button>
             <button id="back-to-clinics-from-analysis" class="btn">院一覧へ戻る</button>
         </div>
@@ -238,6 +243,10 @@
                 <button data-detailed-analysis-type="M" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI分析-お産</button>
             </div>
             <div class="flex items-center gap-4">
+                 <button id="download-slide-btn-screen5" class="btn btn-sm" disabled title="AI分析完了後にDL可能">
+                    <span class="spinner hidden"></span>
+                    <span class="button-text">スライドDL</span>
+                </button>
                  <button id="pdf-export-btn-screen5" class="btn bg-gray-800 text-white hover:bg-gray-700 hidden">PDF出力</button>
                  <button id="back-to-clinics-from-detailed-analysis" class="btn">院一覧へ戻る</button>
             </div>
@@ -291,7 +300,7 @@
   
   
   <script>
-  // --- グローバル変数 (変更なし) ---
+  // --- ▼▼▼ [変更] グローバル変数 (AIステータス保持用) ▼▼▼ ---
   let selectedPeriod = {}; 
   let currentClinicForModal = '';
   let slidesData = []; 
@@ -301,6 +310,8 @@
   let isEditingDetailedAnalysis = false; 
   let currentCentralSheetId = null; 
   let currentPeriodText = ""; 
+  let currentAiCompletionStatus = {}; // (ご要望: DLボタン連動用)
+  // --- ▲▲▲ ---
 
   // --- Google Charts ロード (変更なし) ---
   const googleChartsLoaded = new Promise(resolve => { google.charts.load('current', {'packages':['corechart', 'bar']}); google.charts.setOnLoadCallback(resolve); });
@@ -321,7 +332,7 @@
     console.log('Listeners setup.');
   });
 
-  // --- イベントリスナー設定 (変更なし) ---
+  // --- ▼▼▼ [変更] イベントリスナー設定 (Screen 3,4,5 のDLボタン追加) ▼▼▼ ---
   function setupEventListeners() {
     document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); 
     document.getElementById('issue-btn').addEventListener('click', handleIssueReport); 
@@ -337,10 +348,16 @@
     document.getElementById('back-to-period').addEventListener('click', () => {
         currentCentralSheetId = null; 
         currentPeriodText = "";
+        currentAiCompletionStatus = {}; // (ステータスをクリア)
         showScreen('screen1');
     });
     document.getElementById('pdf-export-btn').addEventListener('click', generatePdf); 
     document.getElementById('back-to-clinics-from-analysis').addEventListener('click', () => showScreen('screen2'));
+
+    // (Screen 3, 4, 5 のスライドDLボタン) (ご要望: PDFボタンと同じ動作)
+    document.getElementById('download-slide-btn-screen3').addEventListener('click', (e) => handleDownloadSlideClick(e.currentTarget));
+    document.getElementById('download-slide-btn-screen4').addEventListener('click', (e) => handleDownloadSlideClick(e.currentTarget));
+    document.getElementById('download-slide-btn-screen5').addEventListener('click', (e) => handleDownloadSlideClick(e.currentTarget));
 
     // --- 詳細分析(Screen 5)用リスナー (変更なし) ---
     document.querySelectorAll('#screen5 .tab-button').forEach(button => { button.addEventListener('click', handleTabClick); });
@@ -357,6 +374,8 @@
         showScreen('screen2');
     });
   }
+  // --- ▲▲▲ ---
+
 
   // =================================================================
   // === 画面1 (期間選択) 処理 (変更なし) ===
@@ -417,12 +436,10 @@
   }
 
   // =================================================================
-  // === 画面2 (クリニック選択・転記) 処理 (変更なし) ===
+  // === 画面2 (クリニック選択・転記) 処理 (変更あり) ===
   // =================================================================
 
-  // (loadClinics は「押せない」問題に対応するため、
-  //  バックエンドの aiCompletionStatus を参照するようになっています。
-  //  バックエンド側の修正が完了していれば、このロジックは変更不要です。)
+  // ▼▼▼ [変更] loadClinics (AIステータスをグローバル変数に保存) ▼▼▼
   async function loadClinics() {
     console.log('loadClinics (new)...');
     showLoading(true, 'クリニック一覧と転記状況を読込中...');
@@ -437,7 +454,7 @@
     try {
         const [clinicListRes, transferredListRes] = await Promise.all([
             fetch('/api/getClinicList'),
-            fetch('/api/getTransferredList', {
+            fetch('/api/getTransferredList', { // (「押せない」問題修正済みのAPI)
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ centralSheetId: currentCentralSheetId })
@@ -449,6 +466,10 @@
         
         const masterClinics = await clinicListRes.json(); 
         const { sheetTitles, aiCompletionStatus } = await transferredListRes.json(); 
+        
+        // ▼▼▼ [新規] AIステータスをグローバル変数に保存 (ご要望: DLボタン連動用) ▼▼▼
+        currentAiCompletionStatus = aiCompletionStatus;
+        // ▲▲▲
         
         const transferredTitlesSet = new Set(sheetTitles); 
         
@@ -467,8 +488,8 @@
                     const d = document.createElement('div');
                     d.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 hover:shadow-md transition-all duration-200';
                     
-                    // (バックエンドが「完了マーカー」を見て true/false を返してくれる)
-                    const isAiComplete = aiCompletionStatus[clinicName] === true;
+                    // (グローバル変数に保存したステータスを参照)
+                    const isAiComplete = currentAiCompletionStatus[clinicName] === true;
                     
                     d.innerHTML = `
                         <p class="font-bold text-base view-report-btn" data-clinic-name="${clinicName}">${clinicName}</p>
@@ -552,7 +573,7 @@
     if (sc.length === 0) { alert('転記対象のクリニックが選択されていません。'); return; }
     if (sc.length > 10) { alert('一度に選択できる件数は10件までです。チェックを減らしてください。'); return; }
 
-    showLoading(true, '集計スプレッドシートへデータ転記中...\n完了後、バックグラウンドでAI分析が自動実行されます。');
+    showLoading(true, '集計スプレッドシートへデータ転記中...\n完了後、バックグラウンドで分析タブが自動生成されます。');
     console.log('Selected for ETL:', sc);
 
     try {
@@ -582,69 +603,100 @@
   // === 画面3 (グラフ・レポート表示) 処理 (変更あり) ===
   // =================================================================
 
-  // (イベント委譲 - 変更なし)
+  // ▼▼▼ [変更] イベント委譲 (DLボタンのハンドラを共通化) ▼▼▼
   function handleIssuedListClickDelegator(e) {
     const viewBtn = e.target.closest('.view-report-btn');
     const dlBtn = e.target.closest('.download-slide-btn');
     if (viewBtn) {
         handleIssuedListClick(viewBtn.dataset.clinicName);
     } else if (dlBtn) {
+        // (Screen 2 のボタンが押された場合)
         handleDownloadSlideClick(dlBtn);
     }
   }
 
-  // (転記済みレポートクリック - 変更なし)
+  // ▼▼▼ [変更] 転記済みレポートクリック (Screen 3 のDLボタン状態更新を追加) ▼▼▼
   function handleIssuedListClick(clinicName) {
     currentClinicForModal = clinicName;
     console.log(`Issued clinic clicked: ${currentClinicForModal}`);
+    // ▼▼▼ [新規] Screen 3 のスライドDLボタンの状態を更新 ▼▼▼
+    updateSlideDownloadButtonState('screen3');
+    // ▲▲▲
     prepareAndShowReport('nps_score');
   }
   
-  // (DLボタンクイック - 変更なし)
+  // ▼▼▼ [変更] DLボタンクリックハンドラ (Screen 2, 3, 4, 5 共通化) ▼▼▼
   async function handleDownloadSlideClick(buttonElement) {
-    const clinicName = buttonElement.dataset.clinicName;
+    // (Screen 2 の場合は data-clinic-name から、
+    //  Screen 3,4,5 の場合はグローバル変数からクリニック名を取得)
+    const clinicName = buttonElement.dataset.clinicName || currentClinicForModal;
+    
     console.log(`Download Slide clicked for: ${clinicName}`);
-    if (buttonElement.disabled) return;
+    if (buttonElement.disabled) {
+        console.warn('DL button is disabled, ignoring click.');
+        return;
+    }
+    
     const spinner = buttonElement.querySelector('.spinner');
     const buttonText = buttonElement.querySelector('.button-text');
+    
     spinner.classList.remove('hidden');
     buttonText.classList.add('hidden'); 
     buttonElement.disabled = true;
+    
     try {
         const response = await fetch('/api/generateSlide', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                clinicName: clinicName,
+                clinicName: clinicName, // (取得したクリニック名を使用)
                 centralSheetId: currentCentralSheetId,
                 period: selectedPeriod,
                 periodText: currentPeriodText 
             })
         });
-        if (!response.ok) throw new Error(`スライド生成APIエラー (${response.status}): ${await response.text()}`);
+
+        if (!response.ok) {
+            throw new Error(`スライド生成APIエラー (${response.status}): ${await response.text()}`);
+        }
+        
         const result = await response.json();
+        
         if (result.status === 'ok' && result.newSlideUrl) {
             console.log('Slide generation success:', result.newSlideUrl);
-            buttonElement.classList.add('btn-url');
+            buttonElement.classList.add('btn-url'); 
             buttonText.textContent = 'OPEN';
             buttonElement.disabled = false;
-            const link = document.createElement('a');
-            link.href = result.newSlideUrl;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.className = buttonElement.className;
-            link.innerHTML = buttonElement.innerHTML;
-            link.querySelector('.spinner').classList.add('hidden');
-            link.querySelector('.button-text').classList.remove('hidden');
-            buttonElement.parentNode.replaceChild(link, buttonElement);
+            
+            // (a タグへの置換は Screen 2 のみ)
+            if (buttonElement.closest('#issued-list-container')) {
+                const link = document.createElement('a');
+                link.href = result.newSlideUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.className = buttonElement.className;
+                link.innerHTML = buttonElement.innerHTML;
+                link.querySelector('.spinner').classList.add('hidden');
+                link.querySelector('.button-text').classList.remove('hidden');
+                buttonElement.parentNode.replaceChild(link, buttonElement);
+            } else {
+                 // (Screen 3, 4, 5 は a タグにせず、クリックで開く)
+                 spinner.classList.add('hidden');
+                 buttonText.classList.remove('hidden');
+                 window.open(result.newSlideUrl, '_blank');
+                 // (一度DLしたら、再度押せるように enabled にしておく)
+                 buttonElement.disabled = false;
+            }
+            
         } else {
             throw new Error('APIから成功ステータスまたはURLが返されませんでした。');
         }
+
     } catch (e) {
         console.error('Slide generation failed:', e);
         alert(`スライド生成に失敗しました。\n${e.message}`);
         spinner.classList.add('hidden');
-        buttonText.classList.remove('hidden');
+        buttonText.classList.remove('hidden'); 
         buttonElement.disabled = false; 
     }
   }
@@ -673,21 +725,21 @@
     showLoading(true,'レポートデータ集計中...');
     updateNavActiveState(reportType, null, null);
     
+    // ▼▼▼ [新規] Screen 3 のスライドDLボタンの状態を更新 ▼▼▼
+    updateSlideDownloadButtonState('screen3');
+    
     if (reportType === 'municipality') {
-        // (市区町村)
         await prepareAndShowMunicipalityReport(); 
         showLoading(false);
         return;
     }
     
     if (reportType === 'recommendation') {
-        // (おすすめ理由)
         await prepareAndShowRecommendationReport(); 
         // (ローディングは prepareAndShowRecommendationReport の中で制御)
         return;
     }
     
-    // --- (以下、NPS/満足度/コメントなど) ---
     slidesData=[];
     document.getElementById('pagination').style.display='flex';
     document.getElementById('slide-body').style.whiteSpace='pre-wrap';
@@ -697,7 +749,6 @@
     let clinicData, overallData;
 
     try {
-        // (getChartData (生データ取得) は変更なし)
         console.log(`Fetching data for clinic: "${currentClinicForModal}"`);
         const clinicRes = await fetch('/api/getChartData', {
             method: 'POST',
@@ -725,7 +776,6 @@
         return;
     }
     
-    // (各種レポートタイプ判定 - 変更なし)
     if (reportType === 'nps_score'){document.getElementById('report-title').textContent = 'アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー';document.getElementById('report-subtitle').textContent = 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない';document.getElementById('pagination').style.display = 'none';document.getElementById('slide-body').style.whiteSpace = 'normal';const htmlContent = ` <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"> <div class="flex flex-col"> <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3> <div id="clinic-bar-chart" class="w-full h-[350px]"></div> </div> <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6"> <p class="text-gray-500">NPSスコア計算中...</p> </div> </div>`;document.getElementById('slide-body').innerHTML = htmlContent;isChart=true; isBar=true;}
     else if (reportType === 'nps'){const{totalCount,results}=clinicData.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);}
     else if (reportType === 'feedback_i'){prepareCommentSlides(clinicData.feedbackData.i_column,'良かった点悪かった点');}
@@ -853,19 +903,25 @@
           
           // ▼▼▼ [変更] getChartData (生データ取得) を削除 ▼▼▼
           // const clinicRes = await fetch('/api/getChartData', ...);
-          // const overallRes = await fetch('/api/getChartData', ...);
           
           // ▼▼▼ [変更] 新しい Read-Only API を呼び出す ▼▼▼
+          showLoading(true, '集計済みのおすすめ理由データを読込中...');
           const [clinicChartDataRes, overallChartDataRes] = await Promise.all([
-                fetch('/api/getRecommendationReport', {
+                fetch('/api/getRecommendationReport', { // (新しいAPI)
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: currentClinicForModal })
+                    body: JSON.stringify({ 
+                        centralSheetId: currentCentralSheetId, 
+                        clinicName: currentClinicForModal // (貴院)
+                    })
                 }),
-                fetch('/api/getRecommendationReport', {
+                fetch('/api/getRecommendationReport', { // (新しいAPI)
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: "全体" })
+                    body: JSON.stringify({ 
+                        centralSheetId: currentCentralSheetId, 
+                        clinicName: "全体" // (全体)
+                    })
                 })
           ]);
           
@@ -875,15 +931,13 @@
           const clinicChartData = await clinicChartDataRes.json(); // [ [カテゴリ, 件数], ... ]
           const overallChartData = await overallChartDataRes.json(); // [ [カテゴリ, 件数], ... ]
           
-          // ▼▼▼ [変更] フロントエンドでのAI分類 (classifyOthers) を削除 ▼▼▼
+          // ▼▼▼ [削除] フロントエンドでのAI分類 (classifyOthers) ▼▼▼
           // const [clinicClassifiedCounts, overallClassifiedCounts] = await Promise.all([...]);
           
           showLoading(false);
           
-          // ▼▼▼ [変更] データ形式がすでに [ [カテゴリ, 件数], ... ] なので、変換ロジックを削除 ▼▼▼
-          // const allKeys = [...clinicData.fixedKeys, 'その他'];
-          // const clinicChartData = [['カテゴリ', '件数']];
-          // ...
+          // ▼▼▼ [削除] データ形式がすでに [ [カテゴリ, 件数], ... ] なので、変換ロジックを削除 ▼▼▼
+          // const allKeys = [...clinicData.fixedKeys, 'その他']; ...
           
           // (円グラフ描画ロジックは変更なし)
           const opt = {is3D: true,chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },pieSliceText: 'percentage',pieSliceTextStyle: { color: 'black', fontSize: 17, bold: true },legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 17 } },tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },};
@@ -906,11 +960,15 @@
   // async function classifyOthers(data, type) { ... }
   
   // =================================================================
-  // === 画面4 (ワードクラウド) 処理 (変更なし) ===
+  // === 画面4 (ワードクラウド) 処理 (変更あり) ===
   // =================================================================
   async function prepareAndShowAnalysis(columnType) {
     showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
     showScreen('screen4');
+    
+    // ▼▼▼ [新規] Screen 4 のスライドDLボタンの状態を更新 ▼▼▼
+    updateSlideDownloadButtonState('screen4');
+    
     document.getElementById('analysis-error').classList.add('hidden');
     clearAnalysisCharts();
     updateNavActiveState(null, columnType, null);
@@ -978,6 +1036,9 @@
     showLoading(true, `AI分析結果を読み込み中...\n(${getDetailedAnalysisTitleBase(analysisType)})`);
     showScreen('screen5');
     
+    // ▼▼▼ [新規] Screen 5 のスライドDLボタンの状態を更新 ▼▼▼
+    updateSlideDownloadButtonState('screen5');
+    
     updateNavActiveState(null, null, analysisType);
     toggleEditDetailedAnalysis(false); 
     
@@ -991,7 +1052,7 @@
     try {
         console.log(`[AI] Fetching saved analysis from Sheet...`);
         // (この /api/getDetailedAnalysis API は、
-        //  バックエンド側で新しい readFromAnalysisSheet を使うように修正済み)
+        //  バックエンド側で新しい `_AI分析` タブを読み込むよう修正済み)
         const response = await fetch('/api/getDetailedAnalysis', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1008,6 +1069,8 @@
         
         const savedData = await response.json(); 
         
+        // (バックエンドが `_AI分析` タブから読み込むようになったため、
+        //  データ有無の判定は '（データがありません）' の文字列比較で行う)
         if (savedData.analysis && !savedData.analysis.includes('（データがありません）')) {
             console.log(`[AI] Found saved data in Sheet.`);
             displayDetailedAnalysis(savedData, analysisType, false); 
@@ -1047,7 +1110,7 @@
       errorDiv.classList.add('hidden');
       try {
           // (この /api/generateDetailedAnalysis API は、
-          //  バックエンド側で新しい saveToAnalysisSheet を使うように修正済み)
+          //  バックエンド側で `_AI分析` タブを読み/書きするよう修正済み)
           const response = await fetch('/api/generateDetailedAnalysis', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1158,7 +1221,7 @@
   }
 
   // =================================================================
-  // === ▼▼▼ [変更] AI詳細分析 (保存) (単一シート対応) ▼▼▼ ===
+  // === ▼▼▼ [変更] AI詳細分析 (保存) (新しいAPI形式) ▼▼▼ ===
   // =================================================================
   async function saveDetailedAnalysisEdits() {
       showLoading(true, '変更を保存中...');
@@ -1167,59 +1230,45 @@
       const overallContent = document.getElementById('textarea-overall').value;
       
       // ▼▼▼ [変更] 古い sheetName ではなく、新しいパラメータ (columnType, tabId) を送信 ▼▼▼
-      // const baseSheetName = `${currentClinicForModal}-AI分析-${currentDetailedAnalysisType}`;
+      // (バックエンド側は、`_AI分析` タブを丸ごと読み→編集→丸ごと書き戻す)
       
+      // (現在アクティブなタブがどれかを取得)
+      const activeTabId = document.querySelector('#screen5 .tab-button.active').dataset.tabId; // "analysis", "suggestions", "overall"
+      
+      // (どの内容を保存するかを決定)
+      let contentToSave = '';
+      if (activeTabId === 'analysis') contentToSave = analysisContent;
+      else if (activeTabId === 'suggestions') contentToSave = suggestionsContent;
+      else if (activeTabId === 'overall') contentToSave = overallContent;
+      else {
+          alert('不明なタブが選択されています。保存を中止します。');
+          showLoading(false);
+          return;
+      }
+
       try {
-          const promises = [
-              // (Analysis タブの保存)
-              fetch('/api/updateDetailedAnalysis', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                      centralSheetId: currentCentralSheetId,
-                      clinicName: currentClinicForModal,
-                      columnType: currentDetailedAnalysisType, // 例: "L"
-                      tabId: 'analysis', // 例: "analysis"
-                      content: analysisContent 
-                  })
-              }),
-              // (Suggestions タブの保存)
-              fetch('/api/updateDetailedAnalysis', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                      centralSheetId: currentCentralSheetId,
-                      clinicName: currentClinicForModal,
-                      columnType: currentDetailedAnalysisType,
-                      tabId: 'suggestions', 
-                      content: suggestionsContent 
-                  })
-              }),
-              // (Overall タブの保存)
-              fetch('/api/updateDetailedAnalysis', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                      centralSheetId: currentCentralSheetId,
-                      clinicName: currentClinicForModal,
-                      columnType: currentDetailedAnalysisType,
-                      tabId: 'overall', 
-                      content: overallContent 
-                  })
+          // ▼▼▼ [変更] API呼び出しを1回にし、アクティブなタブの情報だけを送信 ▼▼▼
+          const response = await fetch('/api/updateDetailedAnalysis', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  centralSheetId: currentCentralSheetId,
+                  clinicName: currentClinicForModal,
+                  columnType: currentDetailedAnalysisType, // 例: "L"
+                  tabId: activeTabId, // 例: "analysis"
+                  content: contentToSave // そのタブのテキストエリアの内容
               })
-          ];
-          // ▲▲▲
+          });
           
-          const results = await Promise.all(promises);
-          for (const res of results) {
-              if (!res.ok) {
-                  throw new Error(`保存失敗 (${res.status}): ${await res.text()}`);
-              }
+          if (!response.ok) {
+              throw new Error(`保存失敗 (${response.status}): ${await response.text()}`);
           }
-          // (表示側は変更なし)
+          
+          // (フロントエンド側の表示を更新 - 編集した内容を反映)
           document.getElementById('display-analysis').textContent = analysisContent;
           document.getElementById('display-suggestions').textContent = suggestionsContent;
           document.getElementById('display-overall').textContent = overallContent;
+          
           toggleEditDetailedAnalysis(false);
           alert('変更を保存しました。');
       } catch (e) {
@@ -1245,7 +1294,9 @@
   // --- ▲▲▲ 画面5 (AI詳細分析) 処理 ▲▲▲ ---
 
 
-  // --- 汎用関数 (変更なし) ---
+  // --- 汎用関数 (変更あり) ---
+  
+  // (ナビゲーション更新 - 変更なし)
   function updateNavActiveState(activeReportType, activeAnalysisType, activeDetailedAnalysisType) {
     const navs = ['#report-nav', '#report-nav-screen4', '#report-nav-screen5'];
     navs.forEach(navSelector => {
@@ -1260,6 +1311,24 @@
         });
     });
   }
+
+  // ▼▼▼ [新規] Screen 3, 4, 5 のスライドDLボタンの状態を更新する (ご要望: PDFボタン連動) ▼▼▼
+  function updateSlideDownloadButtonState(screenId) {
+      const btn = document.getElementById(`download-slide-btn-${screenId}`);
+      if (!btn) return;
+      
+      const isComplete = currentAiCompletionStatus[currentClinicForModal] === true;
+      
+      btn.disabled = !isComplete;
+      
+      if (isComplete) {
+          btn.title = 'スライドをダウンロード';
+      } else {
+          btn.title = 'AI分析が完了するまでお待ちください';
+      }
+  }
+  
+  // (画面表示 - 変更なし)
   function showScreen(screenId){ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
   function showLoading(isLoading, message=''){ const o=document.getElementById('loading-overlay'),m=document.getElementById('loading-message');if(isLoading){m.textContent=message;o.classList.remove('hidden');}else{o.classList.add('hidden');m.textContent='';} }
   

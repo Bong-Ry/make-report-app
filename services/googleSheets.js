@@ -1,10 +1,10 @@
 // bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/services/googleSheets.js
 
 const { google } = require('googleapis');
-// ▼▼▼ [変更] ヘルパーからId取得と、[新規] 分析シート定義をインポート ▼▼▼
-const { getSpreadsheetIdFromUrl, getAnalysisSheetConfig } = require('../utils/helpers');
+// ▼▼▼ [変更] 必要なヘルパーのみインポート ▼▼▼
+const { getSpreadsheetIdFromUrl, getAiAnalysisKeys } = require('../utils/helpers');
 
-// ▼▼▼ [変更なし] ▼▼▼
+// ▼▼▼ [変更なし] 認証・初期化 ▼▼▼
 exports.GAS_SLIDE_GENERATOR_URL = 'https://script.google.com/macros/s/AKfycby-b31JKqSR5HNLi1fQxK1hePsxkpDL2StBhd1gsP_dKqFvjNRoqcTsca0hLSEzE3x2Xg/exec';
 const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
 const KEYFILEPATH = '/etc/secrets/credentials.json';
@@ -30,12 +30,11 @@ try {
 }
 
 exports.slides = slides;
-// ▲▲▲ [変更なし] ▲▲▲
+// ▲▲▲ [変更なし] 認証・初期化 ▲▲▲
 
 
 // --- (変更なし) マスターシートからクリニックリストを取得 ---
 exports.getMasterClinicList = async () => {
-    // (既存のコードのまま - 変更なし)
     const currentMasterSheetId = process.env.MASTER_SHEET_ID;
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     if (!currentMasterSheetId) throw new Error('サーバー設定エラー: マスターシートIDがありません。');
@@ -55,7 +54,6 @@ exports.getMasterClinicList = async () => {
 
 // --- (変更なし) マスターシートからクリニック名とURLのマップを取得 ---
 exports.getMasterClinicUrls = async () => {
-    // (既存のコードのまま - 変更なし)
     const currentMasterSheetId = process.env.MASTER_SHEET_ID;
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     if (!currentMasterSheetId) throw new Error('サーバー設定エラー: マスターシートIDがありません。');
@@ -115,6 +113,7 @@ exports.findOrCreateCentralSheet = async (periodText) => {
 
 // =================================================================
 // === (変更なし) 更新関数 (2/X) (ヘッダーなし転記) ===
+// (ご要望: `[クリニック名]` タブに転記データを保存)
 // =================================================================
 exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
@@ -139,7 +138,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
 
         try {
             // 1. 元データ（フォームの回答 1）を読み取る
-            // ▼▼▼ [修正] ユーザーのカスタム指示に基づきシート名を "フォームの回答 1" にする ▼▼▼
+            // (ユーザーの保存済み指示「フォームの回答 1」を参照)
             const range = "'フォームの回答 1'!A:R"; // R列(郵便番号)まで
             const clinicDataResponse = await sheets.spreadsheets.values.get({
                 spreadsheetId: sourceSheetId, 
@@ -174,13 +173,14 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
 
             if (filteredRows.length > 0) {
                 // 3. 集計スプシに「クリニック名」のタブを作成（またはクリア） (変更なし)
+                // (ご要望: `[クリニック名]` タブ)
                 const clinicSheetTitle = clinicName; 
                 await findOrCreateSheet(centralSheetId, clinicSheetTitle);
                 
                 // 4. データを「クリニック名」タブに書き込み
                 await clearSheet(centralSheetId, clinicSheetTitle);
                 
-                // ▼▼▼ [変更なし] ヘッダーなしで書き込む ▼▼▼
+                // (ヘッダーなしで書き込む)
                 await writeData(centralSheetId, clinicSheetTitle, filteredRows);
                 console.log(`[googleSheetsService-ETL] Wrote ${filteredRows.length} rows to sheet: "${clinicSheetTitle}" (HEADERLESS)`);
 
@@ -192,7 +192,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
             processedClinics.push(clinicName);
 
         } catch (e) {
-            // ▼▼▼ [修正] ユーザーのカスタム指示に基づきシート名を "フォームの回答 1" にする ▼▼▼
+            // (ユーザーの保存済み指示「フォームの回答 1」を参照)
             if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
                 console.error(`[googleSheetsService-ETL] Error for ${clinicName}: Sheet 'フォームの回答 1' not found or invalid range. Skipping. Error: ${e.toString()}`);
             } else {
@@ -207,6 +207,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
 
 // =================================================================
 // === (変更なし) 関数 (3/X) (集計) ===
+// (ご要望: `[クリニック名]` タブの生データを集計)
 // =================================================================
 exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
     // (既存のコードのまま - 変更なし)
@@ -349,22 +350,21 @@ function buildReportDataObject(data) {
 
 
 // =================================================================
-// === ▼▼▼ [削除] 古いAI分析関数 (5/X, 6/X, 7/X) ▼▼▼ ===
+// === ▼▼▼ [削除] 古い分析I/O関数 (5/X, 6/X, 7/X, 8/X, 9/X) ▼▼▼ ===
 // =================================================================
 // exports.saveAIAnalysisToSheet ... (削除)
 // exports.getAIAnalysisFromSheet ... (削除)
 // exports.updateAIAnalysisInSheet ... (削除)
-
-
-// =================================================================
-// === ▼▼▼ [削除] 古い市区町村関数 (8/X, 9/X) ▼▼▼ ===
-// =================================================================
 // exports.saveMunicipalityData ... (削除)
 // exports.readMunicipalityData ... (削除)
-
+// (古いセルベースのI/O関数)
+// exports.saveToAnalysisSheet ... (削除)
+// exports.readFromAnalysisSheet ... (削除)
+// exports.readCompletionMarker ... (削除)
 
 // =================================================================
 // === (変更なし) 関数 (10/X) (シート名一覧取得) ===
+// (「押せない」問題の修正で、タブの存在チェックに使うため)
 // =================================================================
 exports.getSheetTitles = async (spreadsheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
@@ -386,184 +386,158 @@ exports.getSheetTitles = async (spreadsheetId) => {
 
 
 // =================================================================
-// === ▼▼▼ [新規] 分析シート用 汎用I/O関数群 (11/X) ▼▼▼ ===
+// === ▼▼▼ [新規] 分析タブ用 汎用I/O関数群 (11/X) ▼▼▼ ===
 // =================================================================
 
 /**
- * [新規] 分析スプレッドシート（`[クリニック名]-分析`）のIDを取得（なければ作成）
+ * [新規] テーブルデータ（市区町村、おすすめ理由）を専用タブに書き込む
+ * @param {string} centralSheetId
+ * @param {string} sheetName (例: "クリニックA_市区町村")
+ * @param {string[][]} dataRows (ヘッダー行を含む2D配列)
  */
-const analysisSheetCache = new Map(); // K: clinicName, V: spreadsheetId
-async function findOrCreateAnalysisSheet(centralSheetId, clinicName) {
-    const cacheKey = `${centralSheetId}-${clinicName}`;
-    if (analysisSheetCache.has(cacheKey)) {
-        return analysisSheetCache.get(cacheKey);
-    }
-
-    // TODO: 本来は centralSheetId とは別に、クリニックごとの分析スプシを作成・検索する
-    //       （GAS App Maker のロジック）
-    //       現状は、集計スプレッドシート (centralSheetId) をそのまま分析シートとしても使う
-    //       （＝分析タブが集計スプシ内に作られる）
-    
-    //       もし `[クリニック名]-分析` という名前の *別ファイル* をDriveから検索/作成
-    //       する場合は、ここに Drive API のロジックを追加する。
-    
-    //       **現在の実装**: centralSheetId をそのまま分析用スプレッドシートIDとして扱う
-    // console.warn(`[getAnalysisSheetId] TODO: 本実装ではDrive APIで "[${clinicName}]-分析" ファイルを検索・作成する。現在は集計スプシIDを流用。`);
-    
-    const analysisSheetId = centralSheetId; // 仮
-    analysisSheetCache.set(cacheKey, analysisSheetId);
-    return analysisSheetId;
-}
-
-/**
- * [新規] 分析結果を、定義（CONFIG）に基づき単一分析シートに書き込む
- * @param {string} centralSheetId (集計スプシID)
- * @param {string} clinicName (例: "クリニックA")
- * @param {string} taskType (例: "L_ANALYSIS", "MUNICIPALITY_TABLE")
- * @param {string | string[][] | object} data - 保存するデータ
- */
-exports.saveToAnalysisSheet = async (centralSheetId, clinicName, taskType, data) => {
+exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService] Saving Table to Sheet: "${sheetName}"`);
     
     try {
-        // 1. 保存先の定義を取得
-        const { sheetName, range, type } = getAnalysisSheetConfig(taskType);
+        // 1. シートを作成（またはクリア）
+        await findOrCreateSheet(centralSheetId, sheetName);
+        await clearSheet(centralSheetId, sheetName);
         
-        // 2. 保存先のスプレッドシートIDを取得 (または centralSheetId を流用)
-        //    (この関数が「分析用スプレッドシート」と「集計スプレッドシート」が同一だと仮定)
-        const analysisSheetId = await findOrCreateAnalysisSheet(centralSheetId, clinicName); 
+        // 2. データを書き込み (ヘッダー + データ)
+        await writeData(centralSheetId, sheetName, dataRows);
         
-        // 3. 保存先の「タブ」を作成 (例: "AI分析", "データ")
-        await findOrCreateSheet(analysisSheetId, sheetName);
-
-        // 4. 保存形式に応じてデータを整形
-        let values; // [[...], [...]] の形式
-        
-        if (type === 'CELL') {
-            // 単一セルの場合
-            if (typeof data !== 'string' && data != null) {
-                console.warn(`[saveToAnalysisSheet] CELLタイプには文字列が必要です (task: ${taskType})。JSONに変換します。`);
-                values = [[JSON.stringify(data, null, 2)]];
-            } else {
-                values = [[data || ""]]; // null や undefined を空文字に
-            }
-        } 
-        else if (type === 'TABLE') {
-            // テーブル (2D配列) の場合
-            if (!Array.isArray(data) || (data.length > 0 && !Array.isArray(data[0]))) {
-                throw new Error(`[saveToAnalysisSheet] TABLEタイプには2D配列データが必要です (task: ${taskType})`);
-            }
-            values = data.length > 0 ? data : [[]]; // 空配列だとエラーになるため [[]] を送る
-        } 
-        else {
-            throw new Error(`[saveToAnalysisSheet] 未定義の保存タイプです: ${type}`);
-        }
-
-        // 5. データを書き込み (update = 上書き)
-        const writeRange = `'${sheetName}'!${range}`;
-        console.log(`[googleSheetsService] Saving to Analysis Sheet (ID: ${analysisSheetId}, Range: ${writeRange}, Task: ${taskType})`);
-        
-        // まずクリア (古いデータが残らないように)
-        if (type === 'TABLE') {
-             // テーブルの場合は、定義された範囲全体をクリア
-             // (注意: 'B2' のような単一セル指定の場合、クリア範囲を広げる必要がある)
-             // (現状の 'B2' 指定は「B2から書き始める」という意味で使っているため、クリアは書き込み時に上書きされる)
-             
-             // A1表記 (B2) から R1C1表記に変換して、適切な範囲をクリアする (実装例)
-             // ... が、複雑になるため、writeData(append=false)の上書きで代用
-             // await clearSheet(analysisSheetId, writeRange); // B2だけクリアしても意味がない
+        // 3. [装飾] 列幅を自動調整 (A-D列)
+        const sheetId = await getSheetId(centralSheetId, sheetName);
+        if (sheetId) {
+             await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: centralSheetId,
+                resource: { requests: [
+                    { autoResizeDimensions: {
+                        dimensions: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 4 }
+                    }}
+                ]}
+            });
         }
         
-        await writeData(analysisSheetId, writeRange, values, false); // append = false (上書き)
+        console.log(`[googleSheetsService] Successfully saved Table for "${sheetName}"`);
 
     } catch (err) {
-        console.error(`[googleSheetsService] Error saving to analysis sheet (Task: ${taskType}): ${err.message}`, err);
-        throw new Error(`分析結果(Task: ${taskType})のシート保存に失敗: ${err.message}`);
+        console.error(`[googleSheetsService] Error saving Table data: ${err.message}`, err);
+        throw new Error(`分析テーブルのシート保存に失敗しました: ${err.message}`);
     }
 };
 
 /**
- * [新規] 分析結果を、定義（CONFIG）に基づき単一分析シートから読み込む
+ * [新規] AI分析データ (Map) を専用タブに (A列キー, B列値) 形式で書き込む
  * @param {string} centralSheetId
- * @param {string} clinicName
- * @param {string} taskType (例: "L_ANALYSIS", "MUNICIPALITY_TABLE")
- * @returns {Promise<string | string[][] | null>} - 読み込んだデータ (単一セルの場合は文字列、テーブルの場合は2D配列)
+ * @param {string} sheetName (例: "クリニックA_AI分析")
+ * @param {Map<string, string>} aiDataMap (キー: "L_ANALYSIS", 値: "分析文...")
  */
-exports.readFromAnalysisSheet = async (centralSheetId, clinicName, taskType) => {
+exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService] Saving AI Key-Value Data to Sheet: "${sheetName}"`);
     
     try {
-        // 1. 読み込み元の定義を取得
-        const { sheetName, range, type } = getAnalysisSheetConfig(taskType);
+        // 1. シートを作成（またはクリア）
+        await findOrCreateSheet(centralSheetId, sheetName);
+        await clearSheet(centralSheetId, sheetName);
         
-        // 2. 読み込み元のスプレッドシートIDを取得
-        const analysisSheetId = await findOrCreateAnalysisSheet(centralSheetId, clinicName);
+        // 2. Map を A/B列の2D配列に変換 (ご要望: A列に一行ずつ)
+        const allKeys = getAiAnalysisKeys(); // helpers から 15個のキー配列を取得
+        const dataRows = allKeys.map(key => {
+            const value = aiDataMap.get(key) || '（データなし）';
+            return [key, value]; // [A列, B列]
+        });
         
-        // 3. 読み込み範囲
-        let readRange = `'${sheetName}'!${range}`;
+        // 3. ヘッダーを追加
+        const header = ['項目キー', '分析文章データ'];
+        const finalData = [header, ...dataRows];
+
+        // 4. データを書き込み (A1から)
+        await writeData(centralSheetId, `'${sheetName}'!A1`, finalData);
         
-        if (type === 'TABLE') {
-            // 'B2' のような単一セル指定の場合、'B2:ZZ' のように拡張してテーブル全体を読み込む
-            const startCell = range.match(/^([A-Z]+)(\d+)$/);
-            if (startCell) {
-                // 'B2' -> 'B2:Z' (列全体) のように末尾を開放する
-                // (注意: これだと G2:I のおすすめ理由を読み込む際に、B列の市区町村まで読んでしまう)
-                // -> やはり config (helpers.js) で 'B2:E' や 'G2:I' のように範囲指定すべき
-                // helpers.js を 'B2', 'G2' と定義してしまったため、ここで動的に補正
-                if (taskType === 'MUNICIPALITY_TABLE') {
-                    readRange = `'${sheetName}'!B2:E`; // B:D (件数) -> B:E (割合) に変更
-                } else if (taskType === 'RECOMMENDATION_TABLE') {
-                    readRange = `'${sheetName}'!G2:I`; // G:H (件数) -> G:I (割合) に変更
-                }
-            }
+        // 5. [装飾] 列幅を調整
+        const sheetId = await getSheetId(centralSheetId, sheetName);
+        if (sheetId) {
+             await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: centralSheetId,
+                resource: { requests: [
+                    // A列 (キー) を自動調整
+                    { autoResizeDimensions: {
+                        dimensions: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }
+                    }},
+                    // B列 (本文) を 800px に固定
+                    { updateDimensionProperties: {
+                        range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 },
+                        properties: { pixelSize: 800 },
+                        fields: 'pixelSize'
+                    }}
+                ]}
+            });
         }
         
-        console.log(`[googleSheetsService] Reading from Analysis Sheet (ID: ${analysisSheetId}, Range: ${readRange}, Task: ${taskType})`);
+        console.log(`[googleSheetsService] Successfully saved AI Key-Value Data for "${sheetName}"`);
 
+    } catch (err) {
+        console.error(`[googleSheetsService] Error saving AI Key-Value data: ${err.message}`, err);
+        throw new Error(`AI分析(Key-Value)のシート保存に失敗しました: ${err.message}`);
+    }
+};
+
+/**
+ * [新規] AI分析タブ (A列キー, B列値) からデータを読み込み、Map形式で返す
+ * @param {string} centralSheetId
+ * @param {string} sheetName (例: "クリニックA_AI分析")
+ * @returns {Promise<Map<string, string>>} (キー: "L_ANALYSIS", 値: "分析文...")
+ */
+exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService] Reading AI Key-Value Data from Sheet: "${sheetName}"`);
+    
+    const aiDataMap = new Map();
+    // (念のため、helpers からキーの完全なリストを取得し、データがなくてもキーをセットする)
+    getAiAnalysisKeys().forEach(key => {
+        aiDataMap.set(key, '（データがありません）');
+    });
+
+    try {
+        // A:B 列を読み込む (ヘッダー含む)
+        const range = `'${sheetName}'!A:B`;
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: analysisSheetId,
-            range: readRange,
+            spreadsheetId: centralSheetId,
+            range: range,
             valueRenderOption: 'FORMATTED_VALUE'
         });
 
-        const values = response.data.values;
+        const rows = response.data.values;
 
-        if (!values || values.length === 0) {
-            console.log(`[googleSheetsService] No data found for ${taskType}.`);
-            return null;
+        if (!rows || rows.length < 2) { // (ヘッダー + データ)
+            console.log(`[googleSheetsService] No data found in "${sheetName}".`);
+            return aiDataMap; // 空のMap（デフォルト値入り）を返す
         }
 
-        // 4. 形式に応じて返す
-        if (type === 'CELL') {
-            return values[0][0] || null; // 単一セルの文字列
-        } 
-        else if (type === 'TABLE') {
-            return values; // 2D配列
-        }
+        rows.shift(); // ヘッダーを捨てる
+
+        // データをMapに格納
+        rows.forEach(row => {
+            const key = row[0];
+            const value = row[1];
+            if (key && value != null) {
+                aiDataMap.set(key, value);
+            }
+        });
         
-        return null;
+        console.log(`[googleSheetsService] Successfully read ${aiDataMap.size} AI Key-Value pairs.`);
+        return aiDataMap;
 
     } catch (e) {
         if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
-            console.warn(`[googleSheetsService] Sheet/Range not found for ${taskType}. Returning null.`);
-            return null; // シートまたはセルが存在しない
+            console.warn(`[googleSheetsService] Sheet "${sheetName}" not found. Returning empty map.`);
+            return aiDataMap; // シートが存在しない
         }
-        console.error(`[googleSheetsService] Error reading from analysis sheet (Task: ${taskType}): ${e.message}`, e);
-        throw new Error(`分析結果(Task: ${taskType})のシート読み込みに失敗: ${e.message}`);
-    }
-};
-
-/**
- * [新規] 完了マーカーを読み込む (getTransferredList用)
- */
-exports.readCompletionMarker = async (centralSheetId, clinicName) => {
-    try {
-        const marker = await exports.readFromAnalysisSheet(centralSheetId, clinicName, 'COMPLETION_MARKER');
-        return (marker === 'COMPLETED'); // "COMPLETED" という文字列が書き込まれていれば true
-    } catch (e) {
-        // (readFromAnalysisSheet がエラー（シートない等）を null で返すため、ここでは false になる)
-        console.warn(`[readCompletionMarker] Error reading marker for ${clinicName}: ${e.message}`);
-        return false;
+        console.error(`[googleSheetsService] Error reading AI Key-Value data: ${e.message}`, e);
+        throw new Error(`AI分析(Key-Value)のシート読み込みに失敗しました: ${e.message}`);
     }
 };
 
@@ -589,7 +563,7 @@ async function addSheet(spreadsheetId, title) {
         return newSheetId;
     } catch (e) {
         if (e.message.includes('already exists')) {
-            console.warn(`[Helper] Sheet "${title}" already exists.`);
+            // console.warn(`[Helper] Sheet "${title}" already exists.`);
             return await getSheetId(spreadsheetId, title);
         } else {
             console.error(`[Helper] Error adding sheet "${title}": ${e.message}`);
@@ -690,8 +664,6 @@ async function writeData(spreadsheetId, range, values, append = false) {
         throw e;
     }
 }
-
-// (readCell, writeToCell は汎用関数 save/readFromAnalysisSheet に吸収されたため不要)
 
 // ★ 既存の getSpreadsheetIdFromUrl を googleSheetsService の末尾にもエクスポート
 exports.getSpreadsheetIdFromUrl = getSpreadsheetIdFromUrl;
