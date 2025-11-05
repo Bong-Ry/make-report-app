@@ -1,10 +1,148 @@
+// bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/utils/helpers.js
+
 exports.getSpreadsheetIdFromUrl = (url) => {
     if (!url || typeof url !== 'string') return null;
     const match = url.match(/\/d\/(.+?)\//);
     return match ? match[1] : null;
 };
 
+// =================================================================
+// === ▼▼▼ [新規] 分析シート設定 ▼▼▼ ===
+// =================================================================
+/**
+ * [新規] 単一の分析シートのレイアウト定義
+ * (どの分析結果を、どのシートの、どのセル範囲に書き込むかを定義)
+ */
+const ANALYSIS_SHEET_CONFIG = {
+    // --------------------------------
+    // --- タスク管理 (「押せない」問題の修正用)
+    // --------------------------------
+    COMPLETION_MARKER: {
+        sheetName: "管理", // 「[クリニック名]-分析」スプシ内の「管理」タブ
+        range: "A1",      // A1セルに "COMPLETED" と書き込む
+        type: "CELL"
+    },
+    
+    // --------------------------------
+    // --- グラフ用データ (市区町村・おすすめ理由)
+    // --------------------------------
+    MUNICIPALITY_TABLE: {
+        sheetName: "データ", // 「[クリニック名]-分析」スプシ内の「データ」タブ
+        range: "B2",      // B2セルからテーブルを開始 (B:都道府県, C:市区町村, D:件数, E:割合)
+        type: "TABLE"
+    },
+    RECOMMENDATION_TABLE: {
+        sheetName: "データ",
+        range: "G2",      // G2セルからテーブルを開始 (G:項目[A], H:件数[B], I:割合[C])
+        type: "TABLE"
+    },
+
+    // --------------------------------
+    // --- AI分析 (L: NPS理由)
+    // --------------------------------
+    L_ANALYSIS: {
+        sheetName: "AI分析", // 「[クリニック名]-分析」スプシ内の「AI分析」タブ
+        range: "B2",       // 「分析と考察」の保存セル
+        type: "CELL"
+    },
+    L_SUGGESTIONS: {
+        sheetName: "AI分析",
+        range: "B3",       // 「改善提案」の保存セル
+        type: "CELL"
+    },
+    L_OVERALL: {
+        sheetName: "AI分析",
+        range: "B4",       // 「総評」の保存セル
+        type: "CELL"
+    },
+    
+    // --------------------------------
+    // --- AI分析 (I_bad: 悪かった点)
+    // --------------------------------
+    I_bad_ANALYSIS: { sheetName: "AI分析", range: "C2", type: "CELL" },
+    I_bad_SUGGESTIONS: { sheetName: "AI分析", range: "C3", type: "CELL" },
+    I_bad_OVERALL: { sheetName: "AI分析", range: "C4", type: "CELL" },
+    
+    // --------------------------------
+    // --- AI分析 (I_good: 良かった点)
+    // --------------------------------
+    I_good_ANALYSIS: { sheetName: "AI分析", range: "D2", type: "CELL" },
+    I_good_SUGGESTIONS: { sheetName: "AI分析", range: "D3", type: "CELL" },
+    I_good_OVERALL: { sheetName: "AI分析", range: "D4", type: "CELL" },
+    
+    // --------------------------------
+    // --- AI分析 (J: 印象スタッフ)
+    // --------------------------------
+    J_ANALYSIS: { sheetName: "AI分析", range: "E2", type: "CELL" },
+    J_SUGGESTIONS: { sheetName: "AI分析", range: "E3", type: "CELL" },
+    J_OVERALL: { sheetName: "AI分析", range: "E4", type: "CELL" },
+    
+    // --------------------------------
+    // --- AI分析 (M: お産意見)
+    // --------------------------------
+    M_ANALYSIS: { sheetName: "AI分析", range: "F2", type: "CELL" },
+    M_SUGGESTIONS: { sheetName: "AI分析", range: "F3", type: "CELL" },
+    M_OVERALL: { sheetName: "AI分析", range: "F4", type: "CELL" }
+};
+
+/**
+ * [新規] 分析タスクタイプから、保存先のシート名とセル範囲を取得
+ * @param {string} taskType (例: "L_ANALYSIS", "MUNICIPALITY_TABLE")
+ * @returns {object} { sheetName, range, type }
+ */
+exports.getAnalysisSheetConfig = (taskType) => {
+    const config = ANALYSIS_SHEET_CONFIG[taskType];
+    if (!config) {
+        throw new Error(`[helpers] 無効な分析タスクタイプです: ${taskType}`);
+    }
+    return config;
+};
+
+/**
+ * [新規] 分析タスクタイプから、編集用のタスクタイプを取得 (AI分析編集用)
+ * (例: "L", "analysis" -> "L_ANALYSIS")
+ * @param {string} columnType (例: "L", "I_good")
+ * @param {string} tabId (例: "analysis", "suggestions", "overall")
+ * @returns {string} (例: "L_ANALYSIS")
+ */
+exports.getAnalysisTaskTypeForEdit = (columnType, tabId) => {
+    let suffix;
+    switch(tabId) {
+        case 'analysis': suffix = 'ANALYSIS'; break;
+        case 'suggestions': suffix = 'SUGGESTIONS'; break;
+        case 'overall': suffix = 'OVERALL'; break;
+        default: throw new Error(`[helpers] 無効な編集タブIDです: ${tabId}`);
+    }
+    const taskType = `${columnType}_${suffix}`;
+    
+    // 存在チェック
+    if (!ANALYSIS_SHEET_CONFIG[taskType]) {
+        throw new Error(`[helpers] 無効な編集タスクタイプです: ${taskType}`);
+    }
+    return taskType;
+};
+
+/**
+ * [新規] おすすめ理由の「元カテゴリ名」から「表示名」へのマッピング
+ * (ご要望: 口コミ、ホームページ など)
+ */
+exports.RECOMMENDATION_DISPLAY_NAMES = {
+    // --- 表示名を変更する項目 ---
+    'インターネット（情報サイト）': '情報サイト',
+    'インターネット（Googleの口コミ）': '口コミ',
+    'インターネット（産院のホームページ）': 'ホームページ',
+    
+    // --- 表示名を変更しない固定項目 ---
+    '知人の紹介': '知人の紹介',
+    '家族の紹介': '家族の紹介',
+    '自宅からの距離': '自宅からの距離',
+    'インターネット（SNS）': 'インターネット（SNS）' // (元ファイルには無かったが、ありそうなので追加)
+};
+// ▲▲▲ [新規] 分析シート設定 ▲▲▲
+
+
 // --- OpenAI (GPT) に投げるプロンプトの定義 (詳細分析用) ---
+// (変更なし)
 exports.getSystemPromptForDetailAnalysis = (clinicName, columnType) => {
     // 求めるJSONの厳格なフォーマット定義
     const jsonFormatString = `
@@ -71,7 +209,7 @@ exports.getSystemPromptForDetailAnalysis = (clinicName, columnType) => {
 };
 
 // =================================================================
-// === ▼▼▼ 新しい関数を追加 ▼▼▼ ===
+// === ▼▼▼ [変更なし] N列（おすすめ理由）分類プロンプト ▼▼▼ ===
 // =================================================================
 
 /**

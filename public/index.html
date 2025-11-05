@@ -288,11 +288,11 @@
         <div id="detailed-analysis-error" class="text-red-500 text-sm text-center hidden p-4"></div>
     </main>
   </div>
+  
+  
   <script>
   // --- グローバル変数 (変更なし) ---
   let selectedPeriod = {}; 
-  // ▼▼▼ [変更点] issuedReports は不要 (要求 #6) ▼▼▼
-  // let issuedReports = {}; 
   let currentClinicForModal = '';
   let slidesData = []; 
   let currentPage = 1; 
@@ -321,21 +321,12 @@
     console.log('Listeners setup.');
   });
 
-  // --- イベントリスナー設定 (変更) ---
+  // --- イベントリスナー設定 (変更なし) ---
   function setupEventListeners() {
     document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); 
     document.getElementById('issue-btn').addEventListener('click', handleIssueReport); 
-    // ▼▼▼ [変更] issued-list-container のクリックイベント委譲 ▼▼▼
     document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClickDelegator);
     
-    // ▼▼▼ [削除] 古いリスナー (要求 #7) ▼▼▼
-    // document.getElementById('issued-list-container').addEventListener('click', handleIssuedListClick);
-    
-    // ▼▼▼ [削除] モーダル関連のリスナー (要求 #7) ▼▼▼
-    // document.getElementById('report-type-modal').addEventListener('click', handleReportModalClick);
-    // document.getElementById('cancel-report-selection').addEventListener('click', () => showReportModal(false));
-
-    // ▼▼▼ [変更点] screen3, 4, 5 のナビゲーション (要求 #5) ▼▼▼
     document.getElementById('report-nav').addEventListener('click', handleReportNavClick);
     document.getElementById('report-nav-screen4').addEventListener('click', handleReportNavClick);
     document.getElementById('report-nav-screen5').addEventListener('click', handleReportNavClick);
@@ -368,9 +359,9 @@
   }
 
   // =================================================================
-  // === ▼▼▼ 画面1 (期間選択) 処理 (変更なし) ▼▼▼ ===
+  // === 画面1 (期間選択) 処理 (変更なし) ===
   // =================================================================
-  function populateDateSelectors() { const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sm.value=String(now.getMonth()+1).padStart(2,'0'); }
+  function populateDateSelectors() { const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sy.value=String(now.getMonth()+1).padStart(2,'0'); }
 
   async function handleNextToClinics() {
     console.log('Next clicked.');
@@ -416,11 +407,6 @@
         
         document.getElementById('period-display').textContent = `集計期間：${displayPeriod}`;
         showScreen('screen2');
-
-        // ▼▼▼ [変更点] issuedReports への設定は不要 (要求 #6) ▼▼▼
-        // issuedReports = {};
-        // issuedReports[currentPeriodText] = { ... };
-
         loadClinics();
     } catch (err) {
         console.error('!!! Find/Create Sheet failed:', err);
@@ -431,10 +417,12 @@
   }
 
   // =================================================================
-  // === ▼▼▼ 画面2 (クリニック選択・転記) 処理 (変更) ▼▼▼ ===
+  // === 画面2 (クリニック選択・転記) 処理 (変更なし) ===
   // =================================================================
 
-  // ▼▼▼ [変更] loadClinics (AIステータス反映) (要求 #6) ▼▼▼
+  // (loadClinics は「押せない」問題に対応するため、
+  //  バックエンドの aiCompletionStatus を参照するようになっています。
+  //  バックエンド側の修正が完了していれば、このロジックは変更不要です。)
   async function loadClinics() {
     console.log('loadClinics (new)...');
     showLoading(true, 'クリニック一覧と転記状況を読込中...');
@@ -444,10 +432,9 @@
     clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
     issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
     
-    document.getElementById('issue-btn').disabled = true; // デフォルトは無効
+    document.getElementById('issue-btn').disabled = true; 
 
     try {
-        // 1. APIを呼び出し
         const [clinicListRes, transferredListRes] = await Promise.all([
             fetch('/api/getClinicList'),
             fetch('/api/getTransferredList', {
@@ -460,34 +447,27 @@
         if (!clinicListRes.ok) throw new Error(`クリニック一覧の取得失敗: ${await clinicListRes.text()}`);
         if (!transferredListRes.ok) throw new Error(`転記済み一覧の取得失敗: ${await transferredListRes.text()}`);
         
-        const masterClinics = await clinicListRes.json(); // ["クリニックA", "クリニックB"]
-        // ▼▼▼ [変更] AI完了ステータスを受け取る ▼▼▼
+        const masterClinics = await clinicListRes.json(); 
         const { sheetTitles, aiCompletionStatus } = await transferredListRes.json(); 
-        // sheetTitles = ["全体", "クリニックA", ...]
-        // aiCompletionStatus = { "クリニックA": true, "クリニックB": false }
         
-        const transferredTitlesSet = new Set(sheetTitles); // 検索用Set
+        const transferredTitlesSet = new Set(sheetTitles); 
         
-        // 2. コンテナをクリア
         clinicListContainer.innerHTML = '';
         issuedListContainer.innerHTML = '';
         
         let untransferredCount = 0;
         let transferredCount = 0;
 
-        // 3. 描画
         if (!Array.isArray(masterClinics) || masterClinics.length === 0) {
             clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">対象なし</p>';
         } else {
             masterClinics.forEach(clinicName => {
                 if (transferredTitlesSet.has(clinicName)) {
                     // (B) 転記済み -> 右側
-                    
-                    // ▼▼▼ [変更] DLボタンを追加したHTMLに変更 ▼▼▼
                     const d = document.createElement('div');
                     d.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 hover:shadow-md transition-all duration-200';
                     
-                    // AI分析が完了しているか？
+                    // (バックエンドが「完了マーカー」を見て true/false を返してくれる)
                     const isAiComplete = aiCompletionStatus[clinicName] === true;
                     
                     d.innerHTML = `
@@ -501,7 +481,6 @@
                             <span class="button-text">DL</span>
                         </button>
                     `;
-                    // ▲▲▲
                     
                     issuedListContainer.appendChild(d);
                     transferredCount++;
@@ -519,7 +498,6 @@
             });
         }
         
-        // 4. コンテナが空の場合のメッセージ (変更なし)
         if (untransferredCount === 0) {
             clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">未転記のクリニックはありません</p>';
         }
@@ -527,11 +505,8 @@
             issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-8">転記済みレポートなし</p>';
         }
 
-        // 5. チェックボックスのリスナー設定 (変更なし)
         clinicListContainer.removeEventListener('change', handleClinicCheckboxChange);
         clinicListContainer.addEventListener('change', handleClinicCheckboxChange);
-        
-        // 6. ▼▼▼ [新規] 10件制限を初期化 (もしチェックが残っていた場合用) ▼▼▼
         handleClinicCheckboxChange();
 
     } catch(err) {
@@ -543,72 +518,42 @@
     }
   }
 
-  // ▼▼▼ [変更] 転記ボタンの有効/無効 (要求 #6) + (要求 #2 10件制限) ▼▼▼
+  // (10件制限 - 変更なし)
   function handleClinicCheckboxChange(event) {
     const checkedCheckboxes = document.querySelectorAll('#clinic-list-container input:checked');
     const checkedCount = checkedCheckboxes.length;
     const issueBtn = document.getElementById('issue-btn');
     
-    // 1. 転記ボタンの有効/無効
-    issueBtn.disabled = (checkedCount === 0);
-    
-    // 2. 10件制限
     if (checkedCount > 10) {
         alert('一度に選択できる件数は10件までです。');
-        // 10件を超えてチェックを入れようとした場合、そのチェックを強制的に外す
         if (event && event.target) {
             event.target.checked = false;
         }
-        // 転記ボタンは有効のまま (10件は選択されているため)
     }
     
-    // 3. 他のチェックボックスの無効化
-    // (チェック数が10件に達したら、他の未チェックのチェックボックスを無効化)
-    const allCheckboxes = document.querySelectorAll('#clinic-list-container input[type="checkbox"]');
-    // チェックが10件以上かどうかを再計算 (event.target.checked = false; の可能性があるため)
     const finalCheckedCount = document.querySelectorAll('#clinic-list-container input:checked').length;
     
-    allCheckboxes.forEach(cb => {
+    document.querySelectorAll('#clinic-list-container input[type="checkbox"]').forEach(cb => {
         if (!cb.checked) {
-            // チェック数が10件以上の場合、未チェックのものは無効
             cb.disabled = (finalCheckedCount >= 10);
         } else {
-            // チェックされているものは常に有効 (チェックを外せるように)
             cb.disabled = false; 
         }
     });
     
-    // 4. 最終的に10件を超えていないか確認 (念のため)
-    if (finalCheckedCount > 10) {
-        issueBtn.disabled = true; // 10件オーバーの不正な状態ならボタンを無効化
-    } else {
-        issueBtn.disabled = (finalCheckedCount === 0);
-    }
+    issueBtn.disabled = (finalCheckedCount === 0);
   }
 
-  // ▼▼▼ [変更] 転記実行 (要求 #6) ▼▼▼
+  // (転記実行 - 変更なし)
   async function handleIssueReport() {
     console.log('Issue report (ETL).');
-    
     const sc = Array.from(document.querySelectorAll('#clinic-list-container input:checked'))
                   .map(cb => cb.value);
-                  
-    if (sc.length === 0) {
-        alert('転記対象のクリニックが選択されていません。');
-        return;
-    }
-    
-    // ▼▼▼ [変更] 10件制限の最終確認 ▼▼▼
-    if (sc.length > 10) {
-        alert('一度に選択できる件数は10件までです。チェックを減らしてください。');
-        return;
-    }
+    if (sc.length === 0) { alert('転記対象のクリニックが選択されていません。'); return; }
+    if (sc.length > 10) { alert('一度に選択できる件数は10件までです。チェックを減らしてください。'); return; }
 
-    // ▼▼▼ [変更] AI分析がバックグラウンドで実行されることをユーザーに通知 ▼▼▼
     showLoading(true, '集計スプレッドシートへデータ転記中...\n完了後、バックグラウンドでAI分析が自動実行されます。');
-
     console.log('Selected for ETL:', sc);
-    console.log('Using CentralSheetID:', currentCentralSheetId);
 
     try {
         const r = await fetch('/api/getReportData', {
@@ -620,16 +565,10 @@
                 centralSheetId: currentCentralSheetId 
             })
         });
-        
         if (!r.ok) { const et = await r.text(); throw new Error(`サーバーエラー(${r.status}): ${et}`); }
-        
         const data = await r.json(); 
         console.log('ETL process finished:', data);
-
-        // ▼▼▼ [変更] 転記が完了したら、リスト全体を再読み込みする ▼▼▼
-        // (AI分析が始まったので、DLボタンが disabled の状態で右側に表示される)
         loadClinics(); 
-
     } catch(err) {
         console.error('!!! ETL Issue failed:', err);
         alert(`データ転記失敗\n${err.message}`);
@@ -638,175 +577,127 @@
     }
   }
 
-  // ▼▼▼ [削除] updateIssuedList (要求 #6) ▼▼▼
-  // (loadClinics が両方のリストを再描画するため不要)
-
 
   // =================================================================
-  // === ▼▼▼ 画面3 (グラフ・レポート表示) 処理 (変更) ▼▼▼ ===
+  // === 画面3 (グラフ・レポート表示) 処理 (変更あり) ===
   // =================================================================
 
-  // ▼▼▼ [新規] イベント委譲ハンドラ (要求 #7) ▼▼▼
+  // (イベント委譲 - 変更なし)
   function handleIssuedListClickDelegator(e) {
     const viewBtn = e.target.closest('.view-report-btn');
     const dlBtn = e.target.closest('.download-slide-btn');
-
     if (viewBtn) {
-        // (A) クリニック名がクリックされた場合 (レポート閲覧)
         handleIssuedListClick(viewBtn.dataset.clinicName);
     } else if (dlBtn) {
-        // (B) DLボタンがクリックされた場合
-        // ▼▼▼ [変更] API呼び出し ▼▼▼
         handleDownloadSlideClick(dlBtn);
     }
   }
 
-  // ▼▼▼ [変更] 転記済みレポートクリック (要求 #7) ▼▼▼
-  // (中身を clinicName を引数に取るように変更)
+  // (転記済みレポートクリック - 変更なし)
   function handleIssuedListClick(clinicName) {
-    // const t = e.target.closest('[data-clinic-name]');
-    // if (t) {
-    //     currentClinicForModal = t.dataset.clinicName;
     currentClinicForModal = clinicName;
     console.log(`Issued clinic clicked: ${currentClinicForModal}`);
-    
-    // ▼▼▼ [変更点] モーダルを廃止し、NPSスコアレポートを直接表示 ▼▼▼
-    // showReportModal(true);
     prepareAndShowReport('nps_score');
-    // }
   }
   
-  // ▼▼▼ [変更] DLボタンクリックハンドラ ▼▼▼
+  // (DLボタンクイック - 変更なし)
   async function handleDownloadSlideClick(buttonElement) {
     const clinicName = buttonElement.dataset.clinicName;
     console.log(`Download Slide clicked for: ${clinicName}`);
-    
-    if (buttonElement.disabled) {
-        console.warn('DL button is disabled, ignoring click.');
-        return;
-    }
-    
-    // (将来のロジック: スピナーを表示し、GAS APIを呼び出す)
+    if (buttonElement.disabled) return;
     const spinner = buttonElement.querySelector('.spinner');
     const buttonText = buttonElement.querySelector('.button-text');
-    
     spinner.classList.remove('hidden');
-    buttonText.classList.add('hidden'); // "DL" の文字を隠す
+    buttonText.classList.add('hidden'); 
     buttonElement.disabled = true;
-    
     try {
-        // APIを呼び出す
         const response = await fetch('/api/generateSlide', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 clinicName: clinicName,
                 centralSheetId: currentCentralSheetId,
-                period: selectedPeriod, // { start, end }
-                periodText: currentPeriodText // "YYYY-MM～YYYY-MM"
+                period: selectedPeriod,
+                periodText: currentPeriodText 
             })
         });
-
-        if (!response.ok) {
-            throw new Error(`スライド生成APIエラー (${response.status}): ${await response.text()}`);
-        }
-        
+        if (!response.ok) throw new Error(`スライド生成APIエラー (${response.status}): ${await response.text()}`);
         const result = await response.json();
-        
         if (result.status === 'ok' && result.newSlideUrl) {
-            // 成功した場合、ボタンをURLリンクに変更
             console.log('Slide generation success:', result.newSlideUrl);
-            buttonElement.classList.add('btn-url'); // 緑色にする
-            buttonText.textContent = 'OPEN'; // "DL" -> "OPEN"
+            buttonElement.classList.add('btn-url');
+            buttonText.textContent = 'OPEN';
             buttonElement.disabled = false;
-            // ボタンをaタグに変更し、URLを設定
             const link = document.createElement('a');
             link.href = result.newSlideUrl;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            // buttonElement のクラスと中身をコピー
             link.className = buttonElement.className;
             link.innerHTML = buttonElement.innerHTML;
             link.querySelector('.spinner').classList.add('hidden');
             link.querySelector('.button-text').classList.remove('hidden');
-            
-            // buttonElement を link に置き換える
             buttonElement.parentNode.replaceChild(link, buttonElement);
-            
         } else {
             throw new Error('APIから成功ステータスまたはURLが返されませんでした。');
         }
-
     } catch (e) {
         console.error('Slide generation failed:', e);
         alert(`スライド生成に失敗しました。\n${e.message}`);
-        // 失敗したらスピナーを非表示にし、ボタンを元に戻す
         spinner.classList.add('hidden');
-        buttonText.classList.remove('hidden'); // "DL" の文字を戻す
+        buttonText.classList.remove('hidden');
         buttonElement.disabled = false; 
     }
   }
 
-  // ▼▼▼ [削除] モーダルクリック処理 (要求 #7) ▼▼▼
-  // function handleReportModalClick(e){ ... }
-
-  // ▼▼▼ [変更点] ナビゲーションクリック処理 (要求 #5) ▼▼▼
+  // (ナビゲーションクリック - 変更なし)
   function handleReportNavClick(e) {
     const targetButton = e.target.closest('.btn');
     if (!targetButton) return;
-
-    // (クリックされたボタンが属するナビゲーションコンテナを取得)
-    const currentNav = e.currentTarget;
-
     const reportType = targetButton.dataset.reportType;
     const analysisType = targetButton.dataset.analysisType;
     const detailedAnalysisType = targetButton.dataset.detailedAnalysisType;
-
     if (reportType) {
-        console.log(`Report nav: ${reportType}`);
-        // ▼▼▼ [変更点] 市区町村レポート (要求 #3) ▼▼▼
         prepareAndShowReport(reportType);
     } else if (analysisType) {
-        console.log(`Analysis nav: ${analysisType}`);
         currentAnalysisTarget = analysisType;
         prepareAndShowAnalysis(analysisType); 
     } else if (detailedAnalysisType) {
-        console.log(`Detailed Analysis nav: ${detailedAnalysisType}`);
         currentDetailedAnalysisType = detailedAnalysisType;
         prepareAndShowDetailedAnalysis(detailedAnalysisType); 
     }
   }
   
+  // (レポート表示メイン - 変更なし)
   async function prepareAndShowReport(reportType){
     console.log(`Prepare report: ${reportType}`); 
     showLoading(true,'レポートデータ集計中...');
-    
-    // ▼▼▼ [変更点] すべてのナビゲーションを更新 (要求 #5) ▼▼▼
     updateNavActiveState(reportType, null, null);
     
     if (reportType === 'municipality') {
-        // ▼▼▼ [変更点] 市区町村レポート (要求 #3) ▼▼▼
+        // (市区町村)
         await prepareAndShowMunicipalityReport(); 
-        showLoading(false); // 専用関数内でローディング制御
+        showLoading(false);
         return;
     }
     
     if (reportType === 'recommendation') {
+        // (おすすめ理由)
         await prepareAndShowRecommendationReport(); 
-        showLoading(false); // 専用関数内でローディング制御
+        // (ローディングは prepareAndShowRecommendationReport の中で制御)
         return;
     }
     
+    // --- (以下、NPS/満足度/コメントなど) ---
     slidesData=[];
     document.getElementById('pagination').style.display='flex';
     document.getElementById('slide-body').style.whiteSpace='pre-wrap';
     document.getElementById('slide-header').innerHTML='';
     document.getElementById('slide-body').innerHTML='';
-    
     let isChart=false, isBar=false;
     let clinicData, overallData;
 
     try {
+        // (getChartData (生データ取得) は変更なし)
         console.log(`Fetching data for clinic: "${currentClinicForModal}"`);
         const clinicRes = await fetch('/api/getChartData', {
             method: 'POST',
@@ -826,35 +717,16 @@
             if (!overallRes.ok) throw new Error(`全体データ取得失敗: ${await overallRes.text()}`);
             overallData = await overallRes.json();
         }
-        
     } catch (e) {
         console.error('Chart data fetch error:', e);
         document.getElementById('slide-body').innerHTML = `<p class="text-center text-red-500">グラフデータ取得失敗<br>(${e.message})</p>`;
         showLoading(false);
-        // ▼▼▼ [変更点] screen3 に遷移してからエラーにする (要求 #7) ▼▼▼
         showScreen('screen3'); 
         return;
     }
     
-    if (reportType === 'nps_score'){
-        document.getElementById('report-title').textContent = 'アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー';
-        document.getElementById('report-subtitle').textContent = 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない';
-        document.getElementById('pagination').style.display = 'none';
-        document.getElementById('slide-body').style.whiteSpace = 'normal';
-        const htmlContent = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                <div class="flex flex-col">
-                    <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
-                    <div id="clinic-bar-chart" class="w-full h-[350px]"></div>
-                </div>
-                <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6">
-                    <p class="text-gray-500">NPSスコア計算中...</p>
-                </div>
-            </div>`;
-        document.getElementById('slide-body').innerHTML = htmlContent;
-        isChart=true; isBar=true;
-    }
-    // (以降の else if は変更なし)
+    // (各種レポートタイプ判定 - 変更なし)
+    if (reportType === 'nps_score'){document.getElementById('report-title').textContent = 'アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー';document.getElementById('report-subtitle').textContent = 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない';document.getElementById('pagination').style.display = 'none';document.getElementById('slide-body').style.whiteSpace = 'normal';const htmlContent = ` <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"> <div class="flex flex-col"> <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3> <div id="clinic-bar-chart" class="w-full h-[350px]"></div> </div> <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6"> <p class="text-gray-500">NPSスコア計算中...</p> </div> </div>`;document.getElementById('slide-body').innerHTML = htmlContent;isChart=true; isBar=true;}
     else if (reportType === 'nps'){const{totalCount,results}=clinicData.npsData;prepareNpsSlides(results,`NPS理由(全${totalCount}件)`);}
     else if (reportType === 'feedback_i'){prepareCommentSlides(clinicData.feedbackData.i_column,'良かった点悪かった点');}
     else if (reportType === 'feedback_j'){prepareCommentSlides(clinicData.feedbackData.j_column,'印象に残ったスタッフ');}
@@ -922,21 +794,18 @@
   function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = document.getElementById('clinic-bar-chart');if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];if (clinicData.totalCount > 0) {for (let i = 0; i <= 10; i++) {const count = clinicData.counts[i] || 0;const percentage = (count / clinicData.totalCount) * 100;clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);}} const opt = {legend: { position: 'none' },colors: ['#DE5D83'], annotations: {textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },alwaysOutside: false,stem: { color: 'transparent' }},vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 } },hAxis: { title: '推奨度スコア (0〜10)' },bar: { groupWidth: '80%' },isStacked: false};if (clinicData.totalCount > 0 && clinicChartData.length > 1) {const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);const clinicChart = new google.visualization.ColumnChart(clinicChartEl);clinicChart.draw(clinicDataVis, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const summaryArea = document.getElementById('nps-summary-area');if (summaryArea) {summaryArea.innerHTML = ` <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs"> <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p> <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p> </div> `;} const clinicHeaderEl = document.getElementById('clinic-chart-header');if (clinicHeaderEl) {clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;} }
   function calculateNps(counts, totalCount) { if (totalCount === 0) return 0;let promoters = 0, passives = 0, detractors = 0;for (let i = 0; i <= 10; i++) {const count = counts[i] || 0;if (i >= 9) promoters += count;else if (i >= 7) passives += count;else detractors += count;} return ((promoters / totalCount) - (detractors / totalCount)) * 100; }
 
-  // ▼▼▼ [変更点] 市区町村レポート (要求 #3) ▼▼▼
+  // (市区町村 - 変更なし)
   async function prepareAndShowMunicipalityReport() {
     console.log('Prepare municipality report');
     updateNavActiveState('municipality', null, null);
     showScreen('screen3');
-    
     document.getElementById('report-title').textContent = `${currentClinicForModal} - 市区町村別 集計`;
     document.getElementById('report-subtitle').textContent = 'アンケート回答者の郵便番号(R列)を元に集計';
     document.getElementById('pagination').style.display = 'none';
     document.getElementById('slide-header').innerHTML = '';
     const slideBody = document.getElementById('slide-body');
     slideBody.style.whiteSpace = 'normal';
-    // ▼▼▼ [変更点] ローディングメッセージ (要求 #3) ▼▼▼
-    slideBody.innerHTML = '<p class="text-center text-gray-500">市区町村データを読み込み中... (初回実行時は集計・保存のため時間がかかります)</p>';
-    
+    slideBody.innerHTML = '<p class="text-center text-gray-500">市区町村データを読み込み中... (バックグラウンドで分析済みのデータを読み込みます)</p>';
     try {
         const response = await fetch('/api/generateMunicipalityReport', {
             method: 'POST',
@@ -951,51 +820,72 @@
             throw new Error(`集計APIエラー (${response.status}): ${errorText}`);
         }
         const tableData = await response.json();
-        
-        // ▼▼▼ [変更点] %に変換済みのデータを受け取るため、表示ロジックは変更なし ▼▼▼
         displayMunicipalityTable(tableData);
-        
     } catch (err) {
         console.error('Failed to get municipality report:', err);
         slideBody.innerHTML = `<p class="text-center text-red-500">集計失敗: ${err.message}</p>`;
     }
   }
   
-  function displayMunicipalityTable(data) { const slideBody = document.getElementById('slide-body'); if (!data || data.length === 0) { slideBody.innerHTML = '<p class="text-center text-gray-500">集計データがありません。</p>'; return; } let tableHtml = `<div class="overflow-x-auto overflow-y-auto max-h-[600px] border border-gray-200 rounded-lg"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">A列: 都道府県</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">B列: 市区町村</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">C列: 件数</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">D列: 割合</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`; data.forEach(row => { tableHtml += `<tr><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.prefecture}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${row.municipality}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${row.count}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${row.percentage.toFixed(2)}%</td></tr>`; }); tableHtml += '</tbody></table></div>'; slideBody.innerHTML = tableHtml; }
+  function displayMunicipalityTable(data) { const slideBody = document.getElementById('slide-body'); if (!data || data.length === 0) { slideBody.innerHTML = '<p class="text-center text-gray-500">集計データがありません。</p>'; return; } let tableHtml = `<div class="overflow-x-auto overflow-y-auto max-h-[600px] border border-gray-200 rounded-lg"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">都道府県</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">市区町村</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">件数</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">割合</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`; data.forEach(row => { tableHtml += `<tr><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.prefecture}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${row.municipality}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${row.count}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">${row.percentage.toFixed(2)}%</td></tr>`; }); tableHtml += '</tbody></table></div>'; slideBody.innerHTML = tableHtml; }
 
-  // (おすすめ理由 - 変更なし)
+
+  // =================================================================
+  // === ▼▼▼ [変更] おすすめ理由 (Read-Only API 呼び出し) ▼▼▼ ===
+  // =================================================================
   async function prepareAndShowRecommendationReport() {
       console.log('Prepare recommendation report');
       updateNavActiveState('recommendation', null, null);
       showScreen('screen3');
       document.getElementById('report-title').textContent = 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー';
-      document.getElementById('report-subtitle').textContent = 'ご出産された産婦人科医院への本病院を選ぶ上で最も参考にしたものについて、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満';
+      // (サブタイトルを修正)
+      document.getElementById('report-subtitle').textContent = '本病院を選ぶ上で最も参考にしたもの (N列) の集計結果';
       document.getElementById('pagination').style.display = 'none';
       document.getElementById('slide-header').innerHTML = '';
       const slideBody = document.getElementById('slide-body');
       slideBody.style.whiteSpace = 'normal';
+      // (円グラフ2つのシェル)
       slideBody.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-pie-chart" class="w-full h-[400px]"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-pie-chart" class="w-full h-[400px]"></div></div></div>`;
-      let clinicData, overallData;
+      
       try {
-          showLoading(true, '「その他」項目をAIで分類中...');
-          console.log(`Fetching recommendation data for clinic: "${currentClinicForModal}"`);
-          const clinicRes = await fetch('/api/getChartData', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: currentClinicForModal }) });
-          if (!clinicRes.ok) throw new Error(`貴院データ取得失敗: ${await clinicRes.text()}`);
-          clinicData = (await clinicRes.json()).recommendationData;
-          console.log(`Fetching recommendation data for "全体"`);
-          const overallRes = await fetch('/api/getChartData', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: "全体" }) });
-          if (!overallRes.ok) throw new Error(`全体データ取得失敗: ${await overallRes.text()}`);
-          overallData = (await overallRes.json()).recommendationData;
-          const [clinicClassifiedCounts, overallClassifiedCounts] = await Promise.all([
-              classifyOthers(clinicData, 'clinic'),
-              classifyOthers(overallData, 'overall')
+          // ▼▼▼ [変更] フロントエンドでのAI分類を削除 ▼▼▼
+          // showLoading(true, '「その他」項目をAIで分類中...');
+          
+          // ▼▼▼ [変更] getChartData (生データ取得) を削除 ▼▼▼
+          // const clinicRes = await fetch('/api/getChartData', ...);
+          // const overallRes = await fetch('/api/getChartData', ...);
+          
+          // ▼▼▼ [変更] 新しい Read-Only API を呼び出す ▼▼▼
+          const [clinicChartDataRes, overallChartDataRes] = await Promise.all([
+                fetch('/api/getRecommendationReport', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: currentClinicForModal })
+                }),
+                fetch('/api/getRecommendationReport', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: "全体" })
+                })
           ]);
+          
+          if (!clinicChartDataRes.ok) throw new Error(`貴院データ取得失敗: ${await clinicChartDataRes.text()}`);
+          if (!overallChartDataRes.ok) throw new Error(`全体データ取得失敗: ${await overallChartDataRes.text()}`);
+
+          const clinicChartData = await clinicChartDataRes.json(); // [ [カテゴリ, 件数], ... ]
+          const overallChartData = await overallChartDataRes.json(); // [ [カテゴリ, 件数], ... ]
+          
+          // ▼▼▼ [変更] フロントエンドでのAI分類 (classifyOthers) を削除 ▼▼▼
+          // const [clinicClassifiedCounts, overallClassifiedCounts] = await Promise.all([...]);
+          
           showLoading(false);
-          const allKeys = [...clinicData.fixedKeys, 'その他'];
-          const clinicChartData = [['カテゴリ', '件数']];
-          allKeys.forEach(key => { clinicChartData.push([key, clinicClassifiedCounts[key] || 0]); });
-          const overallChartData = [['カテゴリ', '件数']];
-          allKeys.forEach(key => { overallChartData.push([key, overallClassifiedCounts[key] || 0]); });
+          
+          // ▼▼▼ [変更] データ形式がすでに [ [カテゴリ, 件数], ... ] なので、変換ロジックを削除 ▼▼▼
+          // const allKeys = [...clinicData.fixedKeys, 'その他'];
+          // const clinicChartData = [['カテゴリ', '件数']];
+          // ...
+          
+          // (円グラフ描画ロジックは変更なし)
           const opt = {is3D: true,chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },pieSliceText: 'percentage',pieSliceTextStyle: { color: 'black', fontSize: 17, bold: true },legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 17 } },tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },};
           const clinicChartEl = document.getElementById('clinic-pie-chart');
           if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
@@ -1012,21 +902,18 @@
       }
   }
 
-  // (おすすめ理由ヘルパー - 変更なし)
-  async function classifyOthers(data, type) { const { fixedCounts, otherList, fixedKeys } = data;let finalCounts = { ...fixedCounts };finalCounts['その他'] = 0;if (otherList && otherList.length > 0) {console.log(`[classifyOthers] Calling AI for ${type} (${otherList.length} items)...`);const response = await fetch('/api/classifyRecommendations', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({clinicName: currentClinicForModal, otherList: otherList,fixedKeys: fixedKeys})});if (!response.ok) throw new Error(`AI分類APIエラー (${type}): ${await response.text()}`);const classificationResult = await response.json();classificationResult.classifiedResults.forEach(item => {item.matchedCategories.forEach(category => {if (finalCounts[category] !== undefined) finalCounts[category]++;else finalCounts['その他']++;});});} return finalCounts; }
+  // ▼▼▼ [削除] おすすめ理由のAI分類ヘルパー (不要) ▼▼▼
+  // async function classifyOthers(data, type) { ... }
   
   // =================================================================
-  // === ▼▼▼ 画面4 (ワードクラウド) 処理 (変更なし) ▼▼▼ ===
+  // === 画面4 (ワードクラウド) 処理 (変更なし) ===
   // =================================================================
   async function prepareAndShowAnalysis(columnType) {
     showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
     showScreen('screen4');
     document.getElementById('analysis-error').classList.add('hidden');
     clearAnalysisCharts();
-    
-    // ▼▼▼ [変更点] すべてのナビゲーションを更新 (要求 #5) ▼▼▼
     updateNavActiveState(null, columnType, null);
-
     let tl = [], td = 0;
     try {
         console.log(`[WC] Fetching text list for ${columnType}...`);
@@ -1037,7 +924,6 @@
         });
         if (!response.ok) throw new Error(`テキストデータ取得失敗: ${await response.text()}`);
         const cd = await response.json();
-        
         switch(columnType){
             case'L':tl=cd.npsData.rawText||[];td=cd.npsData.totalCount||0;break;
             case'I':tl=cd.feedbackData.i_column.results||[];td=cd.feedbackData.i_column.totalCount||0;break;
@@ -1051,9 +937,7 @@
         showLoading(false);
         return;
     }
-    
     document.getElementById('analysis-title').textContent = getAnalysisTitle(columnType, td);
-    
     if(tl.length === 0){
         console.log("No text to analyze:", columnType);
         document.getElementById('analysis-error').textContent='分析対象テキストなし';
@@ -1061,12 +945,10 @@
         showLoading(false);
         return;
     }
-    
     try{
         console.log(`Sending ${tl.length} texts to Kuromoji...`);
         const r=await fetch('/api/analyzeText',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({textList:tl})});
         if(!r.ok){const et=await r.text();throw new Error(`分析APIエラー(${r.status}): ${et}`);}
-        
         const ad=await r.json();
         console.log("Received Kuromoji analysis:",ad);
         drawAnalysisCharts(ad.results);
@@ -1087,7 +969,7 @@
   function getColumnName(columnType) { switch(columnType){case'L':return'NPS推奨度 理由';case'I':return'良かった点や悪かった点など';case'J':return'印象に残ったスタッフへのコメント';case'M':return'お産にかかわるご意見・ご感想';default:return'不明';} }
 
   // =================================================================
-  // === ▼▼▼ 画面5 (AI詳細分析) 処理 (変更なし) ▼▼▼ ===
+  // === 画面5 (AI詳細分析) 処理 (変更あり) ===
   // =================================================================
   async function prepareAndShowDetailedAnalysis(analysisType) {
     console.log(`Prepare detailed analysis: ${analysisType}`);
@@ -1096,7 +978,6 @@
     showLoading(true, `AI分析結果を読み込み中...\n(${getDetailedAnalysisTitleBase(analysisType)})`);
     showScreen('screen5');
     
-    // ▼▼▼ [変更点] すべてのナビゲーションを更新 (要求 #5) ▼▼▼
     updateNavActiveState(null, null, analysisType);
     toggleEditDetailedAnalysis(false); 
     
@@ -1109,6 +990,8 @@
     
     try {
         console.log(`[AI] Fetching saved analysis from Sheet...`);
+        // (この /api/getDetailedAnalysis API は、
+        //  バックエンド側で新しい readFromAnalysisSheet を使うように修正済み)
         const response = await fetch('/api/getDetailedAnalysis', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1131,6 +1014,7 @@
             switchTab('analysis');
             showLoading(false);
         } else {
+            // (バックグラウンドで実行済みのはずだが、万が一データがない場合は再実行)
             console.log(`[AI] No saved data found. Running initial analysis...`);
             showLoading(true, `初回AI分析を実行中...\n(${getDetailedAnalysisTitleBase(analysisType)})`);
             await runDetailedAnalysisGeneration(analysisType);
@@ -1145,6 +1029,7 @@
     }
   }
   
+  // (AI再実行 - 変更なし)
   async function handleRegenerateDetailedAnalysis() {
       const typeName = getDetailedAnalysisTitleBase(currentDetailedAnalysisType);
       if (!confirm(`「${typeName}」のAI分析を再実行しますか？\n\n・現在の分析内容は破棄されます。\n・編集中の内容は保存されません。`)) {
@@ -1156,10 +1041,13 @@
       await runDetailedAnalysisGeneration(currentDetailedAnalysisType);
   }
 
+  // (AI実行 (共通) - 変更なし)
   async function runDetailedAnalysisGeneration(analysisType) {
       const errorDiv = document.getElementById('detailed-analysis-error');
       errorDiv.classList.add('hidden');
       try {
+          // (この /api/generateDetailedAnalysis API は、
+          //  バックエンド側で新しい saveToAnalysisSheet を使うように修正済み)
           const response = await fetch('/api/generateDetailedAnalysis', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1190,7 +1078,7 @@
       }
   }
 
-
+  // (AI表示 (共通) - 変更なし)
   function displayDetailedAnalysis(data, analysisType, isRawJson) {
       let analysisText, suggestionsText, overallText;
       if (isRawJson) {
@@ -1210,6 +1098,7 @@
       document.getElementById('textarea-overall').value = overallText;
   }
   
+  // (AI表示 (クリア) - 変更なし)
   function clearDetailedAnalysisDisplay() {
       document.getElementById('display-analysis').textContent = '';
       document.getElementById('textarea-analysis').value = '';
@@ -1219,17 +1108,14 @@
       document.getElementById('textarea-overall').value = '';
   }
 
+  // (タブ切り替え - 変更なし)
   function handleTabClick(event) { const tabId = event.target.dataset.tabId; if (tabId) { switchTab(tabId); } }
-  
   function switchTab(tabId) { 
       if (isEditingDetailedAnalysis) { 
-          // ▼▼▼ [変更点] 編集中のタブ切り替えは許可する (要求 #5) ▼▼▼
-          // alert('編集モードを終了（保存またはキャンセル）してください。'); return; 
+          // (編集中のタブ切り替えは許可)
       } 
       document.querySelectorAll('#screen5 .tab-button').forEach(button => { if (button.dataset.tabId === tabId) { button.classList.add('active'); } else { button.classList.remove('active'); } }); 
       document.querySelectorAll('#screen5 .tab-content').forEach(content => { if (content.id === `content-${tabId}`) { content.classList.remove('hidden'); } else { content.classList.add('hidden'); } }); 
-      
-      // ▼▼▼ [変更点] 編集モードの場合、切り替え先のテキストエリアの高さを調整 (要求 #5) ▼▼▼
       if (isEditingDetailedAnalysis) {
           const activeTextarea = document.getElementById(`textarea-${tabId}`);
           if (activeTextarea) {
@@ -1239,6 +1125,7 @@
       }
   }
 
+  // (編集モード切り替え - 変更なし)
   function toggleEditDetailedAnalysis(isEdit) {
       isEditingDetailedAnalysis = isEdit;
       const editBtn = document.getElementById('edit-detailed-analysis-btn');
@@ -1247,7 +1134,6 @@
       const cancelBtn = document.getElementById('cancel-edit-detailed-analysis-btn');
       const displayAreas = document.querySelectorAll('[id^="display-"]');
       const editAreas = document.querySelectorAll('[id^="edit-"]');
-
       if (isEditingDetailedAnalysis) {
           editBtn.classList.add('hidden');
           regenBtn.classList.add('hidden');
@@ -1271,37 +1157,66 @@
       }
   }
 
+  // =================================================================
+  // === ▼▼▼ [変更] AI詳細分析 (保存) (単一シート対応) ▼▼▼ ===
+  // =================================================================
   async function saveDetailedAnalysisEdits() {
       showLoading(true, '変更を保存中...');
       const analysisContent = document.getElementById('textarea-analysis').value;
       const suggestionsContent = document.getElementById('textarea-suggestions').value;
       const overallContent = document.getElementById('textarea-overall').value;
-      const baseSheetName = `${currentClinicForModal}-AI分析-${currentDetailedAnalysisType}`;
+      
+      // ▼▼▼ [変更] 古い sheetName ではなく、新しいパラメータ (columnType, tabId) を送信 ▼▼▼
+      // const baseSheetName = `${currentClinicForModal}-AI分析-${currentDetailedAnalysisType}`;
       
       try {
           const promises = [
+              // (Analysis タブの保存)
               fetch('/api/updateDetailedAnalysis', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: `${baseSheetName}-分析`, content: analysisContent })
+                  body: JSON.stringify({ 
+                      centralSheetId: currentCentralSheetId,
+                      clinicName: currentClinicForModal,
+                      columnType: currentDetailedAnalysisType, // 例: "L"
+                      tabId: 'analysis', // 例: "analysis"
+                      content: analysisContent 
+                  })
               }),
+              // (Suggestions タブの保存)
               fetch('/api/updateDetailedAnalysis', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: `${baseSheetName}-改善案`, content: suggestionsContent })
+                  body: JSON.stringify({ 
+                      centralSheetId: currentCentralSheetId,
+                      clinicName: currentClinicForModal,
+                      columnType: currentDetailedAnalysisType,
+                      tabId: 'suggestions', 
+                      content: suggestionsContent 
+                  })
               }),
+              // (Overall タブの保存)
               fetch('/api/updateDetailedAnalysis', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ centralSheetId: currentCentralSheetId, sheetName: `${baseSheetName}-総評`, content: overallContent })
+                  body: JSON.stringify({ 
+                      centralSheetId: currentCentralSheetId,
+                      clinicName: currentClinicForModal,
+                      columnType: currentDetailedAnalysisType,
+                      tabId: 'overall', 
+                      content: overallContent 
+                  })
               })
           ];
+          // ▲▲▲
+          
           const results = await Promise.all(promises);
           for (const res of results) {
               if (!res.ok) {
                   throw new Error(`保存失敗 (${res.status}): ${await res.text()}`);
               }
           }
+          // (表示側は変更なし)
           document.getElementById('display-analysis').textContent = analysisContent;
           document.getElementById('display-suggestions').textContent = suggestionsContent;
           document.getElementById('display-overall').textContent = overallContent;
@@ -1315,6 +1230,7 @@
       }
   }
 
+  // (AIタイトル取得 (共通) - 変更なし)
   function getDetailedAnalysisTitleBase(analysisType) {
       switch (analysisType) {
           case 'L': return 'NPS推奨度 理由';
@@ -1326,12 +1242,10 @@
       }
   }
   
-  // --- ▲▲▲ 画面5 (AI詳細分析) 処理 (変更なし) ▲▲▲ ---
+  // --- ▲▲▲ 画面5 (AI詳細分析) 処理 ▲▲▲ ---
 
 
-  // --- 汎用関数 (変更) ---
-  
-  // ▼▼▼ [変更点] すべてのナビゲーションを更新 (要求 #5) ▼▼▼
+  // --- 汎用関数 (変更なし) ---
   function updateNavActiveState(activeReportType, activeAnalysisType, activeDetailedAnalysisType) {
     const navs = ['#report-nav', '#report-nav-screen4', '#report-nav-screen5'];
     navs.forEach(navSelector => {
@@ -1346,26 +1260,18 @@
         });
     });
   }
-
   function showScreen(screenId){ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
   function showLoading(isLoading, message=''){ const o=document.getElementById('loading-overlay'),m=document.getElementById('loading-message');if(isLoading){m.textContent=message;o.classList.remove('hidden');}else{o.classList.add('hidden');m.textContent='';} }
   
-  // ▼▼▼ [削除] showReportModal (要求 #7) ▼▼▼
-  // function showReportModal(show){ ... }
-  
+  // (PDF生成 - 変更なし)
   async function generatePdf(){
     console.log('PDF export clicked.');
     const cn=currentClinicForModal;
-    
-    // ▼▼▼ [変更点] periodText をグローバル変数から取得 (要求 #6) ▼▼▼
-    // const periodReport = issuedReports[currentPeriodText]; // issuedReports は廃止
-    const pt = currentPeriodText; // グローバルの期間テキストを使用
-    
+    const pt = currentPeriodText; 
     if(!cn || !pt || !currentCentralSheetId){
         alert('PDF生成に必要なレポートデータ（クリニック名、期間、集計ID）がありません。');
         return;
     }
-    
     showLoading(true,'PDFを生成中...');
     try{
         const r=await fetch('/generate-pdf',{

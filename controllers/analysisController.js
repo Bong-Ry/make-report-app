@@ -1,15 +1,17 @@
-const kuromojiService = require('../services/kuromoji');
-const openaiService = require('../services/openai');
-const postalCodeService = require('../services/postalCodeService');
-const googleSheetsService = require('../services/googleSheets');
-// ▼▼▼ [変更] パスを修正 (services フォルダから外す) ▼▼▼
-const aiAnalysisService = require('../aiAnalysisService'); 
-const { getSystemPromptForDetailAnalysis, getSystemPromptForRecommendationAnalysis } = require('../utils/helpers');
+// bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/controllers/analysisController.js
 
-// メモリキャッシュ (簡易版)
-// ▼▼▼ [変更点] 市区町村レポートのキャッシュはGoogle Sheetが担うため削除 ▼▼▼
-// let municipalityReportCache = {}; 
-let recommendationAnalysisCache = {}; // おすすめ理由 分類用キャッシュ
+const kuromojiService = require('../services/kuromoji');
+// const openaiService = require('../services/openai'); // (不要になったため削除)
+// const postalCodeService = require('../services/postalCodeService'); // (不要になったため削除)
+const googleSheetsService = require('../services/googleSheets');
+const aiAnalysisService = require('../aiAnalysisService'); 
+// ▼▼▼ [変更] 必要なヘルパーをインポート ▼▼▼
+const { 
+    getSystemPromptForDetailAnalysis, 
+    getSystemPromptForRecommendationAnalysis,
+    getAnalysisTaskTypeForEdit // (AI分析の編集・保存用)
+} = require('../utils/helpers');
+// ▲▲▲
 
 // --- (変更なし) テキスト分析 (Kuromoji) ---
 exports.analyzeText = async (req, res) => {
@@ -22,8 +24,6 @@ exports.analyzeText = async (req, res) => {
     }
 
     try {
-        // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts が返す
-        //    rawText を使うため、この関数自体は変更不要
         const analysisResult = kuromojiService.analyzeTextList(textList);
         console.log(`[/api/analyzeText] Kuromoji analysis complete. Found ${analysisResult.results.length} significant words.`);
         res.json(analysisResult);
@@ -34,8 +34,9 @@ exports.analyzeText = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ [変更] AI詳細分析 (実行・保存) ▼▼▼ ===
+// === (変更なし) AI詳細分析 (実行・保存) ===
 // =================================================================
+// (このAPIは、手動で「再実行」ボタンが押された場合にのみ使用される)
 exports.generateDetailedAnalysis = async (req, res) => {
     const { centralSheetId, clinicName, columnType } = req.body;
     console.log(`POST /api/generateDetailedAnalysis called for ${clinicName}, type: ${columnType}, SheetID: ${centralSheetId}`);
@@ -46,16 +47,15 @@ exports.generateDetailedAnalysis = async (req, res) => {
     }
 
     try {
-        // ▼▼▼ [変更点] AI分析の実行と保存ロジックをサービスに移譲 ▼▼▼
+        // (aiAnalysisService.js 側で、新しい saveToAnalysisSheet を使うように修正済み)
         const analysisJson = await aiAnalysisService.runAndSaveAnalysis(centralSheetId, clinicName, columnType);
         
-        // 5. AIが生成した生のJSONをクライアントに返す
+        // AIが生成した生のJSONをクライアントに返す
         res.json(analysisJson);
 
     } catch (error) {
         console.error('[/api/generateDetailedAnalysis] Error generating detailed analysis:', error);
         
-        // ▼▼▼ [変更点] サービスからの 404 エラーをハンドル ▼▼▼
         if (error.message && error.message.includes('テキストデータが0件')) {
             return res.status(404).send(error.message);
         }
@@ -65,7 +65,7 @@ exports.generateDetailedAnalysis = async (req, res) => {
 };
 
 // =================================================================
-// === (変更なし) AI詳細分析 (読み出し) ===
+// === ▼▼▼ [変更] AI詳細分析 (読み出し) (単一シート対応) ▼▼▼ ===
 // =================================================================
 exports.getDetailedAnalysis = async (req, res) => {
     const { centralSheetId, clinicName, columnType } = req.body;
@@ -76,7 +76,20 @@ exports.getDetailedAnalysis = async (req, res) => {
     }
     
     try {
-        const analysisData = await googleSheetsService.getAIAnalysisFromSheet(centralSheetId, clinicName, columnType);
+        // ▼▼▼ [変更] 古い getAIAnalysisFromSheet の代わりに、新しい汎用I/O関数を3回呼び出す ▼▼▼
+        const [analysisRes, suggestionRes, overallRes] = await Promise.all([
+            googleSheetsService.readFromAnalysisSheet(centralSheetId, clinicName, `${columnType}_ANALYSIS`),
+            googleSheetsService.readFromAnalysisSheet(centralSheetId, clinicName, `${columnType}_SUGGESTIONS`),
+            googleSheetsService.readFromAnalysisSheet(centralSheetId, clinicName, `${columnType}_OVERALL`)
+        ]);
+        
+        const analysisData = {
+            analysis: analysisRes || '（データがありません）',
+            suggestions: suggestionRes || '（データがありません）',
+            overall: overallRes || '（データがありません）'
+        };
+        // ▲▲▲
+        
         res.json(analysisData);
     } catch (err) {
         console.error('[/api/getDetailedAnalysis] Error:', err);
@@ -85,19 +98,30 @@ exports.getDetailedAnalysis = async (req, res) => {
 };
 
 // =================================================================
-// === (変更なし) AI詳細分析 (更新・保存) ===
+// === ▼▼▼ [変更] AI詳細分析 (更新・保存) (単一シート対応) ▼▼▼ ===
 // =================================================================
 exports.updateDetailedAnalysis = async (req, res) => {
-    const { centralSheetId, sheetName, content } = req.body;
-    console.log(`POST /api/updateDetailedAnalysis called for sheet: ${sheetName}`);
+    // ▼▼▼ [変更] sheetName の代わりに、columnType と tabId を受け取る ▼▼▼
+    const { centralSheetId, clinicName, columnType, tabId, content } = req.body;
+    console.log(`POST /api/updateDetailedAnalysis called for ${clinicName} (${columnType} - ${tabId})`);
     
-    if (!centralSheetId || !sheetName || content == null) {
-        return res.status(400).send('不正なリクエスト: centralSheetId, sheetName, content が必要です。');
+    if (!centralSheetId || !clinicName || !columnType || !tabId || content == null) {
+        return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, columnType, tabId, content が必要です。');
     }
     
     try {
-        await googleSheetsService.updateAIAnalysisInSheet(centralSheetId, sheetName, content);
-        res.json({ status: 'ok', message: `シート ${sheetName} を更新しました。` });
+        // 1. 保存先のタスクタイプ (例: "L_ANALYSIS") をヘルパーから取得
+        const taskType = getAnalysisTaskTypeForEdit(columnType, tabId);
+
+        // 2. ▼▼▼ [変更] 新しい汎用I/O関数で保存 ▼▼▼
+        await googleSheetsService.saveToAnalysisSheet(
+            centralSheetId, 
+            clinicName, 
+            taskType, 
+            content
+        );
+        
+        res.json({ status: 'ok', message: `分析結果 (${taskType}) を更新しました。` });
     } catch (err) {
         console.error('[/api/updateDetailedAnalysis] Error:', err);
         res.status(500).send(err.message || 'AI分析結果の更新に失敗しました。');
@@ -105,146 +129,111 @@ exports.updateDetailedAnalysis = async (req, res) => {
 };
 
 // =================================================================
-// === ▼▼▼ 更新API (要求 #3 市区町村レポート) ▼▼▼ ===
+// === ▼▼▼ [変更] 市区町村レポート (読み取り専用) ▼▼▼ ===
 // =================================================================
 exports.generateMunicipalityReport = async (req, res) => {
     const { centralSheetId, clinicName } = req.body;
-    console.log(`POST /api/generateMunicipalityReport called for ${clinicName}, SheetID: ${centralSheetId}`);
+    console.log(`POST /api/generateMunicipalityReport (Read-Only) called for ${clinicName}`);
 
     if (!centralSheetId || !clinicName) {
         return res.status(400).send('不正なリクエスト: centralSheetId と clinicName が必要です。');
     }
 
-    // ▼▼▼ [変更点] 保存するシート名を定義 ▼▼▼
-    const municipalitySheetName = `${clinicName}-地域`;
-
     try {
-        // 1. ▼▼▼ [変更点] まず、保存済みシートの読み取りを試みる ▼▼▼
-        console.log(`[/api/generateMunicipalityReport] Trying to read from sheet: "${municipalitySheetName}"`);
-        const existingData = await googleSheetsService.readMunicipalityData(centralSheetId, municipalitySheetName);
+        // ▼▼▼ [変更] 分析ロジックを削除し、読み取り専用にする ▼▼▼
+        // (分析・生成は aiAnalysisService.runAndSaveMunicipalityAnalysis がバックグラウンドで行う)
         
-        if (existingData) {
-            console.log(`[/api/generateMunicipalityReport] Found existing data in sheet. Returning.`);
-            return res.json(existingData); // 既存データを返す
+        console.log(`[/api/generateMunicipalityReport] Reading 'MUNICIPALITY_TABLE' from sheet...`);
+        const tableData = await googleSheetsService.readFromAnalysisSheet(
+            centralSheetId, 
+            clinicName, 
+            'MUNICIPALITY_TABLE'
+        );
+        
+        if (!tableData || tableData.length < 2) { // (ヘッダー + データ)
+            console.log(`[/api/generateMunicipalityReport] No data found in 'MUNICIPALITY_TABLE'.`);
+            return res.json([]); // データが存在しない
         }
 
-        // 2. ▼▼▼ 既存データがない場合のみ、集計処理を実行 ▼▼▼
-        console.log(`[/api/generateMunicipalityReport] No existing sheet. Generating new report...`);
-        console.log(`[/api/generateMunicipalityReport] Fetching postal code data...`);
+        // 2. ヘッダー行を捨てる
+        tableData.shift(); 
         
-        // ★ 要求 #4 (ヘッダーなし転記) に対応した getReportDataForCharts を呼び出す
-        const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
-        
-        const postalCodeCounts = reportData.postalCodeData.counts;
-        if (!postalCodeCounts || Object.keys(postalCodeCounts).length === 0) {
-            console.log(`[/api/generateMunicipalityReport] No postal code data found in sheet.`);
-            return res.json([]);
-        }
-
-        // 3. 郵便番号APIで住所を検索 (変更なし)
-        const uniquePostalCodes = Object.keys(postalCodeCounts);
-        console.log(`[/api/generateMunicipalityReport] Looking up ${uniquePostalCodes.length} unique postal codes...`);
-        
-        const addressAggregates = {}; // { "都道府県-市区町村": count }
-        let totalValidCodesCount = 0;
-
-        const lookupPromises = uniquePostalCodes.map(async (postalCode) => {
-            const count = postalCodeCounts[postalCode];
-            // ★ 要求 #1 (市区町村の整形) に対応した postalCodeService を呼び出す
-            const address = await postalCodeService.lookupPostalCode(postalCode); 
-            
-            if (address && address.prefecture && address.municipality) {
-                const key = `${address.prefecture}-${address.municipality}`;
-                addressAggregates[key] = (addressAggregates[key] || 0) + count;
-            } else {
-                addressAggregates['不明-不明'] = (addressAggregates['不明-不明'] || 0) + count;
-            }
-            totalValidCodesCount += count;
-        });
-
-        // 4. 集計 (変更なし)
-        await Promise.all(lookupPromises);
-        
-        if (totalValidCodesCount === 0) {
-            return res.json([]);
-        }
-
-        const finalTable = Object.entries(addressAggregates).map(([key, count]) => {
-            const [prefecture, municipality] = key.split('-');
-            return {
-                prefecture: prefecture,
-                municipality: municipality,
-                count: count,
-                percentage: (count / totalValidCodesCount) // 割合 (0.123 形式)
-            };
-        });
-        
-        finalTable.sort((a, b) => b.count - a.count);
-        
-        // 5. ▼▼▼ [変更点] 結果をスプレッドシートに保存 ▼▼▼
-        console.log(`[/api/generateMunicipalityReport] Saving ${finalTable.length} rows to sheet: "${municipalitySheetName}"`);
-        await googleSheetsService.saveMunicipalityData(centralSheetId, municipalitySheetName, finalTable);
-
-        // 6. ▼▼▼ [変更点] フロントエンドには割合を % に変換して返す ▼▼▼
-        const frontendTable = finalTable.map(row => ({
-            ...row,
-            percentage: row.percentage * 100 // 0.123 -> 12.3
+        // 3. フロントエンドが期待する形式 (割合を 12.3 形式) に変換
+        const frontendTable = tableData.map(row => ({
+            prefecture: row[0] || '',
+            municipality: row[1] || '',
+            count: parseFloat(row[2]) || 0,
+            percentage: (parseFloat(row[3]) || 0) * 100 // (シートには 0.123 形式で保存されている)
         }));
         
-        console.log(`[/api/generateMunicipalityReport] Generated and saved report.`);
         res.json(frontendTable);
 
     } catch (error) {
-        console.error('[/api/generateMunicipalityReport] Error during municipality report generation:', error);
-        res.status(500).send(`市区町村レポートの生成中にエラーが発生しました: ${error.message}`);
+        console.error('[/api/generateMunicipalityReport] Error reading municipality report:', error);
+        res.status(500).send(`市区町村レポートの読み込み中にエラーが発生しました: ${error.message}`);
     }
 };
 
 
 // =================================================================
-// === (変更なし) おすすめ理由の「その他」分類 ===
+// === ▼▼▼ [変更] おすすめ理由 (削除) & (読み取り専用APIを新設) ▼▼▼ ===
 // =================================================================
-exports.classifyRecommendationOthers = async (req, res) => {
-    const { clinicName, otherList, fixedKeys } = req.body;
-    console.log(`POST /api/classifyRecommendations called for ${clinicName}`);
 
-    if (!clinicName || !otherList || !Array.isArray(otherList) || !fixedKeys || !Array.isArray(fixedKeys)) {
-        return res.status(400).send('不正なリクエスト: clinicName, otherList, fixedKeys が必要です。');
+/**
+ * [削除] /api/classifyRecommendations
+ * (このAPIは不要になったため、routes/index.js からも削除する)
+ */
+// exports.classifyRecommendationOthers = ... (削除)
+
+
+/**
+ * [新規] /api/getRecommendationReport (読み取り専用)
+ * (バックグラウンドで集計済みの「おすすめ理由」テーブルを取得する)
+ */
+exports.getRecommendationReport = async (req, res) => {
+    const { centralSheetId, clinicName } = req.body;
+    console.log(`POST /api/getRecommendationReport (Read-Only) called for ${clinicName}`);
+
+    if (!centralSheetId || !clinicName) {
+        return res.status(400).send('不正なリクエスト: centralSheetId と clinicName が必要です。');
     }
-    
-    if (otherList.length === 0) {
-        console.log('[/api/classifyRecommendations] otherList is empty, returning empty result.');
-        return res.json({ classifiedResults: [] });
-    }
-
-    const textHash = otherList.join('|').substring(0, 50);
-    const cacheKey = `${clinicName}-rec-${textHash}`;
-
-    if (recommendationAnalysisCache[cacheKey]) {
-        console.log(`[/api/classifyRecommendations] Returning cached classification for ${cacheKey}`);
-        return res.json(recommendationAnalysisCache[cacheKey]);
-    }
-
-    const systemPrompt = getSystemPromptForRecommendationAnalysis(fixedKeys);
-    const inputText = otherList.join('\n');
-    
-    console.log(`[/api/classifyRecommendations] Sending ${otherList.length} "other" texts (length: ${inputText.length}) to OpenAI for classification...`);
 
     try {
-        const analysisJson = await openaiService.generateJsonAnalysis(systemPrompt, inputText);
+        // 1. シートから 'RECOMMENDATION_TABLE' を読み込む
+        console.log(`[/api/getRecommendationReport] Reading 'RECOMMENDATION_TABLE' from sheet...`);
+        const tableData = await googleSheetsService.readFromAnalysisSheet(
+            centralSheetId, 
+            clinicName, 
+            'RECOMMENDATION_TABLE'
+        );
         
-        if (!analysisJson || !Array.isArray(analysisJson.classifiedResults)) {
-            console.error('[/api/classifyRecommendations] AI returned invalid JSON structure:', analysisJson);
-            throw new Error('AIが予期しない分類結果フォーマットを返しました。');
+        if (!tableData || tableData.length < 2) { // (ヘッダー + データ)
+            console.log(`[/api/getRecommendationReport] No data found in 'RECOMMENDATION_TABLE'.`);
+             // (フロントエンドが [[カテゴリ, 件数], ...] の形式を期待しているため、空のヘッダーを返す)
+            return res.json([['カテゴリ', '件数']]);
         }
-
-        recommendationAnalysisCache[cacheKey] = analysisJson;
-        console.log(`[/api/classifyRecommendations] Cached classification result for ${cacheKey}`);
-
-        res.json(analysisJson);
+        
+        // 2. ヘッダー行を捨てる
+        tableData.shift(); 
+        
+        // 3. フロントエンドの円グラフが期待する形式 [ [項目, 件数], ... ] に変換
+        // (ご要望: A項目, B件数, C割合 で保存されている)
+        const chartData = [['カテゴリ', '件数']]; // ヘッダー
+        
+        tableData.forEach(row => {
+            const item = row[0] || '不明'; // A列: 項目
+            const count = parseFloat(row[1]) || 0; // B列: 件数
+            // (C列の割合はここでは不要)
+            
+            if (count > 0) {
+                chartData.push([item, count]);
+            }
+        });
+        
+        res.json(chartData);
 
     } catch (error) {
-        console.error('[/api/classifyRecommendations] Error classifying recommendations:', error);
-        res.status(500).send(`AI分類中にエラーが発生しました: ${error.message}`);
+        console.error('[/api/getRecommendationReport] Error reading recommendation report:', error);
+        res.status(500).send(`おすすめ理由レポートの読み込み中にエラーが発生しました: ${error.message}`);
     }
 };

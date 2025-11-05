@@ -1,38 +1,37 @@
+// bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/services/googleSheets.js
+
 const { google } = require('googleapis');
-const { getSpreadsheetIdFromUrl } = require('../utils/helpers'); // 既存のヘルパー
+// ▼▼▼ [変更] ヘルパーからId取得と、[新規] 分析シート定義をインポート ▼▼▼
+const { getSpreadsheetIdFromUrl, getAnalysisSheetConfig } = require('../utils/helpers');
 
-// ▼▼▼ [新規] GAS WebアプリURL (デプロイ済み) ▼▼▼
+// ▼▼▼ [変更なし] ▼▼▼
 exports.GAS_SLIDE_GENERATOR_URL = 'https://script.google.com/macros/s/AKfycby-b31JKqSR5HNLi1fQxK1hePsxkpDL2StBhd1gsP_dKqFvjNRoqcTsca0hLSEzE3x2Xg/exec';
-
-// ▼▼▼ [変更] 既存のGAS WebアプリURL ▼▼▼
 const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
-
 const KEYFILEPATH = '/etc/secrets/credentials.json';
-// ▼▼▼ [変更] SCOPESにスライド(presentations)を追加 ▼▼▼
 const SCOPES = [
-    'https://www.googleapis.com/auth/spreadsheets', // 読み書き
-    'https://www.googleapis.com/auth/drive.file',    // ファイルの検索・移動・作成
-    'https://www.googleapis.com/auth/presentations' // [新規] スライドの読み書き
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/presentations'
 ];
-const MASTER_FOLDER_ID = '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj'; // 集計スプシ作成先フォルダ
+const MASTER_FOLDER_ID = '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj';
 
 let sheets;
-let drive; // Drive API クライアント
-let slides; // [新規] Slides API クライアント
+let drive;
+let slides;
 
-// --- 初期化 (変更) ---
 try {
     const auth = new google.auth.GoogleAuth({ keyFile: KEYFILEPATH, scopes: SCOPES });
     sheets = google.sheets({ version: 'v4', auth });
-    drive = google.drive({ version: 'v3', auth }); // Drive APIを初期化
-    slides = google.slides({ version: 'v1', auth }); // [新規] Slides APIを初期化
+    drive = google.drive({ version: 'v3', auth });
+    slides = google.slides({ version: 'v1', auth });
     console.log('Google Sheets, Drive, and Slides API clients initialized successfully.');
 } catch (err) {
     console.error('Failed to initialize Google API clients:', err);
 }
 
-// [新規] Slides APIクライアントをエクスポート
 exports.slides = slides;
+// ▲▲▲ [変更なし] ▲▲▲
+
 
 // --- (変更なし) マスターシートからクリニックリストを取得 ---
 exports.getMasterClinicList = async () => {
@@ -82,13 +81,12 @@ exports.getMasterClinicUrls = async () => {
 };
 
 // =================================================================
-// === ▼▼▼ 関数 (1/X) (GAS呼び出し・変更) ▼▼▼ ===
+// === (変更なし) 関数 (1/X) (GAS呼び出し) ===
 // =================================================================
 exports.findOrCreateCentralSheet = async (periodText) => {
     const fileName = periodText;
     console.log(`[googleSheetsService] Finding or creating central sheet via GAS: "${fileName}"`);
     try {
-        // ▼▼▼ [変更] URLを定数から取得 ▼▼▼
         const response = await fetch(GAS_SHEET_FINDER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -116,7 +114,7 @@ exports.findOrCreateCentralSheet = async (periodText) => {
 };
 
 // =================================================================
-// === ▼▼▼ 更新関数 (2/X) (要求 #4 ヘッダーなし転記) ▼▼▼ ===
+// === (変更なし) 更新関数 (2/X) (ヘッダーなし転記) ===
 // =================================================================
 exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
@@ -141,6 +139,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
 
         try {
             // 1. 元データ（フォームの回答 1）を読み取る
+            // ▼▼▼ [修正] ユーザーのカスタム指示に基づきシート名を "フォームの回答 1" にする ▼▼▼
             const range = "'フォームの回答 1'!A:R"; // R列(郵便番号)まで
             const clinicDataResponse = await sheets.spreadsheets.values.get({
                 spreadsheetId: sourceSheetId, 
@@ -181,7 +180,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
                 // 4. データを「クリニック名」タブに書き込み
                 await clearSheet(centralSheetId, clinicSheetTitle);
                 
-                // ▼▼▼ [変更点] ヘッダー (header) を除き、データ (filteredRows) のみ書き込む ▼▼▼
+                // ▼▼▼ [変更なし] ヘッダーなしで書き込む ▼▼▼
                 await writeData(centralSheetId, clinicSheetTitle, filteredRows);
                 console.log(`[googleSheetsService-ETL] Wrote ${filteredRows.length} rows to sheet: "${clinicSheetTitle}" (HEADERLESS)`);
 
@@ -193,6 +192,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
             processedClinics.push(clinicName);
 
         } catch (e) {
+            // ▼▼▼ [修正] ユーザーのカスタム指示に基づきシート名を "フォームの回答 1" にする ▼▼▼
             if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
                 console.error(`[googleSheetsService-ETL] Error for ${clinicName}: Sheet 'フォームの回答 1' not found or invalid range. Skipping. Error: ${e.toString()}`);
             } else {
@@ -202,19 +202,16 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
         }
     }
     
-    // 処理が成功したクリニック名のリストを返す
     return processedClinics;
 };
 
 // =================================================================
-// === ▼▼▼ 関数 (3/X) (集計 - 変更なし) ▼▼▼ ===
+// === (変更なし) 関数 (3/X) (集計) ===
 // =================================================================
 exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
+    // (既存のコードのまま - 変更なし)
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    
     console.log(`[googleSheetsService-AGG] Aggregating data from Sheet ID: ${centralSheetId}, Tab: "${sheetName}"`);
-
-    // --- 集計用の定義 (変更なし) ---
     const satisfactionKeys = ['非常に満足', '満足', 'ふつう', '不満', '非常に不満'];
     const ageKeys = ['10代', '20代', '30代', '40代'];
     const childrenKeys = ['1人', '2人', '3人', '4人', '5人以上'];
@@ -230,7 +227,6 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
         });
         return chartData;
     };
-    // --- 集計用変数の初期化 (変更なし) ---
     const allNpsReasons = [], allFeedbacks_I = [], allFeedbacks_J = [], allFeedbacks_M = [];
     const satisfactionCounts_B = initializeCounts(satisfactionKeys), satisfactionCounts_C = initializeCounts(satisfactionKeys), satisfactionCounts_D = initializeCounts(satisfactionKeys), satisfactionCounts_E = initializeCounts(satisfactionKeys), satisfactionCounts_F = initializeCounts(satisfactionKeys), satisfactionCounts_G = initializeCounts(satisfactionKeys), satisfactionCounts_H = initializeCounts(satisfactionKeys);
     const childrenCounts_P = initializeCounts(childrenKeys);
@@ -240,9 +236,7 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
     const npsScoreCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
     const recommendationCounts = initializeCounts(recommendationKeys);
     const recommendationOthers = [];
-    
     try {
-        // 1. 集計スプレッドシートからデータを読み取る
         const range = `'${sheetName}'!A:R`;
         const clinicDataResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: centralSheetId,
@@ -250,31 +244,17 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
             dateTimeRenderOption: 'SERIAL_NUMBER', 
             valueRenderOption: 'UNFORMATTED_VALUE'
         });
-
         const clinicDataRows = clinicDataResponse.data.values;
-
-        // ▼▼▼ [変更点] ヘッダー行がなくなったため、 .length < 1 に変更 ▼▼▼
         if (!clinicDataRows || clinicDataRows.length < 1) { 
             console.log(`[googleSheetsService-AGG] No data found in "${sheetName}".`);
             return buildReportDataObject(null); 
         }
-
-        // ▼▼▼ [変更点] ヘッダー行を shift() しない ▼▼▼
-        // const header = clinicDataRows.shift();
-        
-        // ▼▼▼ [変更点] インデックスはヘッダーがないため、0から固定で指定 ▼▼▼
-        // (元データ 'フォームの回答 1'!A:R の列構成が変わらない前提)
         const satBIndex = 1, satCIndex = 2, satDIndex = 3, satEIndex = 4, satFIndex = 5, satGIndex = 6, satHIndex = 7, feedbackIIndex = 8, feedbackJIndex = 9, scoreKIndex = 10, reasonLIndex = 11, feedbackMIndex = 12, recommendationNIndex = 13, ageOIndex = 14, childrenPIndex = 15, incomeQIndex = 16, postalCodeRIndex = 17;
-
-        // 2. データをループして集計 (変更なし)
         clinicDataRows.forEach((row) => {
-            // L列 (NPS理由)
             const score = row[scoreKIndex], reason = row[reasonLIndex]; if (reason != null && String(reason).trim() !== '') { const scoreNum = parseInt(score, 10); if (!isNaN(scoreNum)) allNpsReasons.push({ score: scoreNum, reason: String(reason).trim() }); }
-            // I, J, M列 (フィードバック)
             const feedbackI = row[feedbackIIndex]; if (feedbackI != null && String(feedbackI).trim() !== '') allFeedbacks_I.push(String(feedbackI).trim());
             const feedbackJ = row[feedbackJIndex]; if (feedbackJ != null && String(feedbackJ).trim() !== '') allFeedbacks_J.push(String(feedbackJ).trim());
             const feedbackM = row[feedbackMIndex]; if (feedbackM != null && String(feedbackM).trim() !== '') allFeedbacks_M.push(String(feedbackM).trim());
-            // B-H列 (満足度)
             const satB = row[satBIndex]; if (satB != null && satisfactionKeys.includes(String(satB))) satisfactionCounts_B[String(satB)]++;
             const satC = row[satCIndex]; if (satC != null && satisfactionKeys.includes(String(satC))) satisfactionCounts_C[String(satC)]++;
             const satD = row[satDIndex]; if (satD != null && satisfactionKeys.includes(String(satD))) satisfactionCounts_D[String(satD)]++;
@@ -282,7 +262,6 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
             const satF = row[satFIndex]; if (satF != null && satisfactionKeys.includes(String(satF))) satisfactionCounts_F[String(satF)]++;
             const satG = row[satGIndex]; if (satG != null && satisfactionKeys.includes(String(satG))) satisfactionCounts_G[String(satG)]++;
             const satH = row[satHIndex]; if (satH != null && satisfactionKeys.includes(String(satH))) satisfactionCounts_H[String(satH)]++;
-            // P, O, Q, R列
             const childrenP = row[childrenPIndex]; if (childrenP != null && childrenKeys.includes(String(childrenP))) childrenCounts_P[String(childrenP)]++;
             const ageO = row[ageOIndex]; if (ageO != null && ageKeys.includes(String(ageO))) ageCounts_O[String(ageO)]++;
             const income = row[incomeQIndex]; if (typeof income === 'number' && income >= 1 && income <= 10 && !isNaN(income)) incomeCounts[income]++;
@@ -293,13 +272,11 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
                     postalCodeCounts[postalCode] = (postalCodeCounts[postalCode] || 0) + 1;
                 }
             }
-            // K列 (NPSスコア)
             const npsScore = row[scoreKIndex];
             if (npsScore != null && npsScore >= 0 && npsScore <= 10) {
                 const scoreNum = parseInt(npsScore, 10);
                 if (!isNaN(scoreNum)) npsScoreCounts[scoreNum]++;
             }
-            // N列 (おすすめ理由)
             const recommendation = row[recommendationNIndex];
             if (recommendation != null) {
                 const recText = String(recommendation).trim();
@@ -310,10 +287,7 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
                 }
             }
         });
-        
         console.log(`[googleSheetsService-AGG] Aggregation complete for "${sheetName}".`);
-
-        // 3. レポートオブジェクトを構築して返す (変更なし)
         const aggregationData = {
             allNpsReasons, allFeedbacks_I, allFeedbacks_J, allFeedbacks_M,
             satisfactionCounts_B, satisfactionCounts_C, satisfactionCounts_D, satisfactionCounts_E, satisfactionCounts_F, satisfactionCounts_G, satisfactionCounts_H,
@@ -322,9 +296,7 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
             satisfactionKeys, ageKeys, childrenKeys, recommendationKeys,
             createChartData
         };
-
         return buildReportDataObject(aggregationData);
-
     } catch (e) {
         console.error(`[googleSheetsService-AGG] Error aggregating data from "${sheetName}": ${e.toString()}`, e.stack);
         return buildReportDataObject(null);
@@ -332,7 +304,7 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
 };
 
 // =================================================================
-// === ▼▼▼ 関数 (4/X) (構築 - 変更なし) ▼▼▼ ===
+// === (変更なし) 関数 (4/X) (構築) ===
 // =================================================================
 function buildReportDataObject(data) {
     // (既存のコードのまま - 変更なし)
@@ -377,188 +349,22 @@ function buildReportDataObject(data) {
 
 
 // =================================================================
-// === ▼▼▼ 関数 (5/X) (AI保存 - 変更なし) ▼▼▼ ===
+// === ▼▼▼ [削除] 古いAI分析関数 (5/X, 6/X, 7/X) ▼▼▼ ===
 // =================================================================
-exports.saveAIAnalysisToSheet = async (centralSheetId, clinicName, analysisType, jsonData) => {
-    // (既存のコードのまま - 変更なし)
-    if (!jsonData) throw new Error('AI analysis JSON data is missing.');
-    const baseSheetName = `${clinicName}-AI分析-${analysisType}`;
-    try {
-        const analysisSheetName = `${baseSheetName}-分析`;
-        const analysisContent = (jsonData.analysis && jsonData.analysis.themes) ? jsonData.analysis.themes.map(t => `【${t.title}】\n${t.summary}`).join('\n\n---\n\n') : '分析データがありません。';
-        await findOrCreateSheet(centralSheetId, analysisSheetName);
-        await writeToCell(centralSheetId, analysisSheetName, 'A1', analysisContent);
-        console.log(`[googleSheetsService-AI] Saved Analysis to: "${analysisSheetName}"`);
-        const suggestionSheetName = `${baseSheetName}-改善案`;
-        const suggestionContent = (jsonData.suggestions && jsonData.suggestions.items) ? jsonData.suggestions.items.map(i => `【${i.themeTitle}】\n${i.suggestion}`).join('\n\n---\n\n') : '改善提案データがありません。';
-        await findOrCreateSheet(centralSheetId, suggestionSheetName);
-        await writeToCell(centralSheetId, suggestionSheetName, 'A1', suggestionContent);
-        console.log(`[googleSheetsService-AI] Saved Suggestions to: "${suggestionSheetName}"`);
-        const overallSheetName = `${baseSheetName}-総評`;
-        const overallContent = (jsonData.overall && jsonData.overall.summary) ? jsonData.overall.summary : '総評データがありません。';
-        await findOrCreateSheet(centralSheetId, overallSheetName);
-        await writeToCell(centralSheetId, overallSheetName, 'A1', overallContent);
-        console.log(`[googleSheetsService-AI] Saved Overall to: "${overallSheetName}"`);
-        return true;
-    } catch (err) {
-        console.error(`[googleSheetsService-AI] Failed to save AI analysis to sheets: ${err.message}`, err);
-        throw new Error(`AI分析結果のシート保存に失敗しました: ${err.message}`);
-    }
-};
-
-// =================================================================
-// === ▼▼▼ 関数 (6/X) (AI読込 - 変更なし) ▼▼▼ ===
-// =================================================================
-exports.getAIAnalysisFromSheet = async (centralSheetId, clinicName, analysisType) => {
-    // (既存のコードのまま - 変更なし)
-    const baseSheetName = `${clinicName}-AI分析-${analysisType}`;
-    try {
-        const analysisSheetName = `${baseSheetName}-分析`;
-        const suggestionSheetName = `${baseSheetName}-改善案`;
-        const overallSheetName = `${baseSheetName}-総評`;
-        const [analysisRes, suggestionRes, overallRes] = await Promise.all([
-            readCell(centralSheetId, analysisSheetName, 'A1'),
-            readCell(centralSheetId, suggestionSheetName, 'A1'),
-            readCell(centralSheetId, overallSheetName, 'A1')
-        ]);
-        console.log(`[googleSheetsService-AI] Read AI analysis from 3 sheets for: "${baseSheetName}"`);
-        return {
-            analysis: analysisRes || '（分析データがありません）',
-            suggestions: suggestionRes || '（改善提案データがありません）',
-            overall: overallRes || '（総評データがありません）'
-        };
-    } catch (err) {
-        console.error(`[googleSheetsService-AI] Failed to read AI analysis from sheets: ${err.message}`, err);
-        throw new Error(`AI分析結果のシート読み込みに失敗しました: ${err.message}`);
-    }
-};
-
-// =================================================================
-// === ▼▼▼ 関数 (7/X) (AI更新 - 変更なし) ▼▼▼ ===
-// =================================================================
-exports.updateAIAnalysisInSheet = async (centralSheetId, sheetName, content) => {
-    // (既存のコードのまま - 変更なし)
-    try {
-        await writeToCell(centralSheetId, sheetName, 'A1', content);
-        console.log(`[googleSheetsService-AI] Updated content in: "${sheetName}"`);
-        return true;
-    } catch (err) {
-        console.error(`[googleSheetsService-AI] Failed to update AI analysis sheet: ${err.message}`, err);
-        throw new Error(`AI分析結果の更新に失敗しました: ${err.message}`);
-    }
-};
-
-// =================================================================
-// === ▼▼▼ 新規関数 (8/X) (要求 #2 市区町村シート保存) ▼▼▼ ===
-// =================================================================
-exports.saveMunicipalityData = async (centralSheetId, sheetName, tableData) => {
-    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    console.log(`[googleSheetsService-Muni] Saving municipality data to sheet: "${sheetName}"`);
-    
-    try {
-        // 1. ヘッダー行を作成
-        const header = ['都道府県', '市区町村', '件数', '割合'];
-        
-        // 2. データ行を作成
-        const dataRows = tableData.map(row => [
-            row.prefecture,
-            row.municipality,
-            row.count,
-            row.percentage // 割合 (数値)
-        ]);
-
-        // 3. シートを作成（またはクリア）
-        await findOrCreateSheet(centralSheetId, sheetName);
-        await clearSheet(centralSheetId, sheetName);
-        
-        // 4. ヘッダー + データを書き込み
-        await writeData(centralSheetId, sheetName, [header, ...dataRows]);
-        
-        // 5. [装飾] 割合(D列)をパーセンテージ表示に設定
-        await sheets.spreadsheets.batchUpdate({
-            spreadsheetId: centralSheetId,
-            resource: {
-                requests: [
-                    {
-                        repeatCell: {
-                            range: {
-                                sheetId: (await getSheetId(centralSheetId, sheetName)),
-                                startRowIndex: 1, // 2行目から
-                                startColumnIndex: 3, // D列
-                                endColumnIndex: 4
-                            },
-                            cell: {
-                                userEnteredFormat: {
-                                    numberFormat: {
-                                        type: 'PERCENT',
-                                        pattern: '0.00%'
-                                    }
-                                }
-                            },
-                            fields: 'userEnteredFormat.numberFormat'
-                        }
-                    }
-                ]
-            }
-        });
-        
-        console.log(`[googleSheetsService-Muni] Successfully saved and formatted data for "${sheetName}"`);
-
-    } catch (err) {
-        console.error(`[googleSheetsService-Muni] Error saving municipality data: ${err.message}`, err);
-        throw new Error(`市区町村データのシート保存に失敗しました: ${err.message}`);
-    }
-};
-
-// =================================================================
-// === ▼▼▼ 新規関数 (9/X) (要求 #3 市区町村シート読込) ▼▼▼ ===
-// =================================================================
-exports.readMunicipalityData = async (centralSheetId, sheetName) => {
-    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    console.log(`[googleSheetsService-Muni] Reading municipality data from sheet: "${sheetName}"`);
-
-    try {
-        // A:D 列を読み込む (ヘッダー含む)
-        const range = `'${sheetName}'!A:D`;
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: centralSheetId,
-            range: range,
-            valueRenderOption: 'UNFORMATTED_VALUE' // 割合を 0.123 の形式で取得
-        });
-
-        const rows = response.data.values;
-
-        if (!rows || rows.length < 2) {
-            console.log(`[googleSheetsService-Muni] No data found in "${sheetName}".`);
-            return null; // データが存在しない (まだ生成されていない)
-        }
-
-        rows.shift(); // ヘッダーを捨てる
-
-        // フロントエンド用のテーブル形式に変換
-        const tableData = rows.map(row => ({
-            prefecture: row[0],
-            municipality: row[1],
-            count: parseFloat(row[2]) || 0,
-            percentage: (parseFloat(row[3]) || 0) * 100 // 0.123 -> 12.3
-        }));
-        
-        console.log(`[googleSheetsService-Muni] Successfully read ${tableData.length} rows.`);
-        return tableData;
-
-    } catch (e) {
-        if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
-            console.warn(`[googleSheetsService-Muni] Sheet "${sheetName}" not found. Returning null.`);
-            return null; // シートが存在しない
-        }
-        console.error(`[googleSheetsService-Muni] Error reading municipality data: ${e.message}`, e);
-        throw new Error(`市区町村データのシート読み込みに失敗しました: ${e.message}`);
-    }
-};
+// exports.saveAIAnalysisToSheet ... (削除)
+// exports.getAIAnalysisFromSheet ... (削除)
+// exports.updateAIAnalysisInSheet ... (削除)
 
 
 // =================================================================
-// === ▼▼▼ 新規関数 (10/X) (要求 #6 転記状況確認) ▼▼▼ ===
+// === ▼▼▼ [削除] 古い市区町村関数 (8/X, 9/X) ▼▼▼ ===
+// =================================================================
+// exports.saveMunicipalityData ... (削除)
+// exports.readMunicipalityData ... (削除)
+
+
+// =================================================================
+// === (変更なし) 関数 (10/X) (シート名一覧取得) ===
 // =================================================================
 exports.getSheetTitles = async (spreadsheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
@@ -580,7 +386,190 @@ exports.getSheetTitles = async (spreadsheetId) => {
 
 
 // =================================================================
-// === ヘルパー関数群 (変更あり) ===
+// === ▼▼▼ [新規] 分析シート用 汎用I/O関数群 (11/X) ▼▼▼ ===
+// =================================================================
+
+/**
+ * [新規] 分析スプレッドシート（`[クリニック名]-分析`）のIDを取得（なければ作成）
+ */
+const analysisSheetCache = new Map(); // K: clinicName, V: spreadsheetId
+async function findOrCreateAnalysisSheet(centralSheetId, clinicName) {
+    const cacheKey = `${centralSheetId}-${clinicName}`;
+    if (analysisSheetCache.has(cacheKey)) {
+        return analysisSheetCache.get(cacheKey);
+    }
+
+    // TODO: 本来は centralSheetId とは別に、クリニックごとの分析スプシを作成・検索する
+    //       （GAS App Maker のロジック）
+    //       現状は、集計スプレッドシート (centralSheetId) をそのまま分析シートとしても使う
+    //       （＝分析タブが集計スプシ内に作られる）
+    
+    //       もし `[クリニック名]-分析` という名前の *別ファイル* をDriveから検索/作成
+    //       する場合は、ここに Drive API のロジックを追加する。
+    
+    //       **現在の実装**: centralSheetId をそのまま分析用スプレッドシートIDとして扱う
+    // console.warn(`[getAnalysisSheetId] TODO: 本実装ではDrive APIで "[${clinicName}]-分析" ファイルを検索・作成する。現在は集計スプシIDを流用。`);
+    
+    const analysisSheetId = centralSheetId; // 仮
+    analysisSheetCache.set(cacheKey, analysisSheetId);
+    return analysisSheetId;
+}
+
+/**
+ * [新規] 分析結果を、定義（CONFIG）に基づき単一分析シートに書き込む
+ * @param {string} centralSheetId (集計スプシID)
+ * @param {string} clinicName (例: "クリニックA")
+ * @param {string} taskType (例: "L_ANALYSIS", "MUNICIPALITY_TABLE")
+ * @param {string | string[][] | object} data - 保存するデータ
+ */
+exports.saveToAnalysisSheet = async (centralSheetId, clinicName, taskType, data) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    
+    try {
+        // 1. 保存先の定義を取得
+        const { sheetName, range, type } = getAnalysisSheetConfig(taskType);
+        
+        // 2. 保存先のスプレッドシートIDを取得 (または centralSheetId を流用)
+        //    (この関数が「分析用スプレッドシート」と「集計スプレッドシート」が同一だと仮定)
+        const analysisSheetId = await findOrCreateAnalysisSheet(centralSheetId, clinicName); 
+        
+        // 3. 保存先の「タブ」を作成 (例: "AI分析", "データ")
+        await findOrCreateSheet(analysisSheetId, sheetName);
+
+        // 4. 保存形式に応じてデータを整形
+        let values; // [[...], [...]] の形式
+        
+        if (type === 'CELL') {
+            // 単一セルの場合
+            if (typeof data !== 'string' && data != null) {
+                console.warn(`[saveToAnalysisSheet] CELLタイプには文字列が必要です (task: ${taskType})。JSONに変換します。`);
+                values = [[JSON.stringify(data, null, 2)]];
+            } else {
+                values = [[data || ""]]; // null や undefined を空文字に
+            }
+        } 
+        else if (type === 'TABLE') {
+            // テーブル (2D配列) の場合
+            if (!Array.isArray(data) || (data.length > 0 && !Array.isArray(data[0]))) {
+                throw new Error(`[saveToAnalysisSheet] TABLEタイプには2D配列データが必要です (task: ${taskType})`);
+            }
+            values = data.length > 0 ? data : [[]]; // 空配列だとエラーになるため [[]] を送る
+        } 
+        else {
+            throw new Error(`[saveToAnalysisSheet] 未定義の保存タイプです: ${type}`);
+        }
+
+        // 5. データを書き込み (update = 上書き)
+        const writeRange = `'${sheetName}'!${range}`;
+        console.log(`[googleSheetsService] Saving to Analysis Sheet (ID: ${analysisSheetId}, Range: ${writeRange}, Task: ${taskType})`);
+        
+        // まずクリア (古いデータが残らないように)
+        if (type === 'TABLE') {
+             // テーブルの場合は、定義された範囲全体をクリア
+             // (注意: 'B2' のような単一セル指定の場合、クリア範囲を広げる必要がある)
+             // (現状の 'B2' 指定は「B2から書き始める」という意味で使っているため、クリアは書き込み時に上書きされる)
+             
+             // A1表記 (B2) から R1C1表記に変換して、適切な範囲をクリアする (実装例)
+             // ... が、複雑になるため、writeData(append=false)の上書きで代用
+             // await clearSheet(analysisSheetId, writeRange); // B2だけクリアしても意味がない
+        }
+        
+        await writeData(analysisSheetId, writeRange, values, false); // append = false (上書き)
+
+    } catch (err) {
+        console.error(`[googleSheetsService] Error saving to analysis sheet (Task: ${taskType}): ${err.message}`, err);
+        throw new Error(`分析結果(Task: ${taskType})のシート保存に失敗: ${err.message}`);
+    }
+};
+
+/**
+ * [新規] 分析結果を、定義（CONFIG）に基づき単一分析シートから読み込む
+ * @param {string} centralSheetId
+ * @param {string} clinicName
+ * @param {string} taskType (例: "L_ANALYSIS", "MUNICIPALITY_TABLE")
+ * @returns {Promise<string | string[][] | null>} - 読み込んだデータ (単一セルの場合は文字列、テーブルの場合は2D配列)
+ */
+exports.readFromAnalysisSheet = async (centralSheetId, clinicName, taskType) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    
+    try {
+        // 1. 読み込み元の定義を取得
+        const { sheetName, range, type } = getAnalysisSheetConfig(taskType);
+        
+        // 2. 読み込み元のスプレッドシートIDを取得
+        const analysisSheetId = await findOrCreateAnalysisSheet(centralSheetId, clinicName);
+        
+        // 3. 読み込み範囲
+        let readRange = `'${sheetName}'!${range}`;
+        
+        if (type === 'TABLE') {
+            // 'B2' のような単一セル指定の場合、'B2:ZZ' のように拡張してテーブル全体を読み込む
+            const startCell = range.match(/^([A-Z]+)(\d+)$/);
+            if (startCell) {
+                // 'B2' -> 'B2:Z' (列全体) のように末尾を開放する
+                // (注意: これだと G2:I のおすすめ理由を読み込む際に、B列の市区町村まで読んでしまう)
+                // -> やはり config (helpers.js) で 'B2:E' や 'G2:I' のように範囲指定すべき
+                // helpers.js を 'B2', 'G2' と定義してしまったため、ここで動的に補正
+                if (taskType === 'MUNICIPALITY_TABLE') {
+                    readRange = `'${sheetName}'!B2:E`; // B:D (件数) -> B:E (割合) に変更
+                } else if (taskType === 'RECOMMENDATION_TABLE') {
+                    readRange = `'${sheetName}'!G2:I`; // G:H (件数) -> G:I (割合) に変更
+                }
+            }
+        }
+        
+        console.log(`[googleSheetsService] Reading from Analysis Sheet (ID: ${analysisSheetId}, Range: ${readRange}, Task: ${taskType})`);
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: analysisSheetId,
+            range: readRange,
+            valueRenderOption: 'FORMATTED_VALUE'
+        });
+
+        const values = response.data.values;
+
+        if (!values || values.length === 0) {
+            console.log(`[googleSheetsService] No data found for ${taskType}.`);
+            return null;
+        }
+
+        // 4. 形式に応じて返す
+        if (type === 'CELL') {
+            return values[0][0] || null; // 単一セルの文字列
+        } 
+        else if (type === 'TABLE') {
+            return values; // 2D配列
+        }
+        
+        return null;
+
+    } catch (e) {
+        if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
+            console.warn(`[googleSheetsService] Sheet/Range not found for ${taskType}. Returning null.`);
+            return null; // シートまたはセルが存在しない
+        }
+        console.error(`[googleSheetsService] Error reading from analysis sheet (Task: ${taskType}): ${e.message}`, e);
+        throw new Error(`分析結果(Task: ${taskType})のシート読み込みに失敗: ${e.message}`);
+    }
+};
+
+/**
+ * [新規] 完了マーカーを読み込む (getTransferredList用)
+ */
+exports.readCompletionMarker = async (centralSheetId, clinicName) => {
+    try {
+        const marker = await exports.readFromAnalysisSheet(centralSheetId, clinicName, 'COMPLETION_MARKER');
+        return (marker === 'COMPLETED'); // "COMPLETED" という文字列が書き込まれていれば true
+    } catch (e) {
+        // (readFromAnalysisSheet がエラー（シートない等）を null で返すため、ここでは false になる)
+        console.warn(`[readCompletionMarker] Error reading marker for ${clinicName}: ${e.message}`);
+        return false;
+    }
+};
+
+
+// =================================================================
+// === ヘルパー関数群 (変更なし) ===
 // =================================================================
 
 /**
@@ -595,14 +584,12 @@ async function addSheet(spreadsheetId, title) {
             }
         };
         const response = await sheets.spreadsheets.batchUpdate(request);
-        // ▼▼▼ [変更点] 新しいシートのIDを返すようにする ▼▼▼
         const newSheetId = response.data.replies[0].addSheet.properties.sheetId;
         console.log(`[Helper] Added sheet "${title}" (ID: ${newSheetId})`);
         return newSheetId;
     } catch (e) {
         if (e.message.includes('already exists')) {
             console.warn(`[Helper] Sheet "${title}" already exists.`);
-            // 既存のシートIDを検索して返す
             return await getSheetId(spreadsheetId, title);
         } else {
             console.error(`[Helper] Error adding sheet "${title}": ${e.message}`);
@@ -638,11 +625,10 @@ async function findOrCreateSheet(spreadsheetId, title) {
         const existingSheetId = await getSheetId(spreadsheetId, title);
         
         if (existingSheetId !== null) {
-            console.log(`[Helper] Sheet "${title}" already exists (ID: ${existingSheetId}).`);
+            // console.log(`[Helper] Sheet "${title}" already exists (ID: ${existingSheetId}).`);
             return existingSheetId;
         }
         
-        // 存在しない場合のみ作成
         console.log(`[Helper] Sheet "${title}" not found. Creating...`);
         const newSheetId = await addSheet(spreadsheetId, title);
         return newSheetId;
@@ -680,7 +666,6 @@ async function writeData(spreadsheetId, range, values, append = false) {
     
     try {
         if (append) {
-            // 追記モード
             await sheets.spreadsheets.values.append({
                 spreadsheetId: spreadsheetId,
                 range: range,
@@ -691,7 +676,6 @@ async function writeData(spreadsheetId, range, values, append = false) {
                 }
             });
         } else {
-            // 上書きモード
             await sheets.spreadsheets.values.update({
                 spreadsheetId: spreadsheetId,
                 range: range,
@@ -707,49 +691,7 @@ async function writeData(spreadsheetId, range, values, append = false) {
     }
 }
 
-/**
- * [Helper] 指定したシートの特定のセルに値を書き込む (A1など)
- */
-async function writeToCell(spreadsheetId, sheetName, cell, content) {
-    try {
-        const range = `'${sheetName}'!${cell}`;
-        await sheets.spreadsheets.values.update({
-            spreadsheetId: spreadsheetId,
-            range: range,
-            valueInputOption: 'USER_ENTERED',
-            resource: {
-                values: [[content]]
-            }
-        });
-    } catch (e) {
-        console.error(`[Helper] Error writing to cell "${sheetName}!${cell}": ${e.message}`);
-        throw e;
-    }
-}
-
-/**
- * [Helper] 指定したシートの特定のセルから値を読み取る
- */
-async function readCell(spreadsheetId, sheetName, cell) {
-    try {
-        const range = `'${sheetName}'!${cell}`;
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: spreadsheetId,
-            range: range,
-            valueRenderOption: 'FORMATTED_VALUE'
-        });
-        
-        const value = response.data.values ? response.data.values[0][0] : null;
-        return value;
-    } catch (e) {
-         if (e.message.includes('Unable to parse range')) {
-             console.warn(`[Helper] Cell not found (or sheet missing) for "${sheetName}!${cell}". Returning null.`);
-             return null;
-         }
-        console.error(`[Helper] Error reading cell "${sheetName}!${cell}": ${e.message}`);
-        throw e;
-    }
-}
+// (readCell, writeToCell は汎用関数 save/readFromAnalysisSheet に吸収されたため不要)
 
 // ★ 既存の getSpreadsheetIdFromUrl を googleSheetsService の末尾にもエクスポート
 exports.getSpreadsheetIdFromUrl = getSpreadsheetIdFromUrl;

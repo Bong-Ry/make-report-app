@@ -1,3 +1,5 @@
+// bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/package.json
+
 {
   "name": "node-pdf-report",
   "version": "1.0.0",
@@ -15,7 +17,7 @@
     "googleapis": "^164.1.0",
     "kuromoji": "^0.1.2",
     "openai": "^4.52.7",
-    "puppeteer": "^22.12.1"
+    "puppeteer": "^22.12.1",
+    "p-limit": "^5.0.0"
   }
 }
-
