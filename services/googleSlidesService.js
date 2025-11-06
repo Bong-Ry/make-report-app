@@ -21,7 +21,9 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
     console.log(`[googleSlidesService] Slide cloned. New ID: ${newSlideId}`);
 
     if (!analysisData || analysisData.length === 0) {
-        throw new Error('GAS did not return slide analysis data.');
+        // ▼▼▼ [変更] ログから "GAS did not return slide analysis data." だと
+        // analysisData が 306 elements ある場合に矛盾するため、ログメッセージを修正
+        throw new Error('GAS analysis data (analysisData) is empty or undefined.');
     }
 
     // --- 2. 必要な「集計」データをシートから取得 ---
@@ -55,34 +57,80 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
     
     // --- 4. スライドAPI (batchUpdate) で全データを挿入 ---
     
-    // (A) ▼▼▼ [大幅変更] GASから受け取った analysisData を使ってマッピングを作成 ▼▼▼
+    // (A) ▼▼▼ [大幅修正] GASから受け取った analysisData (シート配列) からセル参照でIDを抽出 ▼▼▼
     
-    console.log(`[googleSlidesService] Building placeholder map from GAS analysisData (${analysisData.length} elements)...`);
-
-    // ▼▼▼ [削除] Node.js側でのスライドスキャン処理 (API呼び出し) を削除 ▼▼▼
-    // const pres = await slidesApi.presentations.get({ ... });
-
+    console.log(`[googleSlidesService] Building placeholder map from GAS analysisData (Sheet) by cell reference...`);
+    
     const placeholderMap = {}; // "C8" -> "g123" (elementId)
     const slideTemplateMap = {}; // "C176" -> "g_slide_22" (slideId)
-    const commentTemplatePlaceholders = ["C134", "C142", "C151", "C162", "C163", "C176", "C187", "C198"];
 
-    // ▼▼▼ [変更] pres.data.slides.forEach の代わりに analysisData (配列) をループ ▼▼▼
-    // analysisData の形式: [ [slideIdx, elemIdx, elementId, typeString, textContent, slideId], ... ]
-    
-    for (const row of analysisData) {
-        const elementId = row[2]; // C列: 要素ID
-        const textContent = row[4]; // E列: 内容 ("C8" など)
-        const slideId = row[5];     // F列: スライドID
-
-        if (textContent && textContent.startsWith('C')) {
-            // 1. 通常のプレースホルダー ("C8" -> "g_element_8")
-            placeholderMap[textContent] = elementId;
-            
-            // 2. コメント複製用のテンプレートかチェック
-            if (commentTemplatePlaceholders.includes(textContent)) {
-                slideTemplateMap[textContent] = slideId; // ("C176" -> "g_slide_22")
-            }
+    /**
+     * [新規ヘルパー] "C8" などのセル参照文字列を 
+     * analysisData (0-based配列) の [行index, 列index] に変換し、
+     * C列 (elemId) と F列 (slideId) の値を取得する。
+     * @param {string} ref - "C8", "C176" などのセル参照
+     * @returns {{elementId: string|null, slideId: string|null}}
+     */
+    const getIdsFromCellRef = (ref) => {
+        // "C"列のみを対象とする正規表現
+        const match = ref.match(/^C(\d+)$/);
+        if (!match) {
+            console.warn(`[googleSlidesService] Invalid cell reference format: ${ref}. Only 'C' column supported.`);
+            return { elementId: null, slideId: null };
         }
+        
+        const rowIndex = parseInt(match[1], 10) - 1; // "C8" -> rowIndex 7
+        
+        if (rowIndex < 0 || rowIndex >= analysisData.length) {
+            console.warn(`[googleSlidesService] Cell reference ${ref} (index ${rowIndex}) is out of bounds for analysisData (length ${analysisData.length})`);
+            return { elementId: null, slideId: null };
+        }
+        
+        const row = analysisData[rowIndex];
+        if (!row) {
+             console.warn(`[googleSlidesService] Row data not found for ${ref} (index ${rowIndex}).`);
+             return { elementId: null, slideId: null };
+        }
+        
+        // C列 (index 2) が elementId
+        // F列 (index 5) が slideId
+        const elementId = row[2] || null;
+        const slideId = row[5] || null;
+        
+        return { elementId, slideId };
+    };
+
+    // ▼▼▼ [削除] 壊れていたループ処理 (L110-L119) を削除 ▼▼▼
+    // for (const row of analysisData) { ... }
+
+    // ▼▼▼ [新規] 必要なプレースホルダーリストを定義し、IDを直接取得する ▼▼▼
+    const allPlaceholders = [
+        "C8", "C17", "C124", "C125", "C135", "C143", "C152", "C164", "C165", 
+        "C215", "C222", "C229", "C236", "C243", "C250", "C257", "C264", 
+        "C271", "C278", "C286", "C293", "C300", "C307"
+    ];
+    // (コメント複製用テンプレートの「セル位置」)
+    const commentTemplatePlaceholders = ["C134", "C142", "C151", "C162", "C163", "C176", "C187", "C198"];
+    
+    // 1. 通常のテキスト置換用ID (C8, C17, C124...) を取得
+    for (const ref of allPlaceholders) {
+         const { elementId } = getIdsFromCellRef(ref);
+         if (elementId) {
+             placeholderMap[ref] = elementId;
+         }
+    }
+    
+    // 2. コメント複製用テンプレートのID (C134, C176...) を取得
+    for (const ref of commentTemplatePlaceholders) {
+         const { elementId, slideId } = getIdsFromCellRef(ref);
+         if (elementId) {
+             // (C134自身もテキスト置換対象として map に追加)
+             placeholderMap[ref] = elementId;
+         }
+         if (slideId) {
+             // (C134が含まれるスライド自体のIDを map に追加)
+             slideTemplateMap[ref] = slideId;
+         }
     }
     
     // ▼▼▼ [ログ追加] 抽出したIDマップをログに出力 ▼▼▼
@@ -169,7 +217,7 @@ async function callGasToCloneSlide(clinicName, centralSheetId) { // ★ centralS
             return {
                 newSlideId: result.newSlideId,
                 newSlideUrl: result.newSlideUrl,
-                analysisData: result.analysisData // ★ GASからの分析データ
+                analysisData: result.analysisData // ★ GASからの分析データ (2D配列)
             };
         } else {
             console.error('[googleSlidesService] GAS Web App (Slide Clone) returned an error:', result.message);
@@ -289,6 +337,8 @@ function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, co
         });
         
         // Request 2: 複製したスライドのテキストボックスから、元のプレースホルダー("C176"など)を削除
+        // (▼▼▼ [修正] 元のプレースホルダーは addTextUpdateRequest(L283) で削除されるため、
+        //  複製後のスライドでは「1チャンク目」のテキストを削除する必要がある ▼▼▼)
         requests.push({
             deleteText: {
                 objectId: newElementId, // (複製後のテキストボックスID)
