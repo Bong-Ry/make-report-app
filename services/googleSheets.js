@@ -7,7 +7,7 @@ const { getSpreadsheetIdFromUrl, getAiAnalysisKeys } = require('../utils/helpers
 // ▼▼▼ [変更] 認証・初期化 ▼▼▼
 
 // ★★★ [変更] ご提示いただいた新しいGAS Web App (スライド複製・分析用) のURL ★★★
-exports.GAS_SLIDE_GENERATOR_URL = 'https://script.google.com/macros/s/AKfycbzC_9KcQTnW8prj-_UlP4YwF5dAZjrGkikDuVHxvtLiHdRNUiffNshtwDDZWLsEPITciA/exec';
+exports.GAS_SLIDE_GENERATOR_URL = 'https://script.google.com/macros/s/AKfycbzBwicnwUxFw-YKBQQywJEhTRnM9IQsRKtj35lhFYwKDyJ011Yrl75GA2qhUhOnWK9yTA/exec';
 
 const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
 const KEYFILEPATH = '/etc/secrets/credentials.json';
