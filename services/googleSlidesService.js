@@ -232,19 +232,22 @@ function addTextRequests(requests, placeholderMap, period, clinicData, overallDa
     // --- NPS値 ---
     const clinicNpsScore = calculateNps(clinicData.npsScoreData.counts, clinicData.npsScoreData.totalCount);
     const overallNpsScore = calculateNps(overallData.npsScoreData.counts, overallData.npsScoreData.totalCount);
-    addTextUpdateRequest(requests, placeholderMap, 'C124', clinicNpsScore.toFixed(1), true); // "true" = deleteText する
-    addTextUpdateRequest(requests, placeholderMap, 'C125', overallNpsScore.toFixed(1), true); // "true" = deleteText する
+    // ▼▼▼ [エラー修正] "true" -> "false" に変更 ▼▼▼
+    addTextUpdateRequest(requests, placeholderMap, 'C124', clinicNpsScore.toFixed(1), false); // "false" = deleteText しない
+    addTextUpdateRequest(requests, placeholderMap, 'C125', overallNpsScore.toFixed(1), false); // "false" = deleteText しない
 
     // --- NPSコメント人数 (スライド 17, 18, 19, 20) ---
     const npsResults = clinicData.npsData.results || {};
-    addTextUpdateRequest(requests, placeholderMap, 'C135', `${(npsResults[10] || []).length}人`, true); // "true" = deleteText する
-    addTextUpdateRequest(requests, placeholderMap, 'C143', `${(npsResults[9] || []).length}人`, true); // "true" = deleteText する
-    addTextUpdateRequest(requests, placeholderMap, 'C152', `${(npsResults[8] || []).length}人`, true); // "true" = deleteText する
-    addTextUpdateRequest(requests, placeholderMap, 'C164', `${(npsResults[7] || []).length}人`, true); // "true" = deleteText する
+    // ▼▼▼ [エラー修正] "true" -> "false" に変更 (C143を含む、関連する数値すべて) ▼▼▼
+    addTextUpdateRequest(requests, placeholderMap, 'C135', `${(npsResults[10] || []).length}人`, false); // "false" = deleteText しない
+    addTextUpdateRequest(requests, placeholderMap, 'C143', `${(npsResults[9] || []).length}人`, false); // "false" = deleteText しない
+    addTextUpdateRequest(requests, placeholderMap, 'C152', `${(npsResults[8] || []).length}人`, false); // "false" = deleteText しない
+    addTextUpdateRequest(requests, placeholderMap, 'C164', `${(npsResults[7] || []).length}人`, false); // "false" = deleteText しない
     const nps6BelowCount = (npsResults[6] || []).length + (npsResults[5] || []).length + (npsResults[4] || []).length + (npsResults[3] || []).length + (npsResults[2] || []).length + (npsResults[1] || []).length + (npsResults[0] || []).length;
-    addTextUpdateRequest(requests, placeholderMap, 'C165', `${nps6BelowCount}人`, true); // "true" = deleteText する
+    addTextUpdateRequest(requests, placeholderMap, 'C165', `${nps6BelowCount}人`, false); // "false" = deleteText しない
     
     // --- AI分析テキスト ---
+    // (これらはテンプレートに {{...}} が入っているので "true" のまま)
     addTextUpdateRequest(requests, placeholderMap, 'C215', aiData['L']?.analysis || '（データなし）', true);
     addTextUpdateRequest(requests, placeholderMap, 'C222', aiData['L']?.suggestions || '（データなし）', true);
     addTextUpdateRequest(requests, placeholderMap, 'C229', aiData['L']?.overall || '（データなし）', true);
