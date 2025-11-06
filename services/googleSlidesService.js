@@ -15,11 +15,13 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
     // --- 1. GASを呼び出し、スライド複製と要素マップ取得 ---
     console.log(`[googleSlidesService] Calling GAS to clone slide for: ${clinicName}`);
     
+    // ★ 修正: analysisData (GASが生成したシート内容) を受け取る
     const { newSlideId, newSlideUrl, analysisData } = await callGasToCloneSlide(clinicName, centralSheetId);
     console.log(`[googleSlidesService] Slide cloned. New ID: ${newSlideId}`);
 
     if (!analysisData || analysisData.length === 0) {
-        throw new Error('GAS analysis data (analysisData) is empty or undefined.');
+        // ★ 修正: GAS側がグループ内を検索するようになったため、このエラーは「GASがC8などを見つけられなかった」ことを示す
+        throw new Error('GAS analysis data (analysisData) is empty or undefined. (GASがグループ内を検索してもプレースホルダーテキストを見つけられなかった可能性があります)');
     }
 
     // --- 2. 必要な「集計」データをシートから取得 ---
@@ -47,58 +49,55 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
     
     // --- 4. スライドAPI (batchUpdate) で全データを挿入 ---
     
-    // (A) ▼▼▼ [修正] GASから受け取った analysisData (シート配列) からセル参照でIDを抽出 ▼▼▼
+    // (A) ▼▼▼ [根本修正] GASから受け取った analysisData (シート配列) から ID を抽出 ▼▼▼
     
-    console.log(`[googleSlidesService] Building placeholder map from GAS analysisData (Sheet) by cell reference...`);
+    console.log(`[googleSlidesService] Building placeholder map from GAS analysisData (Sheet) by *searching* placeholder text...`);
     
     const placeholderMap = {}; // "C8" -> "g123" (elementId)
     const slideTemplateMap = {}; // "C176" -> "g_slide_22" (slideId)
 
     /**
-     * [修正ヘルパー] "C8" などのセル参照文字列を 
-     * analysisData (0-based配列) の [行index] に変換し、
-     * C列 (elemId) と F列 (slideId) の値を取得する。
+     * ★★★ [根本修正] ★★★
+     * getIdsFromCellRef 関数を、インデックス参照(C143 -> 143行目)から、
+     * analysisData 配列を 'find' (検索) するロジックに変更。
+     * * GASが書き出す 'analysisData' (2D配列) の形式:
+     * A(0): スライド番号, B(1): 要素番号, C(2): 要素ID, 
+     * D(3): 種類, E(4): 内容(C8, C143など), F(5): スライドID
      */
     const getIdsFromCellRef = (ref) => {
-        const match = ref.match(/^C(\d+)$/);
-        if (!match) {
-            console.warn(`[googleSlidesService] Invalid cell reference format: ${ref}. Only 'C' column supported.`);
-            return { elementId: null, slideId: null };
-        }
+        // 'ref' は "C8" や "C143" などのプレースホルダーテキスト
         
-        const rowIndex = parseInt(match[1], 10) - 1; // "C8" -> rowIndex 7
-        
-        if (rowIndex < 0 || rowIndex >= analysisData.length) {
-            console.warn(`[googleSlidesService] Cell reference ${ref} (index ${rowIndex}) is out of bounds for analysisData (length ${analysisData.length})`);
-            return { elementId: null, slideId: null };
-        }
-        
-        const row = analysisData[rowIndex];
+        // analysisData (全要素の配列) から、
+        // E列(index 4) のテキスト内容が 'ref' と一致する行を探す
+        const row = analysisData.find(r => r[4] === ref);
+
         if (!row) {
-             console.warn(`[googleSlidesService] Row data not found for ${ref} (index ${rowIndex}).`);
-             return { elementId: null, slideId: null };
+            // (GASがグループ内を検索しても "C143" などのテキストを見つけられなかった場合)
+            console.warn(`[googleSlidesService] Placeholder text "${ref}" not found in analysisData sheet.`);
+            return { elementId: null, slideId: null };
         }
         
-        // C列 (index 2) が elementId
-        // ▼▼▼ [修正] F列 (index 5) が slideId ▼▼▼
-        const elementId = row[2] || null;
-        const slideId = row[5] || null; // GASコードでF列(index 5)に出力
+        // 見つかった行から C列(index 2) と F列(index 5) のIDを取得
+        const elementId = row[2] || null; // C列 (index 2) が elementId
+        const slideId = row[5] || null; // F列 (index 5) が slideId
         
+        // ★ ログ追加: どのテキスト(ref)がどのID(elementId)に対応したか確認
+        // console.log(`[googleSlidesService] Found mapping: ${ref} -> elementId: ${elementId}, slideId: ${slideId}`);
+
         return { elementId, slideId };
     };
 
-    // ▼▼▼ [修正] "C307" をリストから削除 (analysisData 範囲外のため) ▼▼▼
+    // (プレースホルダーのリストは変更なし)
     const allPlaceholders = [
         "C8", "C17", "C124", "C125", "C135", "C143", "C152", "C164", "C165", 
         "C215", "C222", "C229", "C236", "C243", "C250", "C257", "C264", 
-        "C271", "C278", "C286", "C293", "C300" // "C307" を削除
+        "C271", "C278", "C286", "C293", "C300"
     ];
-    // (コメント複製用テンプレートの「セル位置」)
     const commentTemplatePlaceholders = ["C134", "C142", "C151", "C162", "C163", "C176", "C187", "C198"];
     
     // 1. 通常のテキスト置換用ID (C8, C17, C124...) を取得
     for (const ref of allPlaceholders) {
-         const { elementId } = getIdsFromCellRef(ref);
+         const { elementId } = getIdsFromCellRef(ref); // ★ 修正後の検索関数をコール
          if (elementId) {
              placeholderMap[ref] = elementId;
          }
@@ -106,15 +105,13 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
     
     // 2. コメント複製用テンプレートのID (C134, C176...) を取得
     for (const ref of commentTemplatePlaceholders) {
-         const { elementId, slideId } = getIdsFromCellRef(ref);
+         const { elementId, slideId } = getIdsFromCellRef(ref); // ★ 修正後の検索関数をコール
          if (elementId) {
              placeholderMap[ref] = elementId;
          }
-         // ▼▼▼ [修正] GASのF列から slideId を正しく取得 ▼▼▼
          if (slideId) {
              slideTemplateMap[ref] = slideId;
          }
-         // (フォールバックロジックは削除)
     }
     
     console.log(`[googleSlidesService] Placeholder Map (e.g., C8 -> elementId):\n`, placeholderMap);
@@ -130,31 +127,21 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
     // (D) コメントスライドを複製・挿入
     console.log(`[googleSlidesService] Generating comment slide duplication requests...`);
     
-    // NPS 10 (C134)
     addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, (clinicReportData.npsData.results[10] || []), "C134");
-    // NPS 9 (C142)
     addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, (clinicReportData.npsData.results[9] || []), "C142");
-    // NPS 8 (C151)
     addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, (clinicReportData.npsData.results[8] || []), "C151");
-    // NPS 7 (C162)
     addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, (clinicReportData.npsData.results[7] || []), "C162");
-    // NPS 6以下 (C163)
     const nps6BelowComments = [
         ...(clinicReportData.npsData.results[6] || []), ...(clinicReportData.npsData.results[5] || []), ...(clinicReportData.npsData.results[4] || []),
         ...(clinicReportData.npsData.results[3] || []), ...(clinicReportData.npsData.results[2] || []), ...(clinicReportData.npsData.results[1] || []), ...(clinicReportData.npsData.results[0] || [])
     ];
     addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, nps6BelowComments, "C163");
-
-    // 良かった点/悪かった点 (C176)
     addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, clinicReportData.feedbackData.i_column.results, "C176");
-    // スタッフ (C187)
     addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, clinicReportData.feedbackData.j_column.results, "C187");
-    // お産 (C198)
     addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, clinicReportData.feedbackData.m_column.results, "C198");
     
     // (E) グラフ・画像を挿入 (TODO)
     // TODO: addChartRequests(requests, placeholderMap, clinicReportData, overallReportData);
-
 
     // (F) batchUpdate を実行
     if (requests.length > 0) {
@@ -226,28 +213,29 @@ function addTextRequests(requests, placeholderMap, period, clinicData, overallDa
     const periodFullText = `${startY}年${startM}月1日〜${endY}年${endM}月末日`;
     const periodShortText = `${startY}年${startM}月〜${endY}年${endM}月`;
     
-    addTextUpdateRequest(requests, placeholderMap, 'C8', periodShortText, false); // "false" = deleteText しない
-    addTextUpdateRequest(requests, placeholderMap, 'C17', periodFullText, false); // "false" = deleteText しない
+    // (C8, C17 はプレースホルダーテキストが入っているので deleteText: true)
+    addTextUpdateRequest(requests, placeholderMap, 'C8', periodShortText, true); 
+    addTextUpdateRequest(requests, placeholderMap, 'C17', periodFullText, true); 
 
     // --- NPS値 ---
     const clinicNpsScore = calculateNps(clinicData.npsScoreData.counts, clinicData.npsScoreData.totalCount);
     const overallNpsScore = calculateNps(overallData.npsScoreData.counts, overallData.npsScoreData.totalCount);
-    // ▼▼▼ [エラー修正] "true" -> "false" に変更 ▼▼▼
-    addTextUpdateRequest(requests, placeholderMap, 'C124', clinicNpsScore.toFixed(1), false); // "false" = deleteText しない
-    addTextUpdateRequest(requests, placeholderMap, 'C125', overallNpsScore.toFixed(1), false); // "false" = deleteText しない
+    // (C124, C125 は空欄のテキストボックスを想定し deleteText: false)
+    addTextUpdateRequest(requests, placeholderMap, 'C124', clinicNpsScore.toFixed(1), false); 
+    addTextUpdateRequest(requests, placeholderMap, 'C125', overallNpsScore.toFixed(1), false); 
 
     // --- NPSコメント人数 (スライド 17, 18, 19, 20) ---
     const npsResults = clinicData.npsData.results || {};
-    // ▼▼▼ [エラー修正] "true" -> "false" に変更 (C143を含む、関連する数値すべて) ▼▼▼
-    addTextUpdateRequest(requests, placeholderMap, 'C135', `${(npsResults[10] || []).length}人`, false); // "false" = deleteText しない
-    addTextUpdateRequest(requests, placeholderMap, 'C143', `${(npsResults[9] || []).length}人`, false); // "false" = deleteText しない
-    addTextUpdateRequest(requests, placeholderMap, 'C152', `${(npsResults[8] || []).length}人`, false); // "false" = deleteText しない
-    addTextUpdateRequest(requests, placeholderMap, 'C164', `${(npsResults[7] || []).length}人`, false); // "false" = deleteText しない
+    // (C135, C143 なども空欄のテキストボックスを想定し deleteText: false)
+    addTextUpdateRequest(requests, placeholderMap, 'C135', `${(npsResults[10] || []).length}人`, false);
+    addTextUpdateRequest(requests, placeholderMap, 'C143', `${(npsResults[9] || []).length}人`, false); 
+    addTextUpdateRequest(requests, placeholderMap, 'C152', `${(npsResults[8] || []).length}人`, false);
+    addTextUpdateRequest(requests, placeholderMap, 'C164', `${(npsResults[7] || []).length}人`, false);
     const nps6BelowCount = (npsResults[6] || []).length + (npsResults[5] || []).length + (npsResults[4] || []).length + (npsResults[3] || []).length + (npsResults[2] || []).length + (npsResults[1] || []).length + (npsResults[0] || []).length;
-    addTextUpdateRequest(requests, placeholderMap, 'C165', `${nps6BelowCount}人`, false); // "false" = deleteText しない
+    addTextUpdateRequest(requests, placeholderMap, 'C165', `${nps6BelowCount}人`, false);
     
     // --- AI分析テキスト ---
-    // (これらはテンプレートに {{...}} が入っているので "true" のまま)
+    // (これらは {{...}} などのプレースホルダーテキストが入っているので deleteText: true)
     addTextUpdateRequest(requests, placeholderMap, 'C215', aiData['L']?.analysis || '（データなし）', true);
     addTextUpdateRequest(requests, placeholderMap, 'C222', aiData['L']?.suggestions || '（データなし）', true);
     addTextUpdateRequest(requests, placeholderMap, 'C229', aiData['L']?.overall || '（データなし）', true);
@@ -265,8 +253,6 @@ function addTextRequests(requests, placeholderMap, period, clinicData, overallDa
 
     addTextUpdateRequest(requests, placeholderMap, 'C293', aiData['M']?.analysis || '（データなし）', true);
     addTextUpdateRequest(requests, placeholderMap, 'C300', aiData['M']?.suggestions || '（データなし）', true);
-    
-    // (C307 は範囲外エラーのため、addTextUpdateRequest を呼ばない)
 }
 
 
@@ -276,34 +262,28 @@ function addTextRequests(requests, placeholderMap, period, clinicData, overallDa
  * =================================================================
  */
 function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, comments, templatePlaceholder) {
-    // 1. テンプレートスライドID (例: "g_slide_22") を取得
     const templateSlideId = slideTemplateMap[templatePlaceholder];
-    // 2. テンプレートスライド上のテキストボックスID (例: "g_element_176") を取得
     const templateElementId = placeholderMap[templatePlaceholder];
 
-    // ▼▼▼ [修正] F列から slideId を取得できたため、このチェックが動作するはず ▼▼▼
     if (!templateSlideId || !templateElementId) {
         console.warn(`[googleSlidesService] Template slide or element not found for placeholder ${templatePlaceholder}. Skipping duplication.`);
         // (テンプレート自体が見つからない場合でも、プレースホルダーに「該当なし」と書き込む)
-        // (deleteText しない)
-        addTextUpdateRequest(requests, placeholderMap, templatePlaceholder, "（該当コメントなし）", false); 
+        // (コメントテンプレートはプレースホルダーテキスト(C134など)が入っている前提のため deleteText: true)
+        addTextUpdateRequest(requests, placeholderMap, templatePlaceholder, "（該当コメントなし）", true); 
         return;
     }
 
-    // 3. コメントをチャンク (スライド1枚分の文字列) に分割
     const commentChunks = chunkComments(comments);
 
     if (commentChunks.length === 0) {
-        // 該当コメントが0件の場合
-        // (deleteText しない)
-        addTextUpdateRequest(requests, placeholderMap, templatePlaceholder, "（該当コメントなし）", false);
+        // (コメントテンプレートはプレースホルダーテキスト(C134など)が入っている前提のため deleteText: true)
+        addTextUpdateRequest(requests, placeholderMap, templatePlaceholder, "（該当コメントなし）", true);
         return;
     }
 
     // 4. 1ページ目 (既存のテンプレートスライド) に1チャンク目を挿入
     console.log(`[googleSlidesService] Filling template slide ${templateSlideId} (placeholder ${templatePlaceholder}) with chunk 1...`);
-    // (コメントテンプレートは "C134" などのプレースホルダーテキストが入っているので deleteText が必要)
-    addTextUpdateRequest(requests, placeholderMap, templatePlaceholder, commentChunks[0], true);
+    addTextUpdateRequest(requests, placeholderMap, templatePlaceholder, commentChunks[0], true); // deleteText: true
 
     // 5. 2ページ目以降のチャンクがあれば、スライドを複製して挿入
     for (let i = 1; i < commentChunks.length; i++) {
@@ -312,12 +292,11 @@ function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, co
         const newElementId = `new_element_${templatePlaceholder}_${i}`;
         
         const idMap = {};
-        idMap[templateSlideId] = newSlideId;      // (スライドIDのマッピング)
-        idMap[templateElementId] = newElementId;  // (テキストボックスIDのマッピング)
+        idMap[templateSlideId] = newSlideId;
+        idMap[templateElementId] = newElementId;
         
         console.log(`[googleSlidesService] Duplicating slide ${templateSlideId} -> ${newSlideId} (for ${templatePlaceholder} chunk ${i+1})`);
 
-        // Request 1: スライド自体を複製
         requests.push({
             duplicateObject: {
                 objectId: templateSlideId,
@@ -325,7 +304,6 @@ function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, co
             }
         });
         
-        // Request 2: 複製したスライドのテキストボックスから、「1チャンク目」のテキストを削除
         requests.push({
             deleteText: {
                 objectId: newElementId, 
@@ -333,7 +311,6 @@ function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, co
             }
         });
         
-        // Request 3: 複製したスライドのテキストボックスに、次のコメント群を挿入
         requests.push({
             insertText: {
                 objectId: newElementId, 
@@ -353,20 +330,16 @@ function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, co
 
 /**
  * [Util] Google Slides API へのテキスト挿入リクエストを生成
- * (★ 修正: GaxiosError: Invalid requests[...].deleteText のエラー回避)
- *
- * @param {string} placeholder - "C8", "C124" など
- * @param {boolean} doDeleteText - true の場合のみ deleteText を発行する
+ * (doDeleteText フラグは、呼び出し元で制御するよう変更)
  */
 function addTextUpdateRequest(requests, placeholderMap, placeholder, newText, doDeleteText = true) {
     const objectId = placeholderMap[placeholder];
     if (!objectId) {
-        console.warn(`[googleSlidesService] Placeholder "${placeholder}" not found in slide map. Skipping update.`);
+        // ★ 修正: この警告は、GASが "C143" などのプレースホルダーを見つけられなかったことを意味する
+        console.warn(`[googleSlidesService] Placeholder "${placeholder}" not found in slide map (was it missing from the GAS analysis sheet?). Skipping update.`);
         return;
     }
     
-    // ▼▼▼ [修正] doDeleteText が true の場合のみ、deleteText リクエストを発行 ▼▼▼
-    // (テンプレートで空欄が想定される C143 などは false で呼び出す)
     if (doDeleteText) {
         requests.push({
             deleteText: {
@@ -376,7 +349,6 @@ function addTextUpdateRequest(requests, placeholderMap, placeholder, newText, do
         });
     }
 
-    // 新しいテキストを挿入するリクエスト
     requests.push({
         insertText: {
             objectId: objectId,
@@ -385,10 +357,6 @@ function addTextUpdateRequest(requests, placeholderMap, placeholder, newText, do
         }
     });
 }
-
-// ▼▼▼ [削除] addTextUpdateSimple は addTextUpdateRequest(..., false) に統合されたため削除
-// function addTextUpdateSimple(requests, placeholderMap, placeholder, newText) { ... }
-
 
 /**
  * [Util] NPSスコアを計算 (変更なし)
