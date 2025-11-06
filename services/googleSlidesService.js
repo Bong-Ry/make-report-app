@@ -1,3 +1,4 @@
+// bong-ry/make-report-app/make-report-app-4422a11a2e07e93a62805a4f59dd9df0ef0979dd/services/googleSlidesService.js
 // bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/services/googleSlidesService.js
 
 const googleSheetsService = require('./googleSheets');
@@ -370,7 +371,8 @@ function formatComments(commentsArray) {
  * [Util/新規] コメント配列を、スライド1枚あたりの上限(MAX_LINES)で分割する
  */
 function chunkComments(commentsArray) {
-    const MAX_LINES_PER_SLIDE = 15; // (スライド1枚あたりの最大行数)
+    // ▼▼▼ [変更] 15行 -> 20行 に修正 ▼▼▼
+    const MAX_LINES_PER_SLIDE = 20; // (スライド1枚あたりの最大行数)
     
     if (!commentsArray || commentsArray.length === 0) {
         return [];

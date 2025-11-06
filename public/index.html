@@ -378,9 +378,39 @@
 
 
   // =================================================================
-  // === 画面1 (期間選択) 処理 (変更なし) ===
+  // === 画面1 (期間選択) 処理 (★ 修正あり) ===
   // =================================================================
-  function populateDateSelectors() { const now=new Date();const cy=now.getFullYear();const sy=document.getElementById('start-year'),ey=document.getElementById('end-year');for(let i=0;i<5;i++){const y=cy-i;sy.add(new Option(`${y}年`,y));ey.add(new Option(`${y}年`,y));} const sm=document.getElementById('start-month'),em=document.getElementById('end-month');for(let i=1;i<=12;i++){const m=String(i).padStart(2,'0');sm.add(new Option(`${i}月`,m));em.add(new Option(`${i}月`,m));} em.value=String(now.getMonth()+1).padStart(2,'0');sy.value=String(now.getMonth()+1).padStart(2,'0'); }
+  function populateDateSelectors() {
+    const now = new Date();
+    const cy = now.getFullYear();
+    const sy = document.getElementById('start-year');
+    const ey = document.getElementById('end-year');
+    
+    for(let i = 0; i < 5; i++) {
+        const y = cy - i;
+        sy.add(new Option(`${y}年`, y));
+        ey.add(new Option(`${y}年`, y));
+    }
+
+    const sm = document.getElementById('start-month');
+    const em = document.getElementById('end-month');
+    
+    for(let i = 1; i <= 12; i++) {
+        const m = String(i).padStart(2, '0');
+        sm.add(new Option(`${i}月`, m));
+        em.add(new Option(`${i}月`, m));
+    }
+    
+    em.value = String(now.getMonth() + 1).padStart(2, '0');
+    
+    // ▼▼▼ [不具合修正] 開始年月が空白になる問題を修正 ▼▼▼
+    // (誤) sy.value = String(now.getMonth() + 1).padStart(2, '0');
+    sy.value = String(cy); // (正) 開始年を現在の年に設定
+    // ▲▲▲
+    
+    // (開始月も現在の月に設定)
+    sm.value = String(now.getMonth() + 1).padStart(2, '0');
+  }
 
   async function handleNextToClinics() {
     console.log('Next clicked.');
