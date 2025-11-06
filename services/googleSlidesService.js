@@ -14,33 +14,36 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
     
     // --- 1. GASを呼び出し、スライド複製と要素マップ取得 ---
     console.log(`[googleSlidesService] Calling GAS to clone slide for: ${clinicName}`);
-    // (この analysisData は GAS v1 のもので、Node.js側では使わない)
-    const { newSlideId, newSlideUrl } = await callGasToCloneSlide(clinicName);
+    
+    // ▼▼▼ [変更] centralSheetId をGASに渡し、analysisData を受け取る ▼▼▼
+    const { newSlideId, newSlideUrl, analysisData } = await callGasToCloneSlide(clinicName, centralSheetId);
     console.log(`[googleSlidesService] Slide cloned. New ID: ${newSlideId}`);
 
-    // --- 2. 必要な全データを集計シートから取得 ---
+    if (!analysisData || analysisData.length === 0) {
+        throw new Error('GAS did not return slide analysis data.');
+    }
+
+    // --- 2. 必要な「集計」データをシートから取得 ---
+    // (AI分析テキストは 3. で取得)
     console.log(`[googleSlidesService] Fetching aggregation data for: ${clinicName}`);
     const clinicReportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
     const overallReportData = await googleSheetsService.getReportDataForCharts(centralSheetId, "全体");
     
-    // =================================================================
-    // === ▼▼▼ [エラー修正 (Line 41)] AI分析の結果を `_AI分析` タブから取得 ▼▼▼ ===
-    // =================================================================
+    // --- 3. 必要な「AI分析」データをシートから取得 ---
     console.log(`[googleSlidesService] Fetching AI analysis text results...`);
     const aiTypes = ['L', 'I_bad', 'I_good', 'J', 'M'];
-    const aiAnalysisResults = {}; // (古い addTextRequests 関数が期待する形式)
+    const aiAnalysisResults = {}; // (addTextRequests 関数が期待する形式)
     
     // 1. `_AI分析` タブのシート名を取得
     const aiSheetName = getAnalysisSheetName(clinicName, 'AI');
     
     // 2. `_AI分析` タブから全データ (A/B列) をMapとして読み込む
-    // (これが古くてエラーになっていた getAIAnalysisFromSheet の代わり)
     const aiDataMap = await googleSheetsService.readAiAnalysisData(centralSheetId, aiSheetName);
     
     // ▼▼▼ [ログ追加] 取得したAIデータMapをログに出力 ▼▼▼
-    console.log(`[googleSlidesService] Fetched AI Data Map from "${aiSheetName}":`, aiDataMap);
+    console.log(`[googleSlidesService] Fetched AI Data Map from "${aiSheetName}".`);
     
-    // 3. Map を古い aiAnalysisResults 形式 { L: { analysis: "...", ... } } に変換
+    // 3. Map を aiAnalysisResults 形式 { L: { analysis: "...", ... } } に変換
     for (const type of aiTypes) {
          aiAnalysisResults[type] = {
             analysis: aiDataMap.get(`${type}_ANALYSIS`) || '（データなし）',
@@ -48,45 +51,38 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
             overall: aiDataMap.get(`${type}_OVERALL`) || '（データなし）'
         };
     }
-    // =================================================================
-    // === ▲▲▲ [エラー修正 (Line 41)] ▲▲▲ ===
-    // =================================================================
-
-
+    
     // --- 4. スライドAPI (batchUpdate) で全データを挿入 ---
     
-    // (A) ▼▼▼ [変更] プレースホルダーとObject IDのマッピングを作成 ▼▼▼
-    // (GASの analysisData に頼らず、Slides API (Node.js) で直接スキャンする方式に変更)
+    // (A) ▼▼▼ [大幅変更] GASから受け取った analysisData を使ってマッピングを作成 ▼▼▼
     
-    console.log(`[googleSlidesService] Analyzing new slide (${newSlideId}) to build placeholder map...`);
-    // (スライドの全要素を取得)
-    const pres = await slidesApi.presentations.get({
-        presentationId: newSlideId,
-        fields: 'slides(objectId,pageElements(objectId,shape(text(textElements(textRun(content))))))'
-    });
+    console.log(`[googleSlidesService] Building placeholder map from GAS analysisData (${analysisData.length} elements)...`);
+
+    // ▼▼▼ [削除] Node.js側でのスライドスキャン処理 (API呼び出し) を削除 ▼▼▼
+    // const pres = await slidesApi.presentations.get({ ... });
 
     const placeholderMap = {}; // "C8" -> "g123" (elementId)
     const slideTemplateMap = {}; // "C176" -> "g_slide_22" (slideId)
-    const slideElementMap = {}; // "g_slide_22" -> "g_element_176" (elementId)
     const commentTemplatePlaceholders = ["C134", "C142", "C151", "C162", "C163", "C176", "C187", "C198"];
 
-    pres.data.slides.forEach(slide => {
-        if (!slide.pageElements) return;
-        slide.pageElements.forEach(el => {
-            // (要素のテキストが "C" から始まるかチェック)
-            const textContent = el.shape?.text?.textElements?.[1]?.textRun?.content?.trim();
-            if (textContent && textContent.startsWith('C')) {
-                // 1. 通常のプレースホルダー ("C8" -> "g_element_8")
-                placeholderMap[textContent] = el.objectId;
-                
-                // 2. コメント複製用のテンプレートかチェック
-                if (commentTemplatePlaceholders.includes(textContent)) {
-                    slideTemplateMap[textContent] = slide.objectId; // ("C176" -> "g_slide_22")
-                    slideElementMap[slide.objectId] = el.objectId;  // ("g_slide_22" -> "g_element_176")
-                }
+    // ▼▼▼ [変更] pres.data.slides.forEach の代わりに analysisData (配列) をループ ▼▼▼
+    // analysisData の形式: [ [slideIdx, elemIdx, elementId, typeString, textContent, slideId], ... ]
+    
+    for (const row of analysisData) {
+        const elementId = row[2]; // C列: 要素ID
+        const textContent = row[4]; // E列: 内容 ("C8" など)
+        const slideId = row[5];     // F列: スライドID
+
+        if (textContent && textContent.startsWith('C')) {
+            // 1. 通常のプレースホルダー ("C8" -> "g_element_8")
+            placeholderMap[textContent] = elementId;
+            
+            // 2. コメント複製用のテンプレートかチェック
+            if (commentTemplatePlaceholders.includes(textContent)) {
+                slideTemplateMap[textContent] = slideId; // ("C176" -> "g_slide_22")
             }
-        });
-    });
+        }
+    }
     
     // ▼▼▼ [ログ追加] 抽出したIDマップをログに出力 ▼▼▼
     console.log(`[googleSlidesService] Placeholder Map (e.g., C8 -> elementId):\n`, placeholderMap);
@@ -99,7 +95,7 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
     // (C) テキストデータを挿入 (C8, C17 など、複製が不要なもの)
     addTextRequests(requests, placeholderMap, period, clinicReportData, overallReportData, aiAnalysisResults);
 
-    // (D) ▼▼▼ [新規] コメントスライドを複製・挿入 (ご要望) ▼▼▼
+    // (D) ▼▼▼ [変更なし] コメントスライドを複製・挿入 ▼▼▼
     console.log(`[googleSlidesService] Generating comment slide duplication requests...`);
     
     // NPS 10 (C134)
@@ -149,15 +145,18 @@ exports.generateSlideReport = async (clinicName, centralSheetId, period, periodT
 
 /**
  * =================================================================
- * ヘルパー (1/X): GAS Web App 呼び出し
+ * ヘルパー (1/X): GAS Web App 呼び出し (★ 修正)
  * =================================================================
  */
-async function callGasToCloneSlide(clinicName) {
+async function callGasToCloneSlide(clinicName, centralSheetId) { // ★ centralSheetId を追加
     try {
         const response = await fetch(GAS_SLIDE_GENERATOR_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clinicName: clinicName })
+            body: JSON.stringify({ 
+                clinicName: clinicName,
+                centralSheetId: centralSheetId // ★ centralSheetId を送信
+            })
         });
 
         if (!response.ok) {
@@ -169,7 +168,7 @@ async function callGasToCloneSlide(clinicName) {
             return {
                 newSlideId: result.newSlideId,
                 newSlideUrl: result.newSlideUrl,
-                analysisData: result.analysisData // (GAS v1 の分析データ。v2では使わない)
+                analysisData: result.analysisData // ★ GASからの分析データ
             };
         } else {
             console.error('[googleSlidesService] GAS Web App (Slide Clone) returned an error:', result.message);
@@ -184,7 +183,7 @@ async function callGasToCloneSlide(clinicName) {
 
 /**
  * =================================================================
- * ヘルパー (2/X): テキスト挿入リクエスト作成 (複製なし)
+ * (変更なし) ヘルパー (2/X): テキスト挿入リクエスト作成 (複製なし)
  * =================================================================
  */
 function addTextRequests(requests, placeholderMap, period, clinicData, overallData, aiData) {
@@ -213,9 +212,6 @@ function addTextRequests(requests, placeholderMap, period, clinicData, overallDa
     const nps6BelowCount = (npsResults[6] || []).length + (npsResults[5] || []).length + (npsResults[4] || []).length + (npsResults[3] || []).length + (npsResults[2] || []).length + (npsResults[1] || []).length + (npsResults[0] || []).length;
     addTextUpdateRequest(requests, placeholderMap, 'C165', `${nps6BelowCount}人`);
     
-    // ▼▼▼ [削除] NPSコメント本文 (C134など) の挿入は addCommentSlidesRequests に移動 ▼▼▼
-    // addTextUpdateRequest(requests, placeholderMap, 'C134', ...);
-    
     // --- AI分析テキスト ---
     addTextUpdateRequest(requests, placeholderMap, 'C215', aiData['L']?.analysis || '（データなし）');
     addTextUpdateRequest(requests, placeholderMap, 'C222', aiData['L']?.suggestions || '（データなし）');
@@ -241,7 +237,7 @@ function addTextRequests(requests, placeholderMap, period, clinicData, overallDa
 
 /**
  * =================================================================
- * ヘルパー (3/X): [新規] コメントスライド複製リクエスト作成 (ご要望)
+ * (変更なし) ヘルパー (3/X): [新規] コメントスライド複製リクエスト作成 (ご要望)
  * =================================================================
  */
 function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, comments, templatePlaceholder) {
@@ -252,6 +248,8 @@ function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, co
 
     if (!templateSlideId || !templateElementId) {
         console.warn(`[googleSlidesService] Template slide or element not found for placeholder ${templatePlaceholder}. Skipping duplication.`);
+        // (テンプレート自体が見つからない場合でも、プレースホルダーに「該当なし」と書き込む)
+        addTextUpdateRequest(requests, placeholderMap, templatePlaceholder, "（該当コメントなし）");
         return;
     }
 
@@ -311,7 +309,7 @@ function addCommentSlidesRequests(requests, placeholderMap, slideTemplateMap, co
 
 /**
  * =================================================================
- * ヘルパー (4/X): その他ユーティリティ
+ * (変更なし) ヘルパー (4/X): その他ユーティリティ
  * =================================================================
  */
 
