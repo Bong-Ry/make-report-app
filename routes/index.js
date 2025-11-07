@@ -26,8 +26,8 @@ router.post('/api/getChartData', reportController.getChartData);
 // 4. (画面2) [変更] 転記済みのタブリストと「完了ステータス」を取得
 router.post('/api/getTransferredList', reportController.getTransferredList);
 
-// 5. スライド生成 (DLボタン) (変更なし)
-router.post('/api/generateSlide', reportController.generateSlide);
+// 5. スライド生成 (DLボタン) (削除)
+// router.post('/api/generateSlide', reportController.generateSlide);
 
 
 // =================================================================

@@ -4,37 +4,35 @@ const { google } = require('googleapis');
 // ▼▼▼ [変更] 必要なヘルパーのみインポート ▼▼▼
 const { getSpreadsheetIdFromUrl, getAiAnalysisKeys } = require('../utils/helpers');
 
-// ▼▼▼ [変更] 認証・初期化 ▼▼▼
+// ▼▼▼ [変更] 認証・初期化 - SLIDES関連を削除 ▼▼▼
 
-// ★★★ [変更] ご提示いただいた新しいGAS Web App (スライド複製・分析用) のURL ★★★
-exports.GAS_SLIDE_GENERATOR_URL = 'https://script.google.com/macros/s/AKfycbzBwicnwUxFw-YKBQQywJEhTRnM9IQsRKtj35lhFYwKDyJ011Yrl75GA2qhUhOnWK9yTA/exec';
-
+// ★★★ [削除] exports.GAS_SLIDE_GENERATOR_URL を削除し、GAS_SHEET_FINDER_URL のみ残す
 const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
 const KEYFILEPATH = '/etc/secrets/credentials.json';
 const SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/presentations'
+    // 'https://www.googleapis.com/auth/presentations' を削除
 ];
 const MASTER_FOLDER_ID = '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj';
 
 let sheets;
 let drive;
-let slides;
+// let slides; // 削除
 
 try {
     const auth = new google.auth.GoogleAuth({ keyFile: KEYFILEPATH, scopes: SCOPES });
     sheets = google.sheets({ version: 'v4', auth });
     drive = google.drive({ version: 'v3', auth });
-    slides = google.slides({ version: 'v1', auth });
-    console.log('Google Sheets, Drive, and Slides API clients initialized successfully.');
+    // slides = google.slides({ version: 'v1', auth }); // 削除
+    console.log('Google Sheets, Drive API clients initialized successfully.'); // メッセージ修正
 } catch (err) {
     console.error('Failed to initialize Google API clients:', err);
 }
 
-exports.slides = slides;
-exports.sheets = sheets;
-// ▲▲▲ [変更なし] 認証・初期化 ▲▲▲
+// exports.slides = slides; // 削除
+exports.sheets = sheets; // 前回の修正を維持
+// ▲▲▲ [変更] 認証・初期化 ▲▲▲
 
 
 // --- (変更なし) マスターシートからクリニックリストを取得 ---

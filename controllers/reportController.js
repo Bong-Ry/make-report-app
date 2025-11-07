@@ -3,7 +3,8 @@
 const googleSheetsService = require('../services/googleSheets');
 const pdfGeneratorService = require('../services/pdfGenerator');
 const aiAnalysisService = require('../aiAnalysisService');
-const googleSlidesService = require('../services/googleSlidesService');
+// ▼▼▼ [変更] googleSlidesService の require を削除
+// const googleSlidesService = require('../services/googleSlidesService');
 // ▼▼▼ [変更] タブ名を取得するヘルパー (不要になったため削除) ▼▼▼
 // const { getAnalysisSheetName } = require('../utils/helpers');
 
@@ -180,7 +181,7 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
     if (!limit) {
         console.error('[BG-AI] p-limit is not initialized! Running sequentially.');
         try {
-            const PLimit = (await pLimit()).default;
+            const PLimit = (await import('p-limit')).default;
             limit = PLimit(2); // ここで再設定
         } catch (e) {
             const PLimitSync = require('p-limit');
@@ -304,42 +305,6 @@ exports.generatePdf = async (req, res) => {
 };
 
 // =================================================================
-// === (変更なし) スライド生成 ===
+// === ▼▼▼ [削除] スライド生成 (generateSlide) ▼▼▼ ===
 // =================================================================
-exports.generateSlide = async (req, res) => {
-    console.log("POST /api/generateSlide called");
-    const { clinicName, centralSheetId, period, periodText } = req.body;
-
-    if (!clinicName || !centralSheetId || !period || !periodText) {
-        console.error('[/api/generateSlide] Missing data:', { 
-            clinicName: !!clinicName, 
-            centralSheetId: !!centralSheetId,
-            period: !!period,
-            periodText: !!periodText
-        });
-        return res.status(400).send('スライド生成に必要なデータ(clinicName, centralSheetId, period, periodText)が不足しています。');
-    }
-
-    try {
-        console.log(`[/api/generateSlide] Starting slide generation for: ${clinicName}`);
-        
-        // (googleSlidesService.js は `readAiAnalysisData` を使うよう修正済み)
-        const newSlideUrl = await googleSlidesService.generateSlideReport(
-            clinicName,
-            centralSheetId,
-            period,
-            periodText
-        );
-        
-        console.log(`[/api/generateSlide] Successfully generated slide. URL: ${newSlideUrl}`);
-        
-        res.json({
-            status: 'ok',
-            newSlideUrl: newSlideUrl
-        });
-
-    } catch (error) {
-        console.error(`[/api/generateSlide] Slide generation failed for ${clinicName}:`, error);
-        res.status(500).send(`スライド生成失敗: ${error.message}`);
-    }
-};
+// (関数全体を削除しました)

@@ -1,0 +1,373 @@
+    }
+};
+
+
+// =================================================================
+// === (変更なし) 分析タブ用 汎用I/O関数群 (11/X) ===
+// =================================================================
+
+/**
+ * [変更なし] テーブルデータ（市区町村、おすすめ理由）を専用タブに書き込む
+ */
+exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService] Saving Table to Sheet: "${sheetName}"`);
+    
+    try {
+        await findOrCreateSheet(centralSheetId, sheetName);
+        await clearSheet(centralSheetId, sheetName);
+        await writeData(centralSheetId, sheetName, dataRows);
+        
+        const sheetId = await getSheetId(centralSheetId, sheetName);
+        if (sheetId) {
+             await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: centralSheetId,
+                resource: { requests: [
+                    { autoResizeDimensions: {
+                        dimensions: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 4 }
+                    }}
+                ]}
+            });
+        }
+        
+        console.log(`[googleSheetsService] Successfully saved Table for "${sheetName}"`);
+
+    } catch (err) {
+        console.error(`[googleSheetsService] Error saving Table data: ${err.message}`, err);
+        throw new Error(`分析テーブルのシート保存に失敗しました: ${err.message}`);
+    }
+};
+
+/**
+ * [変更なし] AI分析データ (Map) を専用タブに (A列キー, B列値) 形式で書き込む
+ */
+exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService] Saving AI Key-Value Data to Sheet: "${sheetName}"`);
+    
+    try {
+        await findOrCreateSheet(centralSheetId, sheetName);
+        await clearSheet(centralSheetId, sheetName);
+        
+        const allKeys = getAiAnalysisKeys(); 
+        const dataRows = allKeys.map(key => {
+            const value = aiDataMap.get(key) || '（データなし）';
+            return [key, value]; // [A列, B列]
+        });
+        
+        const header = ['項目キー', '分析文章データ'];
+        const finalData = [header, ...dataRows];
+
+        await writeData(centralSheetId, `'${sheetName}'!A1`, finalData);
+        
+        const sheetId = await getSheetId(centralSheetId, sheetName);
+        if (sheetId) {
+             await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: centralSheetId,
+                resource: { requests: [
+                    { autoResizeDimensions: {
+                        dimensions: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }
+                    }},
+                    { updateDimensionProperties: {
+                        range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 },
+                        properties: { pixelSize: 800 },
+                        fields: 'pixelSize'
+                    }}
+                ]}
+            });
+        }
+        
+        console.log(`[googleSheetsService] Successfully saved AI Key-Value Data for "${sheetName}"`);
+
+    } catch (err) {
+        console.error(`[googleSheetsService] Error saving AI Key-Value data: ${err.message}`, err);
+        throw new Error(`AI分析(Key-Value)のシート保存に失敗しました: ${err.message}`);
+    }
+};
+
+/**
+ * [変更なし] AI分析タブ (A列キー, B列値) からデータを読み込み、Map形式で返す
+ */
+exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService] Reading AI Key-Value Data from Sheet: "${sheetName}"`);
+    
+    const aiDataMap = new Map();
+    getAiAnalysisKeys().forEach(key => {
+        aiDataMap.set(key, '（データがありません）');
+    });
+
+    try {
+        const range = `'${sheetName}'!A:B`;
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: range,
+            valueRenderOption: 'FORMATTED_VALUE'
+        });
+
+        const rows = response.data.values;
+
+        if (!rows || rows.length < 2) { 
+            console.log(`[googleSheetsService] No data found in "${sheetName}".`);
+            return aiDataMap; 
+        }
+
+        rows.shift(); // ヘッダーを捨てる
+
+        rows.forEach(row => {
+            const key = row[0];
+            const value = row[1];
+            if (key && value != null) {
+                aiDataMap.set(key, value);
+            }
+        });
+        
+        console.log(`[googleSheetsService] Successfully read ${aiDataMap.size} AI Key-Value pairs.`);
+        return aiDataMap;
+
+    } catch (e) {
+        if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
+            console.warn(`[googleSheetsService] Sheet "${sheetName}" not found. Returning empty map.`);
+            return aiDataMap; // シートが存在しない
+        }
+        console.error(`[googleSheetsService] Error reading AI Key-Value data: ${e.message}`, e);
+        throw new Error(`AI分析(Key-Value)のシート読み込みに失敗しました: ${e.message}`);
+    }
+};
+
+
+// =================================================================
+// === ▼▼▼ [新規] 完了マーカー (管理シート) I/O関数 (12/X) ▼▼▼ ===
+// =================================================================
+const MANAGEMENT_SHEET_NAME = '管理'; // (ご要望: 管理シート)
+
+/**
+ * [新規] 「管理」タブのA列にクリニック名を追記する (分析開始時)
+ * @param {string} centralSheetId
+ * @param {string} clinicName
+ */
+exports.writeInitialMarker = async (centralSheetId, clinicName) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService-Marker] Writing Initial Marker for: "${clinicName}"`);
+    try {
+        await findOrCreateSheet(centralSheetId, MANAGEMENT_SHEET_NAME);
+        
+        // (ご要望: 空白行に入力)
+        await writeData(centralSheetId, MANAGEMENT_SHEET_NAME, [[clinicName]], true); // append = true
+        
+    } catch (e) {
+        console.error(`[googleSheetsService-Marker] Error writing initial marker: ${e.message}`, e);
+        // (このエラーは致命的ではないため、スローしない)
+    }
+};
+
+/**
+ * [新規] 「管理」タブのB列に "Complete" と書き込む (分析完了時)
+ * @param {string} centralSheetId
+ * @param {string} clinicName
+ */
+exports.writeCompletionMarker = async (centralSheetId, clinicName) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService-Marker] Writing Completion Marker for: "${clinicName}"`);
+    try {
+        await findOrCreateSheet(centralSheetId, MANAGEMENT_SHEET_NAME);
+        
+        // 1. A列を読み込み、該当クリニックの行番号(0-based)を探す
+        const range = `'${MANAGEMENT_SHEET_NAME}'!A:A`;
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: range,
+        });
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            throw new Error('「管理」シートが空です。');
+        }
+
+        const rowIndex = rows.findIndex(row => row[0] === clinicName);
+        
+        if (rowIndex === -1) {
+            console.warn(`[googleSheetsService-Marker] Clinic name "${clinicName}" not found in management sheet A-column.`);
+            // (見つからない場合、最終行に追記)
+            await writeData(centralSheetId, MANAGEMENT_SHEET_NAME, [[clinicName, 'Complete']], true); // append
+        } else {
+            // 2. 該当行のB列 (B{rowIndex + 1}) に "Complete" と書き込む
+            const cellToUpdate = `'${MANAGEMENT_SHEET_NAME}'!B${rowIndex + 1}`;
+            await writeData(centralSheetId, cellToUpdate, [['Complete']], false); // (上書き)
+        }
+
+    } catch (e) {
+        console.error(`[googleSheetsService-Marker] Error writing completion marker: ${e.message}`, e);
+        // (このエラーは致命的ではないため、スローしない)
+    }
+};
+
+/**
+ * [新規] 「管理」タブを読み込み、完了ステータスのMapを作成する (DLボタンチェック用)
+ * @param {string} centralSheetId
+ * @returns {Promise<Record<string, boolean>>} (例: { "クリニックA": true, "クリニックB": false })
+ */
+exports.readCompletionStatusMap = async (centralSheetId) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService-Marker] Reading Completion Status Map...`);
+    
+    const statusMap = {};
+    
+    try {
+        await findOrCreateSheet(centralSheetId, MANAGEMENT_SHEET_NAME);
+        
+        // A列とB列を読み込む
+        const range = `'${MANAGEMENT_SHEET_NAME}'!A:B`;
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: range,
+        });
+
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return statusMap; // 空のMap
+        }
+        
+        // (ヘッダー行は無い前提)
+        rows.forEach(row => {
+            const clinicName = row[0];
+            const status = row[1];
+            if (clinicName) {
+                statusMap[clinicName] = (status === 'Complete');
+            }
+        });
+        
+        return statusMap;
+
+    } catch (e) {
+        // (シートが存在しない場合なども含む)
+        console.error(`[googleSheetsService-Marker] Error reading status map: ${e.message}`, e);
+        return statusMap; // 空のMap
+    }
+};
+
+
+// =================================================================
+// === ヘルパー関数群 (変更なし) ===
+// =================================================================
+
+/**
+ * [Helper] スプレッドシートに新しいシート（タブ）を追加する
+ */
+async function addSheet(spreadsheetId, title) {
+    try {
+        const request = {
+            spreadsheetId: spreadsheetId,
+            resource: {
+                requests: [{ addSheet: { properties: { title: title } } }]
+            }
+        };
+        const response = await sheets.spreadsheets.batchUpdate(request);
+        const newSheetId = response.data.replies[0].addSheet.properties.sheetId;
+        console.log(`[Helper] Added sheet "${title}" (ID: ${newSheetId})`);
+        return newSheetId;
+    } catch (e) {
+        if (e.message.includes('already exists')) {
+            // console.warn(`[Helper] Sheet "${title}" already exists.`);
+            return await getSheetId(spreadsheetId, title);
+        } else {
+            console.error(`[Helper] Error adding sheet "${title}": ${e.message}`);
+            throw e;
+        }
+    }
+}
+
+/**
+ * [Helper] シート名からシートIDを取得する
+ */
+async function getSheetId(spreadsheetId, title) {
+    try {
+        const metadata = await sheets.spreadsheets.get({
+            spreadsheetId: spreadsheetId,
+            fields: 'sheets(properties(sheetId,title))'
+        });
+        const sheet = metadata.data.sheets.find(s => s.properties.title === title);
+        return sheet ? sheet.properties.sheetId : null;
+    } catch (e) {
+        console.error(`[Helper] Error getting sheet ID for "${title}": ${e.message}`);
+        return null;
+    }
+}
+
+
+/**
+ * [Helper] 指定したシート（タブ）を見つけて作成する（存在すれば何もしない）
+ * @returns {number} sheetId
+ */
+async function findOrCreateSheet(spreadsheetId, title) {
+    try {
+        const existingSheetId = await getSheetId(spreadsheetId, title);
+        
+        if (existingSheetId !== null) {
+            // console.log(`[Helper] Sheet "${title}" already exists (ID: ${existingSheetId}).`);
+            return existingSheetId;
+        }
+        
+        console.log(`[Helper] Sheet "${title}" not found. Creating...`);
+        const newSheetId = await addSheet(spreadsheetId, title);
+        return newSheetId;
+        
+    } catch (e) {
+        console.error(`[Helper] Error in findOrCreateSheet for "${title}": ${e.message}`);
+        throw e;
+    }
+}
+
+
+/**
+ * [Helper] シート（タブ）の全データをクリアする
+ */
+async function clearSheet(spreadsheetId, range) {
+    try {
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId: spreadsheetId,
+            range: range, // シート名全体
+        });
+    } catch (e) {
+        console.error(`[Helper] Error clearing sheet "${range}": ${e.message}`);
+        throw e;
+    }
+}
+
+/**
+ * [Helper] シートにデータを書き込む (上書き または 追記)
+ */
+async function writeData(spreadsheetId, range, values, append = false) {
+    if (!values || values.length === 0) {
+        console.warn(`[Helper] No data to write for sheet "${range}".`);
+        return;
+    }
+    
+    try {
+        if (append) {
+            await sheets.spreadsheets.values.append({
+                spreadsheetId: spreadsheetId,
+                range: range,
+                valueInputOption: 'USER_ENTERED',
+                insertDataOption: 'INSERT_ROWS',
+                resource: {
+                    values: values
+                }
+            });
+        } else {
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: spreadsheetId,
+                range: range,
+                valueInputOption: 'USER_ENTERED',
+                resource: {
+                    values: values
+                }
+            });
+        }
+    } catch (e) {
+        console.error(`[Helper] Error writing data to sheet "${range}" (Append: ${append}): ${e.message}`);
+        throw e;
+    }
+}
+
+// ★ 既存の getSpreadsheetIdFromUrl を googleSheetsService の末尾にもエクスポート
+exports.getSpreadsheetIdFromUrl = getSpreadsheetIdFromUrl;

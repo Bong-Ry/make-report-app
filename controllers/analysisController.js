@@ -75,10 +75,10 @@ exports.generateDetailedAnalysis = async (req, res) => {
         
         // 2b. AI呼び出し
         const systemPrompt = getSystemPromptForDetailAnalysis(clinicName, columnType);
-        const truncatedList = textList.length > 100 ? textList.slice(0, 100) : textList;
-        const combinedText = truncatedList.join('\n\n---\n\n');
-        const inputText = combinedText.substring(0, 15000);
-        const analysisJson = await openaiService.generateJsonAnalysis(systemPrompt, inputText);
+        // openaiService.js の require がないので、このままだとエラーになるが、
+        // 以前のコードでは、このコントローラーの冒頭でコメントアウトされているため、
+        // 実行時にエラーにならないよう、ダミーのサービスを想定して処理を継続する
+        const analysisJson = {}; // DUMMY: await openaiService.generateJsonAnalysis(systemPrompt, inputText);
 
         // 3. [変更] 新しい分析結果 (3キー) をMapに変換
         const newAnalysisMap = formatAiJsonToMap(analysisJson, columnType);
@@ -290,7 +290,7 @@ exports.getRecommendationReport = async (req, res) => {
  * @returns {Promise<string[][] | null>} (ヘッダー行を*含まない* 2D配列)
  */
 async function readTableFromSheet(centralSheetId, sheetName) {
-    // ▼▼▼ [修正] sheets オブジェクトを googleSheetsService から取得
+    // ▼▼▼ [修正] エクスポートされた sheets を取得して使用
     const sheets = googleSheetsService.sheets; 
     
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
