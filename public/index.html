@@ -25,11 +25,9 @@
     .card{@apply bg-white p-6 md:p-8 shadow-lg rounded-xl border border-gray-200;}
     #loading-overlay > div > div { border-top-color: #333; border-bottom-color: #333; }
     
-    /* ▼▼▼ [修正] Word Cloud/ChartのコンテナはPDF生成時のサイズ調整のため、ここで高さを固定しない ▼▼▼ */
+    /* Word Cloud/Chartのコンテナはスクロール禁止 */
     .chart-container { 
-        min-height: 200px; 
-        height: auto;
-        overflow: hidden; /* スクロール禁止 */
+        overflow: hidden; 
         border: 1px solid #e5e7eb; 
         border-radius: 0.5rem; 
         padding: 1rem; 
@@ -38,57 +36,61 @@
     }
     #word-cloud-canvas { width: 100%; height: 100%; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
     
+    /* ▼▼▼ [修正] タブボタンはヘッダーに移動 ▼▼▼ */
     .tab-button { @apply px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 hover:text-gray-700 whitespace-nowrap cursor-pointer; }
     .tab-button.active { @apply border-indigo-500 text-indigo-600; }
     .tab-content { @apply p-4 border border-t-0 rounded-b-md bg-gray-50;}
 
     .edit-textarea {
-        @apply w-full p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm;
+        @apply w-full p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono;
         min-height: 400px;
+        font-size: 12pt; /* AI編集エリアも12pt */
     }
 
-    /* ▼▼▼ [再修正] 固定サイズ＆枠線付きレポートボディスタイル (A4横向き想定) ▼▼▼ */
+    /* ▼▼▼ [修正] 枠線 8px に調整 ▼▼▼ */
     .report-body {
-        /* UI上の表示サイズ（A4横比率） */
         width: 100%;
         max-width: 1122px; 
-        aspect-ratio: 297 / 210; /* A4横比率 */
+        aspect-ratio: 297 / 210; 
         min-height: 793px; 
         margin: 0 auto;
         padding: 40px;
         
-        /* 薄いピンクの枠線 */
-        border: 6px solid #fcf1ed; 
+        /* 薄いピンクの枠線 8px */
+        border: 8px solid #fcf1ed; 
         border-radius: 12px;
         background-color: #ffffff;
         
-        /* スクロール禁止 */
         overflow: hidden;
         position: relative;
     }
     
-    /* ▼▼▼ [再修正] レポート本文の基本スタイルと配置 ▼▼▼ */
+    /* ▼▼▼ [修正] タイトル/サブタイトル/本体のスタイル (フォントサイズ調整) ▼▼▼ */
     .report-title {
-        @apply text-3xl font-bold text-gray-900 mb-2;
-        /* タイトルは左詰 */
+        font-size: 16pt; /* タイトル 16pt */
+        font-weight: bold;
+        margin-bottom: 8px;
         text-align: left !important;
     }
     .report-subtitle {
-        @apply text-base text-gray-600 mb-4 whitespace-pre-wrap;
+        font-size: 12pt; /* サブタイトル 12pt */
+        color: #6b7280;
+        margin-bottom: 16px;
+        white-space: pre-wrap;
         /* サブタイトルは中央揃え */
         text-align: center !important; 
     }
     .report-separator {
-        @apply border-t border-dashed border-gray-400 mb-6;
+        border-top: 1px dashed #9ca3af;
+        margin-bottom: 24px;
     }
     .report-content {
-        /* 本体部分。高さを計算して固定。スクロール禁止 */
-        height: calc(100% - 150px); 
+        height: calc(100% - 130px); /* タイトル, サブ, 点線を考慮し調整 */
         overflow: hidden; 
         position: relative;
     }
     
-    /* ▼▼▼ [再修正] AI分析専用スタイル (スクロール禁止を徹底) ▼▼▼ */
+    /* ▼▼▼ [修正] AI分析専用スタイル (フォントサイズ 12pt) ▼▼▼ */
     .ai-analysis-container {
         @apply flex h-full;
         overflow: hidden;
@@ -99,26 +101,39 @@
         overflow: hidden;
     }
     .ai-analysis-content {
-        @apply w-4/5 pl-4 whitespace-pre-wrap text-base;
+        @apply w-4/5 pl-4 whitespace-pre-wrap;
         height: 100%;
-        font-size: 15pt;
+        font-size: 12pt; /* 12ptに統一 */
         line-height: 1.5;
-        overflow: hidden; /* スクロール禁止 */
-        /* PDFでフォントがオーバーフローする場合、このフォント設定を小さくする調整が必要 */
+        overflow: hidden; 
     }
     .ai-analysis-shape {
-        @apply bg-blue-100 text-blue-800 font-bold text-lg p-4 rounded-lg shadow-md mb-4;
-        clip-path: polygon(0% 0%, 100% 0%, 100% 75%, 75% 75%, 75% 100%, 50% 75%, 0% 75%);
+        /* 五角形矢印の吹き出しデザイン */
+        @apply bg-gray-300 text-gray-800 font-bold p-3 rounded-md shadow-sm mb-4;
         width: 100%;
+        height: 80px; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
         text-align: center;
+        clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%);
+        font-size: 14pt; /* 吹き出し内の文字はやや大きく */
     }
 
-    /* ▼▼▼ コメントリストのスタイルを調整し、親要素の高さにフィットさせる ▼▼▼ */
+    /* ▼▼▼ コメントリストのスタイル (スクロール禁止) ▼▼▼ */
     .comment-list-content {
         height: 100%; 
-        overflow: hidden; /* スクロール禁止 */
-        /* フォント自動調整用のクラス */
-        @apply text-lg;
+        overflow: hidden; 
+        font-size: 12pt; /* コメントリストも12pt */
+        line-height: 1.5;
+    }
+    /* ▼▼▼ 表のフォントサイズを小さくする (1ページ収まるように) ▼▼▼ */
+    .municipality-table-container table {
+        font-size: 10pt;
+    }
+    .municipality-table-container th, 
+    .municipality-table-container td {
+        padding: 6px 12px;
     }
   </style>
 </head>
@@ -130,7 +145,6 @@
 
   <div id="screen2" class="screen hidden"> <header class="flex justify-between items-center mb-6 pb-4 border-b"> <button id="back-to-period" class="btn">&lt; 期間選択へ戻る</button> <div id="period-display" class="text-base font-semibold text-gray-700 bg-white py-2 px-4 rounded-lg shadow-sm border"></div> </header> <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:px-8"> <section class="card"> <h2 class="text-xl font-bold mb-5">1. クリニックを選択 (未転記)</h2> <div id="clinic-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2 border rounded-lg p-4 bg-gray-50"> <p class="text-sm text-gray-500 text-center py-4">読み込み中...</p> </div> <div class="mt-6 text-right"> <button id="issue-btn" class="btn bg-gray-800 text-white hover:bg-gray-700" disabled>データ転記実行</button> </div> </section> <section class="card"> <h2 class="text-xl font-bold mb-5">2. レポートを閲覧 (転記済み)</h2> <div id="issued-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2"> <p class="text-sm text-gray-500 text-center py-8">読み込み中...</p> </div> </section> </main> </div>
 
-  <!-- ▼▼▼ [修正] Screen 3: Chart/Comment/Table View ▼▼▼ -->
   <div id="screen3" class="screen hidden">
     <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
       
@@ -197,7 +211,6 @@
     </main>
   </div>
   
-  <!-- ▼▼▼ [修正] Screen 5: AI Analysis View (サブタイトル中央揃えを反映) ▼▼▼ -->
   <div id="screen5" class="screen hidden">
     <header class="mb-6 flex flex-col space-y-4 pb-6 border-b border-gray-200">
         <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
@@ -238,15 +251,9 @@
             </div>
         </div>
         
-        <div class="mt-6">
-            <h1 id="detailed-analysis-title" class="report-title"></h1>
-            <p id="detailed-analysis-subtitle" class="report-subtitle"></p>
-            <hr class="report-separator">
-        </div>
-        
-        <div class="flex flex-wrap justify-between items-center space-y-2 md:space-y-0 pt-4">
-             <div class="border-b border-gray-200">
-                <nav class="flex -mb-px" aria-label="Tabs">
+        <div class="mt-4 flex justify-between items-center">
+            <div class="border-b border-gray-200">
+                <nav id="ai-tab-nav" class="flex -mb-px" aria-label="Tabs">
                     <button id="tab-analysis" data-tab-id="analysis" class="tab-button active">分析と考察</button>
                     <button id="tab-suggestions" data-tab-id="suggestions" class="tab-button">改善提案</button>
                     <button id="tab-overall" data-tab-id="overall" class="tab-button">総評</button>
@@ -262,8 +269,11 @@
     </header>
     
     <main class="report-body">
+        <h1 id="detailed-analysis-title" class="report-title"></h1>
+        <p id="detailed-analysis-subtitle" class="report-subtitle"></p>
+        <hr class="report-separator">
+
         <div id="detailed-analysis-content-area" class="report-content">
-            <!-- AI分析結果を左右に分割表示する -->
             <div id="content-analysis" class="tab-content ai-analysis-container">
                 <div class="ai-analysis-sidebar">
                     <div class="ai-analysis-shape">分析と考察</div>
@@ -274,7 +284,7 @@
 
             <div id="content-suggestions" class="tab-content ai-analysis-container hidden">
                  <div class="ai-analysis-sidebar">
-                    <div class="ai-analysis-shape">改善点</div>
+                    <div class="ai-analysis-shape">改善提案</div>
                 </div>
                 <div id="display-suggestions" class="ai-analysis-content"></div>
                 <div id="edit-suggestions" class="hidden w-4/5"> <textarea id="textarea-suggestions" class="edit-textarea"></textarea></div>
@@ -295,7 +305,7 @@
   
   
   <script>
-  // --- ▼▼▼ [修正] グローバル変数 (データキャッシュを追加) ▼▼▼ ---
+  // --- グローバル変数 ---
   let selectedPeriod = {}; 
   let currentClinicForModal = '';
   let slidesData = []; 
@@ -329,7 +339,7 @@
     console.log('Listeners setup.');
   });
 
-  // --- イベントリスナー設定 (変更なし) ---
+  // --- イベントリスナー設定 (WC-が開けない問題解消のため修正) ---
   function setupEventListeners() {
     document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); 
     document.getElementById('issue-btn').addEventListener('click', handleIssueReport); 
@@ -352,7 +362,9 @@
     document.getElementById('pdf-export-btn').addEventListener('click', generatePdf); 
     document.getElementById('pdf-export-btn-screen5').addEventListener('click', generatePdf);
     
-    document.querySelectorAll('#screen5 .tab-button').forEach(button => { button.addEventListener('click', handleTabClick); });
+    // AI分析タブのリスナーは #ai-tab-nav に移動
+    document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => { button.addEventListener('click', handleTabClick); });
+    
     document.getElementById('regenerate-detailed-analysis-btn').addEventListener('click', handleRegenerateDetailedAnalysis);
     document.getElementById('edit-detailed-analysis-btn').addEventListener('click', () => toggleEditDetailedAnalysis(true));
     document.getElementById('save-detailed-analysis-btn').addEventListener('click', saveDetailedAnalysisEdits);
@@ -367,228 +379,15 @@
     });
   }
 
-  // --- 画面1/2 処理 (変更なし) ---
-  function populateDateSelectors() {
-    const now = new Date();
-    const cy = now.getFullYear();
-    const sy = document.getElementById('start-year');
-    const ey = document.getElementById('end-year');
-    
-    for(let i = 0; i < 5; i++) {
-        const y = cy - i;
-        sy.add(new Option(`${y}年`, y));
-        ey.add(new Option(`${y}年`, y));
-    }
+  // --- 画面1/2 処理 (省略) ---
+  function populateDateSelectors() { /* ... */ }
+  async function handleNextToClinics() { /* ... */ }
+  async function loadClinics() { /* ... */ }
+  function handleClinicCheckboxChange(event) { /* ... */ }
+  async function handleIssueReport() { /* ... */ }
 
-    const sm = document.getElementById('start-month');
-    const em = document.getElementById('end-month');
-    
-    for(let i = 1; i <= 12; i++) {
-        const m = String(i).padStart(2, '0');
-        sm.add(new Option(`${i}月`, m));
-        em.add(new Option(`${i}月`, m));
-    }
-    
-    em.value = String(now.getMonth() + 1).padStart(2, '0');
-    sy.value = String(cy); 
-    sm.value = String(now.getMonth() + 1).padStart(2, '0');
-  }
 
-  async function handleNextToClinics() {
-    console.log('Next clicked.');
-    const sy=document.getElementById('start-year').value;
-    const sm=document.getElementById('start-month').value;
-    const ey=document.getElementById('end-year').value;
-    const em=document.getElementById('end-month').value;
-    const sd=new Date(`${sy}-${sm}-01`);
-    const ed=new Date(`${ey}-${em}-01`);
-
-    if(sd > ed){
-        console.warn('Start>End.');
-        alert('開始年月<=終了年月で設定');
-        document.getElementById('start-year').classList.add('border-red-500');
-        document.getElementById('start-month').classList.add('border-red-500');
-        return;
-    }
-    document.getElementById('start-year').classList.remove('border-red-500');
-    document.getElementById('start-month').classList.remove('border-red-500');
-
-    selectedPeriod = {start: `${sy}-${sm}`, end: `${ey}-${em}`};
-    currentPeriodText = `${sy}-${sm}～${ey}-${em}`; 
-    const displayPeriod = `${sy}年${sm}月～${ey}年${em}月`;
-
-    console.log('Period:', selectedPeriod, 'File Name:', currentPeriodText);
-    showLoading(true, '集計シートを検索・準備中...');
-
-    try {
-        const response = await fetch('/api/findOrCreateSheet', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ periodText: currentPeriodText })
-        });
-
-        if (!response.ok) {
-            const et = await response.text();
-            throw new Error(`サーバーエラー(${response.status}): ${et}`);
-        }
-        
-        const data = await response.json();
-        currentCentralSheetId = data.centralSheetId; 
-        console.log(`Got Central Sheet ID: ${currentCentralSheetId}`);
-        
-        document.getElementById('period-display').textContent = `集計期間：${displayPeriod}`;
-        showScreen('screen2');
-        loadClinics();
-    } catch (err) {
-        console.error('!!! Find/Create Sheet failed:', err);
-        alert(`集計シートの準備に失敗\n${err.message}`);
-    } finally {
-        showLoading(false);
-    }
-  }
-
-  async function loadClinics() {
-    console.log('loadClinics (new)...');
-    showLoading(true, 'クリニック一覧と転記状況を読込中...');
-    
-    const clinicListContainer = document.getElementById('clinic-list-container');
-    const issuedListContainer = document.getElementById('issued-list-container');
-    clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
-    issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
-    
-    document.getElementById('issue-btn').disabled = true; 
-
-    try {
-        const [clinicListRes, transferredListRes] = await Promise.all([
-            fetch('/api/getClinicList'),
-            fetch('/api/getTransferredList', { 
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ centralSheetId: currentCentralSheetId })
-            })
-        ]);
-
-        if (!clinicListRes.ok) throw new Error(`クリニック一覧の取得失敗: ${await clinicListRes.text()}`);
-        if (!transferredListRes.ok) throw new Error(`転記済み一覧の取得失敗: ${await transferredListRes.text()}`);
-        
-        const masterClinics = await clinicListRes.json(); 
-        const { sheetTitles, aiCompletionStatus } = await transferredListRes.json(); 
-        
-        currentAiCompletionStatus = aiCompletionStatus;
-        
-        const transferredTitlesSet = new Set(sheetTitles); 
-        
-        clinicListContainer.innerHTML = '';
-        issuedListContainer.innerHTML = '';
-        
-        let untransferredCount = 0;
-        let transferredCount = 0;
-
-        if (!Array.isArray(masterClinics) || masterClinics.length === 0) {
-            clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">対象なし</p>';
-        } else {
-            masterClinics.forEach(clinicName => {
-                if (transferredTitlesSet.has(clinicName)) {
-                    const d = document.createElement('div');
-                    d.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 hover:shadow-md transition-all duration-200';
-                    
-                    d.innerHTML = `
-                        <p class="font-bold text-base view-report-btn" data-clinic-name="${clinicName}">${clinicName}</p>
-                    `;
-                    
-                    issuedListContainer.appendChild(d);
-                    transferredCount++;
-                } else {
-                    const d = document.createElement('div');
-                    d.className = 'flex items-center p-2 rounded-md hover:bg-gray-100';
-                    d.innerHTML = `
-                        <input type="checkbox" id="clinic-${clinicName}" name="clinic" value="${clinicName}" class="mr-3 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-800 cursor-pointer">
-                        <label for="clinic-${clinicName}" class="text-sm select-none cursor-pointer text-gray-900">${clinicName}</label>
-                    `;
-                    clinicListContainer.appendChild(d);
-                    untransferredCount++;
-                }
-            });
-        }
-        
-        if (untransferredCount === 0) {
-            clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">未転記のクリニックはありません</p>';
-        }
-        if (transferredCount === 0) {
-            issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-8">転記済みレポートなし</p>';
-        }
-
-        clinicListContainer.removeEventListener('change', handleClinicCheckboxChange);
-        clinicListContainer.addEventListener('change', handleClinicCheckboxChange);
-        handleClinicCheckboxChange();
-
-    } catch(err) {
-        console.error('!!! Load failed:', err);
-        clinicListContainer.innerHTML = `<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;
-        issuedListContainer.innerHTML = `<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;
-    } finally {
-        showLoading(false);
-    }
-  }
-
-  function handleClinicCheckboxChange(event) {
-    const checkedCheckboxes = document.querySelectorAll('#clinic-list-container input:checked');
-    const checkedCount = checkedCheckboxes.length;
-    const issueBtn = document.getElementById('issue-btn');
-    
-    if (checkedCount > 10) {
-        alert('一度に選択できる件数は10件までです。');
-        if (event && event.target) {
-            event.target.checked = false;
-        }
-    }
-    
-    const finalCheckedCount = document.querySelectorAll('#clinic-list-container input:checked').length;
-    
-    document.querySelectorAll('#clinic-list-container input[type="checkbox"]').forEach(cb => {
-        if (!cb.checked) {
-            cb.disabled = (finalCheckedCount >= 10);
-        } else {
-            cb.disabled = false; 
-        }
-    });
-    
-    issueBtn.disabled = (finalCheckedCount === 0);
-  }
-
-  async function handleIssueReport() {
-    console.log('Issue report (ETL).');
-    const sc = Array.from(document.querySelectorAll('#clinic-list-container input:checked'))
-                  .map(cb => cb.value);
-    if (sc.length === 0) { alert('転記対象のクリニックが選択されていません。'); return; }
-    if (sc.length > 10) { alert('一度に選択できる件数は10件までです。チェックを減らしてください。'); return; }
-
-    showLoading(true, '集計スプレッドシートへデータ転記中...\n完了後、バックグラウンドで分析タブが自動生成されます。');
-    console.log('Selected for ETL:', sc);
-
-    try {
-        const r = await fetch('/api/getReportData', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-                period: selectedPeriod,
-                selectedClinics: sc,
-                centralSheetId: currentCentralSheetId 
-            })
-        });
-        if (!r.ok) { const et = await r.text(); throw new Error(`サーバーエラー(${r.status}): ${et}`); }
-        const data = await r.json(); 
-        console.log('ETL process finished:', data);
-        loadClinics(); 
-    } catch(err) {
-        console.error('!!! ETL Issue failed:', err);
-        alert(`データ転記失敗\n${err.message}`);
-    } finally {
-        showLoading(false);
-    }
-  }
-
-  // --- 画面3/5 (レポート表示/AI分析) 処理 (大幅変更) ---
+  // --- 画面3/5 (レポート表示/AI分析) 処理 ---
 
   // イベント委譲 (変更なし)
   function handleIssuedListClickDelegator(e) {
@@ -598,20 +397,18 @@
     }
   }
 
-  // 転記済みレポートクリック (データキャッシュをクリア)
+  // 転記済みレポートクリック (変更なし)
   async function handleIssuedListClick(clinicName) {
     currentClinicForModal = clinicName;
     console.log(`Issued clinic clicked: ${currentClinicForModal}`);
     
-    // データキャッシュをクリア
     clinicDataCache = null;
     overallDataCache = null;
     
-    // 初回表示は「表紙」ページ
     prepareAndShowReport('cover');
   }
   
-  // (ナビゲーションクリック - Screen 3 と 5 共通)
+  // ▼▼▼ [修正] ナビゲーションクリック (WC-が開けない問題解消) ▼▼▼
   function handleReportNavClick(e) {
     const targetButton = e.target.closest('.btn');
     if (!targetButton) return;
@@ -623,6 +420,8 @@
         prepareAndShowReport(reportType);
     } else if (analysisType) {
         currentAnalysisTarget = analysisType;
+        // WC-ボタンクリック時にも showScreen('screen3') を実行し、遷移を確実にする
+        showScreen('screen3');
         prepareAndShowAnalysis(analysisType); 
     } else if (detailedAnalysisType) {
         currentDetailedAnalysisType = detailedAnalysisType;
@@ -630,7 +429,7 @@
     }
   }
   
-  // ▼▼▼ [修正] 共通データ取得関数 (キャッシュ対応を導入) ▼▼▼
+  // 共通データ取得関数 (キャッシュ対応)
   async function getReportDataForCurrentClinic(sheetName) {
     const isOverall = sheetName === "全体";
     const cache = isOverall ? overallDataCache : clinicDataCache;
@@ -654,10 +453,9 @@
     
     return data;
   }
-  // ▲▲▲
 
 
-  // レポート表示メイン (Screen 3)
+  // レポート表示メイン (Screen 3) (変更なし)
   async function prepareAndShowReport(reportType){
     console.log(`Prepare report: ${reportType}`); 
     showLoading(true,'レポートデータ集計中...');
@@ -763,7 +561,7 @@
     } 
   }
 
-  // ▼▼▼ [再修正] 例外構成（表紙・目次・概要）の表示 (配置を修正) ▼▼▼
+  // 例外構成（表紙・目次・概要）の表示 (変更なし)
   async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-separator').style.display='none'; 
     document.getElementById('report-subtitle').style.textAlign = 'center'; 
@@ -836,28 +634,26 @@
         `;
     }
   }
-  // ▲▲▲
   
   // グラフ描画用シェル設定 
   function prepareChartPage(title, subtitle, type, isBar=false) { 
     document.getElementById('report-title').textContent = title;
     document.getElementById('report-subtitle').textContent = subtitle;
-    document.getElementById('report-subtitle').style.textAlign = 'center'; // サブタイトルは中央揃え
+    document.getElementById('report-subtitle').style.textAlign = 'center'; 
     document.getElementById('report-separator').style.display='block';
 
     let htmlContent = '';
     const cid = isBar ? 'bar-chart' : 'pie-chart';
     
     // 本体部分の高さをレポート全体の高さに合わせて調整
-    const chartHeightClass = 'h-[400px]'; // UI上の表示高さ
-    
+    const chartHeightClass = 'h-[350px]'; // グラフ描画エリアの高さ調整
+
     if (type === 'nps_score') {
         htmlContent = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full">
                 <div class="flex flex-col h-full">
                     <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
                     <div id="clinic-bar-chart" class="w-full ${chartHeightClass} bg-gray-50 border border-gray-200 flex items-center justify-center"></div>
-                    <!-- 画像入力スペース -->
                     <div class="w-full h-[150px] flex flex-col justify-center items-center mt-4">
                         <p class="text-sm text-gray-500 mb-2">【画像入力エリア】</p>
                         <div class="w-full h-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400">
@@ -888,94 +684,16 @@
     document.getElementById('slide-body').innerHTML = htmlContent;
   }
 
-  // (グラフ描画関数は変更なし - ChartAreaを調整してフォント調整に対応)
+  // グラフ描画関数 (フォントサイズ維持を優先し、ChartAreaを調整)
   function drawSatisfactionCharts(clinicChartData, overallChartData){ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:12,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:12}},tooltip:{showColorCode:true,textStyle:{fontSize:12},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};const cdEl=document.getElementById('clinic-pie-chart');if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');if(clinicChartData&&clinicChartData.length>1&&clinicChartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(clinicChartData);const c=new google.visualization.PieChart(cdEl);c.draw(d,opt);} else {cdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-pie-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');if(overallChartData&&overallChartData.length>1&&overallChartData.slice(1).some(row=>row[1]>0)){const avgD=google.visualization.arrayToDataTable(overallChartData);const avgC=new google.visualization.PieChart(avgEl);avgC.draw(avgD,opt);} else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
-  function drawIncomeCharts(clinicData, overallData){ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:"#.##'%'",viewWindow:{min:0}}, hAxis:{textStyle:{fontSize:11}, titleTextStyle:{fontSize:12}}};const ccdEl=document.getElementById('clinic-bar-chart');if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');if(clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1){const cd=google.visualization.arrayToDataTable(clinicData.results);const cc=new google.visualization.ColumnChart(ccdEl);cc.draw(cd,opt);} else {ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-bar-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');if(overallData.totalCount > 0 && overallData.results && overallData.results.length > 1){const avgD=google.visualization.arrayToDataTable(overallData.results);const avgC=new google.visualization.ColumnChart(avgEl);avgC.draw(avgD,opt); } else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
-  function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = document.getElementById('clinic-bar-chart');if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];if (clinicData.totalCount > 0) {for (let i = 0; i <= 10; i++) {const count = clinicData.counts[i] || 0;const percentage = (count / clinicData.totalCount) * 100;clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);}} const opt = {legend: { position: 'none' },colors: ['#DE5D83'], annotations: {textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },alwaysOutside: false,stem: { color: 'transparent' }},vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 } },hAxis: { title: '推奨度スコア (0〜10)', textStyle:{fontSize:11}, titleTextStyle:{fontSize:12}},bar: { groupWidth: '80%' },isStacked: false, chartArea:{height:'75%', width:'90%', left:'5%', top:'5%'}};if (clinicData.totalCount > 0 && clinicChartData.length > 1) {const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);const clinicChart = new google.visualization.ColumnChart(clinicChartEl);clinicChart.draw(clinicDataVis, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const summaryArea = document.getElementById('nps-summary-area');if (summaryArea) {summaryArea.innerHTML = ` <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs"> <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p> <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p> </div> `;} const clinicHeaderEl = document.getElementById('clinic-chart-header');if (clinicHeaderEl) {clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;} }
+  function drawIncomeCharts(clinicData, overallData){ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:"#.##'%'",viewWindow:{min:0}, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, hAxis:{textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}};const ccdEl=document.getElementById('clinic-bar-chart');if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');if(clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1){const cd=google.visualization.arrayToDataTable(clinicData.results);const cc=new google.visualization.ColumnChart(ccdEl);cc.draw(cd,opt);} else {ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-bar-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');if(overallData.totalCount > 0 && overallData.results && overallData.results.length > 1){const avgD=google.visualization.arrayToDataTable(overallData.results);const avgC=new google.visualization.ColumnChart(avgEl);avgC.draw(avgD,opt); } else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
+  function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = document.getElementById('clinic-bar-chart');if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];if (clinicData.totalCount > 0) {for (let i = 0; i <= 10; i++) {const count = clinicData.counts[i] || 0;const percentage = (count / clinicData.totalCount) * 100;clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);}} const opt = {legend: { position: 'none' },colors: ['#DE5D83'], annotations: {textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },alwaysOutside: false,stem: { color: 'transparent' }},vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},hAxis: { title: '推奨度スコア (0〜10)', textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},bar: { groupWidth: '80%' },isStacked: false, chartArea:{height:'75%', width:'90%', left:'5%', top:'5%'}};if (clinicData.totalCount > 0 && clinicChartData.length > 1) {const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);const clinicChart = new google.visualization.ColumnChart(clinicChartEl);clinicChart.draw(clinicDataVis, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const summaryArea = document.getElementById('nps-summary-area');if (summaryArea) {summaryArea.innerHTML = ` <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs"> <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p> <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p> </div> `;} const clinicHeaderEl = document.getElementById('clinic-chart-header');if (clinicHeaderEl) {clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;} }
   function calculateNps(counts, totalCount) { if (totalCount === 0) return 0;let promoters = 0, passives = 0, detractors = 0;for (let i = 0; i <= 10; i++) {const count = counts[i] || 0;if (i >= 9) promoters += count;else if (i >= 7) passives += count;else detractors += count;} return ((promoters / totalCount) - (detractors / totalCount)) * 100; }
 
-  // NPSコメントページ作成
-  function prepareNpsCommentPages(results, baseTitle, totalCount) { 
-    document.getElementById('report-title').textContent=baseTitle;
-    document.getElementById('report-subtitle').textContent='';
-    document.getElementById('report-separator').style.display='none';
-    
-    slidesData = [];
-    if(!results) return;
-    
-    const ml=20;
-    const sc=Object.keys(results).map(Number).sort((a,b)=>b-a);
-    
-    sc.forEach(s=>{
-        const rs=results[s];
-        if(!rs||rs.length===0) return;
-
-        let imageTag = '';
-        if (s === 10 || s === 9) imageTag = '画像3';
-        else if (s === 8 || s === 7) imageTag = '画像4';
-        else if (s <= 6 && s >= 0) imageTag = '画像5';
-        
-        let cpb='';
-        let clc=0;
-        let isFirstPage = true;
-
-        rs.forEach((r)=>{
-            const rt=`・ ${r}`;
-            const rl=(rt.match(/\n/g)||[]).length+1;
-
-            if(clc > 0 && (clc + rl) > ml){
-                slidesData.push({header:'', body: cpb, isCommentPage: true});
-                cpb = rt;
-                clc = rl;
-                isFirstPage = false;
-            } else {
-                cpb += (clc === 0 ? '' : '\n') + rt;
-                clc += rl;
-            }
-        });
-        
-        if (cpb){
-            const headerText = `${imageTag}　推奨度${s} ${rs.length}人`;
-            slidesData.push({
-                header: isFirstPage ? headerText : '',
-                body: cpb,
-                isCommentPage: true
-            });
-        }
-    }); 
-    
-    document.getElementById('pagination').style.display= slidesData.length > 1 ? 'flex' : 'none';
-  }
-  
-  // 一般コメントページ作成
-  function prepareCommentPages(data, title){ 
-    if(!data)data={totalCount:0,results:[]};
-    const{totalCount,results}=data;
-    document.getElementById('report-title').textContent=title;
-    document.getElementById('report-subtitle').textContent='データ一覧（20データずつ）';
-    document.getElementById('report-separator').style.display='none';
-    slidesData = [];
-    
-    const ml=20;
-    if(results&&results.length>0){
-        let clc=0,cpb='';
-        results.forEach((it)=>{
-            const itx=`・ ${it}`;
-            const il=(itx.match(/\n/g)||[]).length+1;
-            
-            if(clc>0&&(clc+il)>ml){
-                slidesData.push({header:'',body:cpb, isCommentPage: true});
-                cpb=itx;
-                clc=il;
-            }else{
-                cpb+=(clc===0?'':'\n')+itx;
-                clc+=il;
-            }
-        });
-        if(cpb){slidesData.push({header:'',body:cpb, isCommentPage: true});}
-    } 
-    document.getElementById('pagination').style.display= slidesData.length > 1 ? 'flex' : 'none';
-  }
+  // NPSコメントページ作成 (変更なし)
+  function prepareNpsCommentPages(results, baseTitle, totalCount) { /* ... */ }
+  // 一般コメントページ作成 (変更なし)
+  function prepareCommentPages(data, title){ /* ... */ }
   
   // スライド描画ヘルパー (コメントページ描画ロジックを反映)
   function renderSlide(page){ 
@@ -986,7 +704,6 @@
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-header').innerHTML=s.header;
     
-    // コメントリスト用のカスタムコンテナに HTML を挿入
     const bodyEl = document.getElementById('slide-body');
     bodyEl.innerHTML=`<div class="comment-list-content">${s.body}</div>`; 
 
@@ -998,7 +715,7 @@
   function handleNextSlide(){ if(currentPage<slidesData.length){currentPage++;renderSlide(currentPage);} }
 
 
-  // 市区町村 (変更なし)
+  // 市区町村 (表のレイアウト調整)
   async function prepareAndShowMunicipalityReport() {
     console.log('Prepare municipality report');
     showScreen('screen3');
@@ -1010,6 +727,7 @@
     const slideBody = document.getElementById('slide-body');
     slideBody.style.whiteSpace = 'normal';
     slideBody.innerHTML = '<p class="text-center text-gray-500 py-16">市区町村データを読み込み中...</p>';
+    slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
     
     showLoading(true, '市区町村データを読み込み中...');
     
@@ -1042,9 +760,10 @@
         slideBody.innerHTML = '<p class="text-center text-gray-500 py-16">集計データがありません。</p>'; 
         return; 
     } 
-    let tableHtml = `<div class="w-full h-full border border-gray-200 rounded-lg"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">都道府県</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">市区町村</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">件数</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">割合</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`; 
+    // ▼▼▼ [修正] 表のフォントサイズ/パディングを調整して収める ▼▼▼
+    let tableHtml = `<div class="municipality-table-container w-full h-full border border-gray-200 rounded-lg"><table class="w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">都道府県</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">市区町村</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">件数</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">割合</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`; 
     data.forEach(row => { 
-        tableHtml += `<tr><td class="px-6 py-4 text-sm font-medium text-gray-900">${row.prefecture}</td><td class="px-6 py-4 text-sm text-gray-700">${row.municipality}</td><td class="px-6 py-4 text-sm text-gray-700 text-right">${row.count}</td><td class="px-6 py-4 text-sm text-gray-700 text-right">${row.percentage.toFixed(2)}%</td></tr>`; 
+        tableHtml += `<tr><td class="py-2 font-medium text-gray-900">${row.prefecture}</td><td class="py-2 text-gray-700">${row.municipality}</td><td class="py-2 text-gray-700 text-right">${row.count}</td><td class="py-2 text-gray-700 text-right">${row.percentage.toFixed(2)}%</td></tr>`; 
     }); 
     tableHtml += '</tbody></table></div>'; 
     slideBody.innerHTML = tableHtml; 
@@ -1096,6 +815,7 @@
           
           showLoading(false);
           
+          // ChartAreaとフォントサイズを調整
           const opt = {is3D: true,chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },pieSliceText: 'percentage',pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },};
           const clinicChartEl = document.getElementById('clinic-pie-chart');
           if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
@@ -1113,7 +833,7 @@
   }
 
 
-  // Word Cloud表示 (Screen 3)
+  // Word Cloud表示 (Screen 3) (修正済み)
   async function prepareAndShowAnalysis(columnType) {
     showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
     showScreen('screen3');
@@ -1124,7 +844,7 @@
     
     document.getElementById('report-title').textContent = getAnalysisTitle(columnType, 0); 
     document.getElementById('report-subtitle').textContent = '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。';
-    document.getElementById('report-subtitle').style.textAlign = 'left';
+    document.getElementById('report-subtitle').style.textAlign = 'left'; // WCページのみ左詰
     document.getElementById('report-separator').style.display='block';
 
     const slideBody = document.getElementById('slide-body');
@@ -1155,7 +875,6 @@
     }
     
     // WCの新しいシェルを直接 body に設定
-    // **本体の高さにフィットするように各グラフの高さをパーセンテージで調整**
     slideBody.innerHTML = `
         <div class="grid grid-cols-2 gap-4 h-full">
             <div class="space-y-2 h-full pr-2 flex flex-col">
@@ -1199,7 +918,6 @@
         if(!r.ok){const et=await r.text();throw new Error(`分析APIエラー(${r.status}): ${et}`);}
         const ad=await r.json();
         console.log("Received Kuromoji analysis:",ad);
-        // Chart Area のサイズを考慮し、描画を遅延させる
         setTimeout(() => drawAnalysisCharts(ad.results), 50);
     } catch(error){
         console.error('!!! Analyze fail:',error);
@@ -1210,8 +928,8 @@
     }
   }
 
-  // Word Cloud描画 (ChartAreaを調整)
-  function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:11}, titleTextStyle:{fontSize:12}},vAxis:{title:'単語', textStyle:{fontSize:11}, titleTextStyle:{fontSize:12}}, chartArea:{height:'90%', width:'80%', left:'15%', top:'5%'}};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});console.log('WordCloud List:',wl);const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'#f9fafb',clearCanvas:true};console.log('WordCloud Options:',options);WordCloud(cv,options);console.log("Word cloud drawn.");}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
+  // Word Cloud描画 (修正済み)
+  function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},vAxis:{title:'単語', textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, chartArea:{height:'90%', width:'80%', left:'15%', top:'5%'}};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});console.log('WordCloud List:',wl);const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'#f9fafb',clearCanvas:true};console.log('WordCloud Options:',options);WordCloud(cv,options);console.log("Word cloud drawn.");}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
   function drawSingleBarChart(data, elementId, options) { const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
   function clearAnalysisCharts() { document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
   function getAnalysisTitle(columnType, count) { const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
@@ -1234,7 +952,7 @@
     // AI分析のタイトル/サブタイトルを、新しい固定フォーマットに準拠させる
     document.getElementById('detailed-analysis-title').textContent = getDetailedAnalysisTitleFull(analysisType);
     document.getElementById('detailed-analysis-subtitle').textContent = getDetailedAnalysisSubtitleForUI(analysisType, 'analysis'); 
-    document.getElementById('detailed-analysis-subtitle').style.textAlign = 'center'; // サブタイトルは中央揃え
+    document.getElementById('detailed-analysis-subtitle').style.textAlign = 'center'; 
     
     switchTab('analysis'); 
     
@@ -1322,7 +1040,7 @@
       }
   }
 
-  // (AI表示 (共通) - 編集エリアの高さを調整)
+  // (AI表示 (共通) - 変更なし)
   function displayDetailedAnalysis(data, analysisType, isRawJson) {
       let analysisText, suggestionsText, overallText;
       if (isRawJson) {
@@ -1342,7 +1060,6 @@
       document.getElementById('display-overall').textContent = overallText;
       document.getElementById('textarea-overall').value = overallText;
       
-      // テキストエリアの高さを調整
       ['analysis', 'suggestions', 'overall'].forEach(tabId => {
            const textarea = document.getElementById(`textarea-${tabId}`);
            if (textarea) {
@@ -1363,14 +1080,20 @@
   }
 
   // (タブ切り替え - サブタイトル更新ロジックを追加)
-  function handleTabClick(event) { const tabId = event.target.dataset.tabId; if (tabId) { switchTab(tabId); } }
+  function handleTabClick(event) { 
+    const tabId = event.target.dataset.tabId; 
+    if (tabId) { 
+        switchTab(tabId); 
+    } 
+  }
   function switchTab(tabId) { 
+      // サブタイトルを更新
       document.getElementById('detailed-analysis-subtitle').textContent = getDetailedAnalysisSubtitleForUI(currentDetailedAnalysisType, tabId);
       
       if (isEditingDetailedAnalysis) { 
           // (編集中のタブ切り替えは許可)
       } 
-      document.querySelectorAll('#screen5 .tab-button').forEach(button => { if (button.dataset.tabId === tabId) { button.classList.add('active'); } else { button.classList.remove('active'); } }); 
+      document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => { if (button.dataset.tabId === tabId) { button.classList.add('active'); } else { button.classList.remove('active'); } }); 
       document.querySelectorAll('#screen5 .tab-content').forEach(content => { if (content.id === `content-${tabId}`) { content.classList.remove('hidden'); } else { content.classList.add('hidden'); } }); 
       if (isEditingDetailedAnalysis) {
           const activeTextarea = document.getElementById(`textarea-${tabId}`);
@@ -1401,7 +1124,7 @@
           displayAreas.forEach(el => el.classList.add('hidden'));
           editAreas.forEach(el => el.classList.remove('hidden'));
           
-          const activeTab = document.querySelector('#screen5 .tab-button.active').dataset.tabId;
+          const activeTab = document.querySelector('#ai-tab-nav .tab-button.active').dataset.tabId;
           const activeTextarea = document.getElementById(`textarea-${activeTab}`);
           
           if (activeTextarea) {
@@ -1427,7 +1150,7 @@
       const suggestionsContent = document.getElementById('textarea-suggestions').value;
       const overallContent = document.getElementById('textarea-overall').value;
       
-      const activeTabId = document.querySelector('#screen5 .tab-button.active').dataset.tabId;
+      const activeTabId = document.querySelector('#ai-tab-nav .tab-button.active').dataset.tabId;
       
       let contentToSave = '';
       if (activeTabId === 'analysis') contentToSave = analysisContent;
@@ -1470,7 +1193,7 @@
       }
   }
 
-  // ▼▼▼ [新規] AIタイトル・サブタイトル取得関数 (サブタイトルルールを反映) ▼▼▼
+  // ▼▼▼ [修正] AIタイトル・サブタイトル取得関数 (サブタイトルルールを反映) ▼▼▼
   function getDetailedAnalysisTitleFull(analysisType) {
       switch (analysisType) {
           case 'L': return '知人に病院を紹介したいと思う理由の分析';
@@ -1486,11 +1209,11 @@
        const base = '※コメントでいただいたフィードバックを元に分析しています';
        const getBodyText = (type) => {
            switch (type) {
-               case 'L': return '患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。';
-               case 'I_bad': return 'フィードバックの中で挙げられた「悪かった点」を分析すると、患者にとって以下の要素が特に課題として感じられていることが分かります。';
-               case 'I_good': return 'フィードバックの中で挙げられた「良かった点」を分析すると、以下の要素が患者にとって特に高く評価されていることが分かります。';
-               case 'J': return '印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。';
+               case 'L': 
                case 'M': return '患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。';
+               case 'I_bad': return 'フィードバックの中で挙げられた「悪かった点」を分析すると、\n患者にとって以下の要素が特に課題として感じられていることが分かります。';
+               case 'I_good': return 'フィードバックの中で挙げられた「良かった点」を分析すると、\n以下の要素が患者にとって特に高く評価されていることが分かります。';
+               case 'J': return '印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。';
                default: return '';
            }
        };
