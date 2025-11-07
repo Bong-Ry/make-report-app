@@ -33,6 +33,7 @@ try {
 }
 
 exports.slides = slides;
+exports.sheets = sheets;
 // ▲▲▲ [変更なし] 認証・初期化 ▲▲▲
 
 

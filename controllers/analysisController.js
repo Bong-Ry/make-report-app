@@ -290,6 +290,9 @@ exports.getRecommendationReport = async (req, res) => {
  * @returns {Promise<string[][] | null>} (ヘッダー行を*含まない* 2D配列)
  */
 async function readTableFromSheet(centralSheetId, sheetName) {
+    // ▼▼▼ [修正] sheets オブジェクトを googleSheetsService から取得
+    const sheets = googleSheetsService.sheets; 
+    
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     
     try {
