@@ -1,4 +1,4 @@
-kconst puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer');
 const googleSheetsService = require('./googleSheets');
 const kuromojiService = require('./kuromoji');
 
