@@ -162,9 +162,9 @@
         <button data-report-type="satisfaction_c" class="btn">施設</button>
         <button data-report-type="satisfaction_d" class="btn">アクセス</button>
         <button data-report-type="satisfaction_e" class="btn">費用</button>
-        <button data-report-type_f="satisfaction_f" class="btn">雰囲気</button>
-        <button data-report-type_g="satisfaction_g" class="btn">スタッフ</button>
-        <button data-report-type_h="satisfaction_h" class="btn">先生</button>
+        <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
+        <button data-report-type="satisfaction_g" class="btn">スタッフ</button>
+        <button data-report-type="satisfaction_h" class="btn">先生</button>
         
         <button data-report-type="recommendation" class="btn">おすすめ理由</button>
         <button data-report-type="nps_score" class="btn">NPS値</button>
@@ -226,9 +226,9 @@
                 <button data-report-type="satisfaction_c" class="btn">施設</button>
                 <button data-report-type="satisfaction_d" class="btn">アクセス</button>
                 <button data-report-type="satisfaction_e" class="btn">費用</button>
-                <button data-report-type_f="satisfaction_f" class="btn">雰囲気</button>
-                <button data-report-type_g="satisfaction_g" class="btn">スタッフ</button>
-                <button data-report-type_h="satisfaction_h" class="btn">先生</button>
+                <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
+                <button data-report-type="satisfaction_g" class="btn">スタッフ</button>
+                <button data-report-type="satisfaction_h" class="btn">先生</button>
                 <button data-report-type="recommendation" class="btn">おすすめ理由</button>
                 <button data-report-type="nps_score" class="btn">NPS値</button>
                 <button data-report-type="nps" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">NPS理由</button>
@@ -635,6 +635,7 @@
     const detailedAnalysisType = targetButton.dataset.detailedAnalysisType;
     
     if (reportType) {
+        showScreen('screen3'); // コメント/グラフ系のボタンでも即座に画面3へ遷移
         prepareAndShowReport(reportType);
     } else if (analysisType) {
         currentAnalysisTarget = analysisType;
@@ -936,6 +937,7 @@
   // 市区町村 (表のレイアウト調整)
   async function prepareAndShowMunicipalityReport() {
     console.log('Prepare municipality report');
+    updateNavActiveState('municipality', null, null);
     showScreen('screen3');
     document.getElementById('report-title').textContent = `アンケート結果　ーご回答者さまの市町村ー`;
     document.getElementById('report-subtitle').textContent = 'ご出産された方の住所（市町村）について教えてください。';
@@ -991,6 +993,7 @@
   // おすすめ理由 (変更なし)
   async function prepareAndShowRecommendationReport() {
       console.log('Prepare recommendation report');
+      updateNavActiveState('recommendation', null, null);
       showScreen('screen3');
       document.getElementById('report-title').textContent = 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー';
       document.getElementById('report-subtitle').textContent = 'ご出産された産婦人科医院への本病院を選ぶ上で最も参考にしたものについて、教えてください。';
@@ -1045,7 +1048,7 @@
            if (totalOverallCount > 0) {const d = google.visualization.arrayToDataTable(overallChartData);new google.visualization.PieChart(averageChartEl).draw(d, opt);} else {averageChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';}
       } catch (err) {
           console.error('Failed to get recommendation report:', err);
-          slideBody.innerHTML = `<p class="text-center text-red-500 py-16">集計失敗: ${err.message}</p>`;
+          slideBody.innerHTML = `<p class="text-center text-red-500">集計失敗: ${err.message}</p>`;
           showLoading(false);
       }
   }
