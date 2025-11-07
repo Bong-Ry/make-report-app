@@ -379,13 +379,231 @@
     });
   }
 
-  // --- 画面1/2 処理 (省略) ---
-  function populateDateSelectors() { /* ... */ }
-  async function handleNextToClinics() { /* ... */ }
-  async function loadClinics() { /* ... */ }
-  function handleClinicCheckboxChange(event) { /* ... */ }
-  async function handleIssueReport() { /* ... */ }
+  // --- 画面1/2 処理 ---
+  function populateDateSelectors() {
+    const now = new Date();
+    const cy = now.getFullYear();
+    const sy = document.getElementById('start-year');
+    const ey = document.getElementById('end-year');
+    
+    for(let i = 0; i < 5; i++) {
+        const y = cy - i;
+        sy.add(new Option(`${y}年`, y));
+        ey.add(new Option(`${y}年`, y));
+    }
 
+    const sm = document.getElementById('start-month');
+    const em = document.getElementById('end-month');
+    
+    for(let i = 1; i <= 12; i++) {
+        const m = String(i).padStart(2, '0');
+        sm.add(new Option(`${i}月`, m));
+        em.add(new Option(`${i}月`, m));
+    }
+    
+    em.value = String(now.getMonth() + 1).padStart(2, '0');
+    
+    // ▼▼▼ [修正] 開始年の初期値を正しく設定する
+    sy.value = String(cy); 
+    // ▲▲▲
+    
+    // (開始月も現在の月に設定)
+    sm.value = String(now.getMonth() + 1).padStart(2, '0');
+  }
+
+  async function handleNextToClinics() {
+    console.log('Next clicked.');
+    const sy=document.getElementById('start-year').value;
+    const sm=document.getElementById('start-month').value;
+    const ey=document.getElementById('end-year').value;
+    const em=document.getElementById('end-month').value;
+    const sd=new Date(`${sy}-${sm}-01`);
+    const ed=new Date(`${ey}-${em}-01`);
+
+    if(sd > ed){
+        console.warn('Start>End.');
+        alert('開始年月<=終了年月で設定');
+        document.getElementById('start-year').classList.add('border-red-500');
+        document.getElementById('start-month').classList.add('border-red-500');
+        return;
+    }
+    document.getElementById('start-year').classList.remove('border-red-500');
+    document.getElementById('start-month').classList.remove('border-red-500');
+
+    selectedPeriod = {start: `${sy}-${sm}`, end: `${ey}-${em}`};
+    currentPeriodText = `${sy}-${sm}～${ey}-${em}`; 
+    const displayPeriod = `${sy}年${sm}月～${ey}年${em}月`;
+
+    console.log('Period:', selectedPeriod, 'File Name:', currentPeriodText);
+    showLoading(true, '集計シートを検索・準備中...');
+
+    try {
+        const response = await fetch('/api/findOrCreateSheet', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ periodText: currentPeriodText })
+        });
+
+        if (!response.ok) {
+            const et = await response.text();
+            throw new Error(`サーバーエラー(${response.status}): ${et}`);
+        }
+        
+        const data = await response.json();
+        currentCentralSheetId = data.centralSheetId; 
+        console.log(`Got Central Sheet ID: ${currentCentralSheetId}`);
+        
+        document.getElementById('period-display').textContent = `集計期間：${displayPeriod}`;
+        showScreen('screen2');
+        loadClinics();
+    } catch (err) {
+        console.error('!!! Find/Create Sheet failed:', err);
+        alert(`集計シートの準備に失敗\n${err.message}`);
+    } finally {
+        showLoading(false);
+    }
+  }
+
+  async function loadClinics() {
+    console.log('loadClinics (new)...');
+    showLoading(true, 'クリニック一覧と転記状況を読込中...');
+    
+    const clinicListContainer = document.getElementById('clinic-list-container');
+    const issuedListContainer = document.getElementById('issued-list-container');
+    clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
+    issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">読込中...</p>';
+    
+    document.getElementById('issue-btn').disabled = true; 
+
+    try {
+        const [clinicListRes, transferredListRes] = await Promise.all([
+            fetch('/api/getClinicList'),
+            fetch('/api/getTransferredList', { 
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ centralSheetId: currentCentralSheetId })
+            })
+        ]);
+
+        if (!clinicListRes.ok) throw new Error(`クリニック一覧の取得失敗: ${await clinicListRes.text()}`);
+        if (!transferredListRes.ok) throw new Error(`転記済み一覧の取得失敗: ${await transferredListRes.text()}`);
+        
+        const masterClinics = await clinicListRes.json(); 
+        const { sheetTitles, aiCompletionStatus } = await transferredListRes.json(); 
+        
+        currentAiCompletionStatus = aiCompletionStatus;
+        
+        const transferredTitlesSet = new Set(sheetTitles); 
+        
+        clinicListContainer.innerHTML = '';
+        issuedListContainer.innerHTML = '';
+        
+        let untransferredCount = 0;
+        let transferredCount = 0;
+
+        if (!Array.isArray(masterClinics) || masterClinics.length === 0) {
+            clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">対象なし</p>';
+        } else {
+            masterClinics.forEach(clinicName => {
+                if (transferredTitlesSet.has(clinicName)) {
+                    const d = document.createElement('div');
+                    d.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 hover:shadow-md transition-all duration-200';
+                    
+                    d.innerHTML = `
+                        <p class="font-bold text-base view-report-btn" data-clinic-name="${clinicName}">${clinicName}</p>
+                    `;
+                    
+                    issuedListContainer.appendChild(d);
+                    transferredCount++;
+                } else {
+                    const d = document.createElement('div');
+                    d.className = 'flex items-center p-2 rounded-md hover:bg-gray-100';
+                    d.innerHTML = `
+                        <input type="checkbox" id="clinic-${clinicName}" name="clinic" value="${clinicName}" class="mr-3 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-800 cursor-pointer">
+                        <label for="clinic-${clinicName}" class="text-sm select-none cursor-pointer text-gray-900">${clinicName}</label>
+                    `;
+                    clinicListContainer.appendChild(d);
+                    untransferredCount++;
+                }
+            });
+        }
+        
+        if (untransferredCount === 0) {
+            clinicListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">未転記のクリニックはありません</p>';
+        }
+        if (transferredCount === 0) {
+            issuedListContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-8">転記済みレポートなし</p>';
+        }
+
+        clinicListContainer.removeEventListener('change', handleClinicCheckboxChange);
+        clinicListContainer.addEventListener('change', handleClinicCheckboxChange);
+        handleClinicCheckboxChange();
+
+    } catch(err) {
+        console.error('!!! Load failed:', err);
+        clinicListContainer.innerHTML = `<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;
+        issuedListContainer.innerHTML = `<p class="text-sm text-red-500 text-center py-4">読込失敗<br>${err.message}</p>`;
+    } finally {
+        showLoading(false);
+    }
+  }
+
+  function handleClinicCheckboxChange(event) {
+    const checkedCheckboxes = document.querySelectorAll('#clinic-list-container input:checked');
+    const checkedCount = checkedCheckboxes.length;
+    const issueBtn = document.getElementById('issue-btn');
+    
+    if (checkedCount > 10) {
+        alert('一度に選択できる件数は10件までです。');
+        if (event && event.target) {
+            event.target.checked = false;
+        }
+    }
+    
+    const finalCheckedCount = document.querySelectorAll('#clinic-list-container input:checked').length;
+    
+    document.querySelectorAll('#clinic-list-container input[type="checkbox"]').forEach(cb => {
+        if (!cb.checked) {
+            cb.disabled = (finalCheckedCount >= 10);
+        } else {
+            cb.disabled = false; 
+        }
+    });
+    
+    issueBtn.disabled = (finalCheckedCount === 0);
+  }
+
+  async function handleIssueReport() {
+    console.log('Issue report (ETL).');
+    const sc = Array.from(document.querySelectorAll('#clinic-list-container input:checked'))
+                  .map(cb => cb.value);
+    if (sc.length === 0) { alert('転記対象のクリニックが選択されていません。'); return; }
+    if (sc.length > 10) { alert('一度に選択できる件数は10件までです。チェックを減らしてください。'); return; }
+
+    showLoading(true, '集計スプレッドシートへデータ転記中...\n完了後、バックグラウンドで分析タブが自動生成されます。');
+    console.log('Selected for ETL:', sc);
+
+    try {
+        const r = await fetch('/api/getReportData', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+                period: selectedPeriod,
+                selectedClinics: sc,
+                centralSheetId: currentCentralSheetId 
+            })
+        });
+        if (!r.ok) { const et = await r.text(); throw new Error(`サーバーエラー(${r.status}): ${et}`); }
+        const data = await r.json(); 
+        console.log('ETL process finished:', data);
+        loadClinics(); 
+    } catch(err) {
+        console.error('!!! ETL Issue failed:', err);
+        alert(`データ転記失敗\n${err.message}`);
+    } finally {
+        showLoading(false);
+    }
+  }
 
   // --- 画面3/5 (レポート表示/AI分析) 処理 ---
 
