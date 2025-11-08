@@ -451,7 +451,10 @@ async function prepareAndShowReport(reportType){
   document.getElementById('report-title').style.textAlign = 'left';
   // ▼▼▼ [修正] サブタイトルのtextAlign指定を削除 (CSS側で left !important に任せる) ▼▼▼
   // document.getElementById('report-subtitle').style.textAlign = 'left'; 
+  
+  // ▼▼▼ [修正] (Req ⑤) グラフ・AI以外のセパレーターマージンをリセット ▼▼▼
   document.getElementById('report-separator').style.display = 'block'; 
+  document.getElementById('report-separator').style.marginBottom = '16px';
   
   // ▼▼▼ [修正] slide-header の中身(innerHTML)を直接クリアするのをやめ、子要素を個別にクリアする ▼▼▼
   const subNav = document.getElementById('comment-sub-nav');
@@ -638,7 +641,10 @@ function prepareChartPage(title, subtitle, type, isBar=false) {
   document.getElementById('report-subtitle').textContent = subtitle; // (NPS以外は空文字が渡される)
   // ▼▼▼ [修正] サブタイトルのtextAlign指定を削除 (CSS側で left !important に任せる) ▼▼▼
   // document.getElementById('report-subtitle').style.textAlign = 'center'; 
+  
+  // ▼▼▼ [修正] (Req ⑤) グラフページではセパレーターマージンを 16px に戻す ▼▼▼
   document.getElementById('report-separator').style.display='block';
+  document.getElementById('report-separator').style.marginBottom = '16px';
 
   let htmlContent = '';
   const cid = isBar ? 'bar-chart' : 'pie-chart';
@@ -650,8 +656,7 @@ function prepareChartPage(title, subtitle, type, isBar=false) {
               <div class="flex flex-col h-full">
                   <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
                   <div id="clinic-bar-chart" class="w-full ${chartHeightClass} border border-gray-200 flex items-center justify-center"></div>
-                  <div class="w-full h-[150px] flex flex-col justify-center items-center mt-4">
-                      <p class="text-sm text-gray-500 mb-2">【画像入力エリア】</p>
+                  <div class="w-full h-[150px] flex flex-col justify-center items-center mt-2"> <p class="text-sm text-gray-500 mb-2">【画像入力エリア】</p>
                       <div class="w-full h-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400">
                           [画像を入力する]
                       </div>
@@ -764,7 +769,7 @@ function showCommentSubNav(reportType) {
         });
     } else {
         const titleMap = { 'feedback_i': '良かった点や悪かった点など', 'feedback_j': '印象に残ったスタッフへのコメント', 'feedback_m': 'お産にかかわるご意見・ご感想' };
-        title = `アンケート結果　ー${titleMap[reportType]}ー`;
+        title = `アンケート結果S${titleMap[reportType]}ー`;
     }
     
     document.getElementById('report-title').textContent = title;
@@ -943,7 +948,7 @@ function renderCommentControls() {
 // --- ▲▲▲ コメントスライド構築関数群 終わり ▲▲▲ ---
 
 
-// ▼▼▼ [修正] 市区町村 (サブタイトル廃止) ▼▼▼
+// ▼▼▼ [修正] 市区町村 (Req ④: サブタイトル廃止, ソート) ▼▼▼
 async function prepareAndShowMunicipalityReport() {
   console.log('Prepare municipality report');
   updateNavActiveState('municipality', null, null);
@@ -952,6 +957,8 @@ async function prepareAndShowMunicipalityReport() {
   // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
   document.getElementById('report-subtitle').textContent = ''; 
   document.getElementById('report-separator').style.display='block';
+  // ▼▼▼ [修正] (Req ⑤) グラフページではセパレーターマージンを 16px に戻す ▼▼▼
+  document.getElementById('report-separator').style.marginBottom = '16px';
   
   const slideBody = document.getElementById('slide-body');
   slideBody.style.whiteSpace = 'normal';
@@ -975,6 +982,14 @@ async function prepareAndShowMunicipalityReport() {
           throw new Error(`集計APIエラー (${response.status}): ${errorText}`);
       }
       const tableData = await response.json();
+      
+      // ▼▼▼ [修正] (Req ④) 「不明」を最下部にソート ▼▼▼
+      tableData.sort((a, b) => {
+          if (a.prefecture === '不明') return 1;
+          if (b.prefecture === '不明') return -1;
+          return b.count - a.count; // 通常は件数で降順
+      });
+      
       displayMunicipalityTable(tableData);
   } catch (err) {
       console.error('Failed to get municipality report:', err);
@@ -984,16 +999,17 @@ async function prepareAndShowMunicipalityReport() {
   }
 }
 
-// (変更なし) 市区町村テーブル描画
+// ▼▼▼ [修正] (Req ④) 市区町村テーブル描画 (スタイル適用) ▼▼▼
 function displayMunicipalityTable(data) { 
   const slideBody = document.getElementById('slide-body'); 
   if (!data || data.length === 0) { 
       slideBody.innerHTML = '<p class="text-center text-gray-500 py-16">集計データがありません。</p>'; 
       return; 
   } 
-  let tableHtml = `<div class="municipality-table-container w-full h-full border border-gray-200 rounded-lg"><table class="w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">都道府県</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">市区町村</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">件数</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">割合</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`; 
+  // ▼▼▼ [修正] (Req ④) コンテナに余白(px-8)、テーブルに 'municipality-table' クラスを追加 ▼▼▼
+  let tableHtml = `<div class="municipality-table-container w-full h-full px-8"><table class="w-full municipality-table"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th>都道府県</th><th>市区町村</th><th>件数</th><th>割合</th></tr></thead><tbody class="bg-white">`; 
   data.forEach(row => { 
-      tableHtml += `<tr><td class="py-2 font-medium text-gray-900">${row.prefecture}</td><td class="py-2 text-gray-700">${row.municipality}</td><td class="py-2 text-gray-700 text-right">${row.count}</td><td class="py-2 text-gray-700 text-right">${row.percentage.toFixed(2)}%</td></tr>`; 
+      tableHtml += `<tr><td>${row.prefecture}</td><td>${row.municipality}</td><td class="text-right">${row.count}</td><td class="text-right">${row.percentage.toFixed(2)}%</td></tr>`; 
   }); 
   tableHtml += '</tbody></table></div>'; 
   slideBody.innerHTML = tableHtml; 
@@ -1008,7 +1024,9 @@ async function prepareAndShowRecommendationReport() {
     document.getElementById('report-title').textContent = 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー';
     // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
     document.getElementById('report-subtitle').textContent = '';
+    // ▼▼▼ [修正] (Req ⑤) グラフページではセパレーターマージンを 16px に戻す ▼▼▼
     document.getElementById('report-separator').style.display='block';
+    document.getElementById('report-separator').style.marginBottom = '16px';
     
     const slideBody = document.getElementById('slide-body');
     slideBody.style.whiteSpace = 'normal';
@@ -1064,7 +1082,7 @@ async function prepareAndShowRecommendationReport() {
 }
 
 
-// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (サブタイトル廃止) ▼▼▼
+// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (Req ⑤, ⑦) ▼▼▼
 async function prepareAndShowAnalysis(columnType) {
   showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
   showScreen('screen3');
@@ -1078,7 +1096,10 @@ async function prepareAndShowAnalysis(columnType) {
   // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
   document.getElementById('report-subtitle').textContent = ''; 
   document.getElementById('report-subtitle').style.textAlign = 'left'; 
+  
+  // ▼▼▼ [修正] (Req ⑤) WCページではセパレーターマージンを 0 に ▼▼▼
   document.getElementById('report-separator').style.display='block';
+  document.getElementById('report-separator').style.marginBottom = '0';
   
   const subNav = document.getElementById('comment-sub-nav');
   const controls = document.getElementById('comment-controls');
@@ -1114,7 +1135,7 @@ async function prepareAndShowAnalysis(columnType) {
       return;
   }
   
-  // ▼▼▼ [修正] WCシェル (Req 1, 2: テキスト修正) ▼▼▼
+  // ▼▼▼ [修正] WCシェル (Req ⑦: テキスト修正, 余白削除) ▼▼▼
   slideBody.innerHTML = `
       <div class="grid grid-cols-2 gap-4 h-full">
           <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2">
@@ -1135,14 +1156,12 @@ async function prepareAndShowAnalysis(columnType) {
                   <div id="int-chart" class="w-full h-[calc(100%-20px)]"></div>
               </div>
           </div>
-          <div class="space-y-4 flex flex-col h-full">
-              <p class="text-sm text-gray-600">
-                  スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。
-                  単語の色は品詞の種類で異なります。<br>
+          <div class="space-y-2 flex flex-col h-full">
+              <p class="text-sm text-gray-600 text-left">
+                  スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。単語の色は品詞の種類で異なります。<br>
                   <span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span>
               </p>
-              <div id="word-cloud-container" class="h-[calc(100%-80px)] border border-gray-200">
-                  <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
+              <div id="word-cloud-container" class="h-[calc(100%-60px)] border border-gray-200"> <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
               </div>
               <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
           </div>
@@ -1163,7 +1182,7 @@ async function prepareAndShowAnalysis(columnType) {
   }
 }
 
-// ▼▼▼ [修正] Word Cloud描画 (Req 4, 5, 6: 余白削除, ぼやけ解消, 10-17pt) ▼▼▼
+// ▼▼▼ [修正] Word Cloud描画 (Req ⑦: 余白削除, ぼやけ解消, 10-17pt) ▼▼▼
 function drawAnalysisCharts(results) { 
     if(!results||results.length===0){
         console.log("No analysis results.");
@@ -1181,13 +1200,13 @@ function drawAnalysisCharts(results) {
     chartArea:{height:'90%', width:'70%', left:'25%', top:'5%'}, 
     backgroundColor: 'transparent'};
     
-    // ▼▼▼ [修正] (Req 4) グラフの height: 100% を削除し、余白を詰める ▼▼▼
+    // ▼▼▼ [修正] (Req ⑦) グラフの height: '100%' を削除し、余白を詰める ▼▼▼
     drawSingleBarChart(nouns.slice(0,8),'noun-chart',{...barOpt,colors:['#3b82f6'], width: '100%'});
     drawSingleBarChart(verbs.slice(0,8),'verb-chart',{...barOpt,colors:['#ef4444'], width: '100%'});
     drawSingleBarChart(adjs.slice(0,8),'adj-chart',{...barOpt,colors:['#22c55e'], width: '100%'});
     drawSingleBarChart(ints.slice(0,8),'int-chart',{...barOpt,colors:['#6b7280'], width: '100%'});
     
-    // ▼▼▼ [修正] (Req 5, 6) WordCloud (ぼやけ解消, 10-17pt) ▼▼▼
+    // ▼▼▼ [修正] (Req 6) WordCloud (ぼやけ解消, 10-17pt) ▼▼▼
     const wl=results.map(r=>[r.word,r.score]).slice(0,100);
     const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});
     const cv=document.getElementById('word-cloud-canvas');
@@ -1202,9 +1221,9 @@ function drawAnalysisCharts(results) {
             const ctx = cv.getContext('2d');
             ctx.scale(dpr, dpr); // Scale context for high-res
 
-            // ▼▼▼ [修正] (Req 5) サイズ計算ロジック (ご要望: 10〜17pt) ▼▼▼
+            // ▼▼▼ [修正] (Req 6) サイズ計算ロジック (ご要望: 10〜17pt) ▼▼▼
             const minSize = 10;
-            const maxSize = 17; // 18 -> 17
+            const maxSize = 17;
             
             let maxScore = 0;
             if (wl.length > 0) {
@@ -1225,12 +1244,14 @@ function drawAnalysisCharts(results) {
             const options={
                 list:wl,
                 gridSize: 8, // (密度)
-                weightFactor: weightFactor, // (Req 5)
-                minSize: minSize, // (Req 5)
+                weightFactor: weightFactor, // (Req 6)
+                minSize: minSize, // (Req 6)
                 fontFamily:'Noto Sans JP,sans-serif',
                 color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},
                 backgroundColor:'transparent',
-                clearCanvas:true
+                clearCanvas:true,
+                // ▼▼▼ [修正] (Req 6) 安定化のため回転を無効化 ▼▼▼
+                rotateRatio: 0
             };
             WordCloud(cv,options);
         }catch(wcError){
@@ -1256,7 +1277,7 @@ function getColumnName(columnType) {
 }
 
 
-// --- ▼▼▼ [修正] AI詳細分析 (Screen 5) 処理 (サブタイトル廃止) ▼▼▼
+// --- ▼▼▼ [修正] AI詳細分析 (Screen 5) 処理 (Req ⑤, ⑥) ▼▼▼
 async function prepareAndShowDetailedAnalysis(analysisType) {
   console.log(`Prepare detailed analysis: ${analysisType}`);
   const clinicName = currentClinicForModal;
@@ -1276,6 +1297,9 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
   document.getElementById('detailed-analysis-title').textContent = getDetailedAnalysisTitleFull(analysisType);
   // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
   document.getElementById('detailed-analysis-subtitle').textContent = ''; // getDetailedAnalysisSubtitleForUI(analysisType, 'analysis'); 
+  
+  // ▼▼▼ [修正] (Req ⑤) グラフページではセパレーターマージンを 16px に戻す ▼▼▼
+  document.getElementById('report-separator').style.marginBottom = '16px';
   
   switchTab('analysis'); 
   
@@ -1414,7 +1438,7 @@ function clearDetailedAnalysisDisplay() {
     document.getElementById('textarea-overall').value = '';
 }
 
-// (タブ切り替え - ▼▼▼ [修正] サブタイトル廃止 ▼▼▼)
+// (タブ切り替え - ▼▼▼ [修正] (Req ⑥) タブ切り替えセレクタ修正 ▼▼▼)
 function handleTabClick(event) { 
   const tabId = event.target.dataset.tabId; 
   if (tabId) { 
@@ -1426,7 +1450,15 @@ function switchTab(tabId) {
     document.getElementById('detailed-analysis-subtitle').textContent = ''; // getDetailedAnalysisSubtitleForUI(currentDetailedAnalysisType, tabId);
     
     document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => { if (button.dataset.tabId === tabId) { button.classList.add('active'); } else { button.classList.remove('active'); } }); 
-    document.querySelectorAll('#screen5 .tab-content').forEach(content => { if (content.id === `content-${tabId}`) { content.classList.remove('hidden'); } else { content.classList.add('hidden'); } }); 
+    
+    // ▼▼▼ [修正] (Req ⑥) セレクタを .tab-content から .ai-analysis-container に変更 ▼▼▼
+    document.querySelectorAll('#detailed-analysis-content-area > .ai-analysis-container').forEach(content => { 
+        if (content.id === `content-${tabId}`) { 
+            content.classList.remove('hidden'); 
+        } else { 
+            content.classList.add('hidden'); 
+        } 
+    }); 
 
     if (isEditingDetailedAnalysis) {
         // 編集中の場合：textareaの高さを調整
@@ -1444,7 +1476,7 @@ function switchTab(tabId) {
     }
 }
 
-// (編集モード切り替え - ▼▼▼ [修正] フォント調整呼び出し追加 (ルール ⑥, ④) ▼▼▼)
+// (編集モード切り替え - ▼▼▼ [修正] (Req ⑥) 保存機能は存在するため変更なし ▼▼▼)
 function toggleEditDetailedAnalysis(isEdit) {
     isEditingDetailedAnalysis = isEdit;
     const editBtn = document.getElementById('edit-detailed-analysis-btn');
@@ -1486,7 +1518,7 @@ function toggleEditDetailedAnalysis(isEdit) {
     }
 }
 
-// (AI詳細分析 (保存) - 変更なし)
+// (AI詳細分析 (保存) - (Req ⑥) 機能は存在するため変更なし)
 async function saveDetailedAnalysisEdits() {
     showLoading(true, '変更を保存中...');
     const analysisContent = document.getElementById('textarea-analysis').value;
