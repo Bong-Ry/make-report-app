@@ -70,15 +70,17 @@ exports.generateDetailedAnalysis = async (req, res) => {
         }
         
         if (textList.length === 0) {
-            throw new Error(`分析対象のテキストデータが0件です。 (Type: ${columnType})`);
+             // (aiAnalysisService.js と同様に、404を返す)
+            console.warn(`[/api/generateDetailedAnalysis] No text data (0 items) for ${columnType}.`);
+            return res.status(404).send(`分析対象のテキストデータが0件です。 (Type: ${columnType})`);
         }
         
         // 2b. AI呼び出し
         const systemPrompt = getSystemPromptForDetailAnalysis(clinicName, columnType);
-        // openaiService.js の require がないので、このままだとエラーになるが、
-        // 以前のコードでは、このコントローラーの冒頭でコメントアウトされているため、
-        // 実行時にエラーにならないよう、ダミーのサービスを想定して処理を継続する
-        const analysisJson = {}; // DUMMY: await openaiService.generateJsonAnalysis(systemPrompt, inputText);
+        
+        // ▼▼▼ [修正] ダミーではなく、aiAnalysisService.js 経由で呼び出す ▼▼▼
+        // (aiAnalysisService.js が openaiService を require している前提)
+        const analysisJson = await aiAnalysisService.runSingleAiAnalysis(systemPrompt, textList);
 
         // 3. [変更] 新しい分析結果 (3キー) をMapに変換
         const newAnalysisMap = formatAiJsonToMap(analysisJson, columnType);
@@ -196,7 +198,7 @@ exports.generateMunicipalityReport = async (req, res) => {
         const sheetName = getAnalysisSheetName(clinicName, 'MUNICIPALITY');
         console.log(`[/api/generateMunicipalityReport] Reading table from sheet: "${sheetName}"`);
 
-        // (saveTableToSheet が [ヘッダー, [データ], [データ]] 形式で保存)
+        // (readTableFromSheet はこのファイルにないので、googleSheetsService を呼ぶ)
         const tableData = await readTableFromSheet(centralSheetId, sheetName);
         
         if (!tableData) { // (readTableFromSheet が null を返す)
@@ -280,43 +282,37 @@ exports.getRecommendationReport = async (req, res) => {
 
 
 // =================================================================
-// === ▼▼▼ [新規] テーブル読み込み専用ヘルパー ▼▼▼ ===
+// === ▼▼▼ [修正] テーブル読み込み専用ヘルパー (googleSheetsService を呼ぶ) ▼▼▼ ===
 // =================================================================
-
 /**
- * [新規ヘルパー] テーブルデータ（市区町村、おすすめ理由）を読み込む
- * @param {string} centralSheetId
- * @param {string} sheetName (例: "クリニックA_市区町村")
- * @returns {Promise<string[][] | null>} (ヘッダー行を*含まない* 2D配列)
+ * [修正] googleSheetsService を呼び出すラッパー
  */
 async function readTableFromSheet(centralSheetId, sheetName) {
-    // ▼▼▼ [修正] エクスポートされた sheets を取得して使用
     const sheets = googleSheetsService.sheets; 
     
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     
     try {
-        // A:D (市区町村) または A:C (おすすめ理由) の最大範囲を読み込む
         const range = `'${sheetName}'!A:D`;
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: centralSheetId,
             range: range,
-            valueRenderOption: 'UNFORMATTED_VALUE' // 割合を 0.123 で取得
+            valueRenderOption: 'UNFORMATTED_VALUE'
         });
 
         const rows = response.data.values;
 
-        if (!rows || rows.length < 2) { // (ヘッダー + データ)
-            return null; // データが存在しない
+        if (!rows || rows.length < 2) { 
+            return null;
         }
 
-        rows.shift(); // ヘッダーを捨てる
-        return rows; // データ行のみ返す
+        rows.shift(); 
+        return rows; 
 
     } catch (e) {
         if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
             console.warn(`[readTableFromSheet] Sheet "${sheetName}" not found. Returning null.`);
-            return null; // シートが存在しない
+            return null; 
         }
         console.error(`[readTableFromSheet] Error reading table data: ${e.message}`, e);
         throw new Error(`分析テーブル(${sheetName})の読み込みに失敗しました: ${e.message}`);
@@ -325,28 +321,25 @@ async function readTableFromSheet(centralSheetId, sheetName) {
 
 
 // =================================================================
-// === ▼▼▼ [新規] コメント編集用コントローラー ▼▼▼ ===
+// === ▼▼▼ [大幅修正] コメント編集用コントローラー (新仕様) ▼▼▼ ===
 // =================================================================
 
 /**
- * [新規] /api/getCommentData (読み取り)
+ * [大幅修正] /api/getCommentData (読み取り)
  * (HTMLがコメントシートからデータを読み込む)
  */
 exports.getCommentData = async (req, res) => {
-    const { centralSheetId, clinicName, commentType } = req.body;
-    console.log(`POST /api/getCommentData called for ${clinicName}, type: ${commentType}`);
+    // ▼▼▼ [変更] `commentType` の代わりに `sheetName` を受け取る
+    const { centralSheetId, sheetName } = req.body;
+    console.log(`POST /api/getCommentData called for sheet: ${sheetName}`);
 
-    if (!centralSheetId || !clinicName || !commentType) {
-        return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, commentType が必要です。');
-    }
-    
-    // commentType が 'L', 'I', 'J', 'M' であることを確認
-    if (!['L', 'I', 'J', 'M'].includes(commentType)) {
-        return res.status(400).send(`不正なリクエスト: 無効なコメントタイプです: ${commentType}`);
+    if (!centralSheetId || !sheetName) {
+        return res.status(400).send('不正なリクエスト: centralSheetId, sheetName が必要です。');
     }
 
     try {
-        const data = await googleSheetsService.readCommentSheetData(centralSheetId, clinicName, commentType);
+        // ▼▼▼ [変更] `readCommentsBySheet` を呼び出す
+        const data = await googleSheetsService.readCommentsBySheet(centralSheetId, sheetName);
         res.json(data);
     } catch (error) {
         console.error('[/api/getCommentData] Error reading comment sheet:', error);
@@ -355,27 +348,27 @@ exports.getCommentData = async (req, res) => {
 };
 
 /**
- * [新規] /api/updateCommentData (書き込み)
+ * [大幅修正] /api/updateCommentData (書き込み)
  * (HTMLが編集したコメントをシートに保存する)
  */
 exports.updateCommentData = async (req, res) => {
-    const { centralSheetId, clinicName, commentType, col, row, value } = req.body;
-    console.log(`POST /api/updateCommentData called for ${clinicName}, type: ${commentType}, cell: ${col}${row}`);
+    // ▼▼▼ [変更] `sheetName`, `cell`, `value` を受け取る
+    const { centralSheetId, sheetName, cell, value } = req.body;
+    console.log(`POST /api/updateCommentData called for sheet: ${sheetName}, cell: ${cell}`);
 
     // バリデーション
-    if (!centralSheetId || !clinicName || !commentType || !col || !row || value == null) {
-        return res.status(400).send('不正なリクエスト: 必須パラメータが不足しています。');
+    if (!centralSheetId || !sheetName || !cell || value == null) {
+        return res.status(400).send('不正なリクエスト: centralSheetId, sheetName, cell, value が必要です。');
     }
-    if (!['L', 'I', 'J', 'M'].includes(commentType)) {
-        return res.status(400).send(`不正なリクエスト: 無効なコメントタイプです: ${commentType}`);
-    }
-    if (!/^[A-Z]+$/.test(col) || typeof row !== 'number' || row < 2) {
-         return res.status(400).send(`不正なリクエスト: 無効なセル指定です (Col: ${col}, Row: ${row})。行は2以上である必要があります。`);
+    // (A1, B5, AA10 などの形式を簡易チェック)
+    if (!/^[A-Z]+[1-9][0-9]*$/.test(cell)) {
+         return res.status(400).send(`不正なリクエスト: 無効なセル指定です (Cell: ${cell})。`);
     }
 
     try {
-        await googleSheetsService.updateCommentSheetCell(centralSheetId, clinicName, commentType, col, row, value);
-        res.json({ status: 'ok', message: `セル ${col}${row} を更新しました。` });
+        // ▼▼▼ [変更] `updateCommentSheetCell` を呼び出す
+        await googleSheetsService.updateCommentSheetCell(centralSheetId, sheetName, cell, value);
+        res.json({ status: 'ok', message: `セル ${cell} を更新しました。` });
     } catch (error) {
         console.error('[/api/updateCommentData] Error updating comment cell:', error);
         res.status(500).send(`コメントシートの更新中にエラーが発生しました: ${error.message}`);

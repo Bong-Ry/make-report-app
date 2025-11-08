@@ -5,8 +5,9 @@ const pdfGeneratorService = require('../services/pdfGenerator');
 const aiAnalysisService = require('../aiAnalysisService');
 // ▼▼▼ [変更] googleSlidesService の require を削除
 // const googleSlidesService = require('../services/googleSlidesService');
-// ▼▼▼ [変更] タブ名を取得するヘルパー (不要になったため削除) ▼▼▼
-// const { getAnalysisSheetName } = require('../utils/helpers');
+
+// ▼▼▼ [変更] getCommentSheetName を googleSheetsService からインポート ▼▼▼
+const { getCommentSheetName } = require('../services/googleSheets');
 
 // ▼▼▼ [変更なし] p-limit (並列2) ▼▼▼
 const pLimit = async () => (await import('p-limit')).default;
@@ -37,12 +38,7 @@ exports.getClinicList = async (req, res) => {
     }
 };
 
-// =================================================================
-// === ▼▼▼ [変更] 転記状況の確認 (「押せない」問題の修正) ▼▼▼ ===
-// =================================================================
-/**
- * [変更] 集計スプレッドシート内の全タブ名と、AI分析の完了状況を取得する
- */
+// --- (変更なし) 転記状況の確認 (getTransferredList) ---
 exports.getTransferredList = async (req, res) => {
     const { centralSheetId } = req.body;
     console.log(`POST /api/getTransferredList called for: ${centralSheetId}`);
@@ -52,25 +48,16 @@ exports.getTransferredList = async (req, res) => {
     }
     
     try {
-        // 1. 全シート名を取得 (転記済みかどうかの判定に必要)
         const sheetTitles = await googleSheetsService.getSheetTitles(centralSheetId);
         const sheetTitlesSet = new Set(sheetTitles);
-
-        // 2. マスターからクリニック一覧を取得
         const masterClinics = await googleSheetsService.getMasterClinicList();
-
-        // 3. ▼▼▼ [変更] 「管理」シートから完了ステータスMapを取得 ▼▼▼
         const completionMap = await googleSheetsService.readCompletionStatusMap(centralSheetId);
         
         const aiCompletionStatus = {};
 
         for (const clinicName of masterClinics) {
-            // このクリニックが転記済み (タブが存在する) か？
             if (sheetTitlesSet.has(clinicName)) {
-                
-                // [変更] ご要望に基づき、管理シートのMapを参照
                 aiCompletionStatus[clinicName] = (completionMap[clinicName] === true);
-                
             } else {
                 aiCompletionStatus[clinicName] = false; // 転記自体されていない
             }
@@ -78,10 +65,9 @@ exports.getTransferredList = async (req, res) => {
         
         console.log(`[/api/getTransferredList] AI Status (from Management Sheet):`, aiCompletionStatus);
         
-        // 4. シート名リストとAI完了ステータスの両方を返す
         res.json({ 
             sheetTitles: sheetTitles,
-            aiCompletionStatus: aiCompletionStatus // { "クリニックA": true, "クリニックB": false, ... }
+            aiCompletionStatus: aiCompletionStatus
         });
 
     } catch (err) {
@@ -91,9 +77,7 @@ exports.getTransferredList = async (req, res) => {
 };
 
 
-// =================================================================
-// === (変更なし) findOrCreateSheet (1/3) ===
-// =================================================================
+// --- (変更なし) findOrCreateSheet (1/3) ---
 exports.findOrCreateSheet = async (req, res) => {
     const { periodText } = req.body;
     console.log(`POST /api/findOrCreateSheet called for: ${periodText}`);
@@ -111,9 +95,7 @@ exports.findOrCreateSheet = async (req, res) => {
     }
 };
 
-// =================================================================
-// === (変更なし) getReportData (ETL Trigger) (2/3) ===
-// =================================================================
+// --- (変更なし) getReportData (ETL Trigger) (2/3) ---
 exports.getReportData = async (req, res) => {
     const { period, selectedClinics, centralSheetId } = req.body;
     console.log('POST /api/getReportData (ETL Trigger) called');
@@ -130,7 +112,6 @@ exports.getReportData = async (req, res) => {
     }
 
     try {
-        // 1. マスターからURLマップを取得 (変更なし)
         const masterClinicUrls = await googleSheetsService.getMasterClinicUrls();
         if (!masterClinicUrls) {
             console.log('[/api/getReportData] No clinic/URL data found in master sheet.');
@@ -150,20 +131,14 @@ exports.getReportData = async (req, res) => {
             return res.json({ status: 'ok', processed: [] });
         }
 
-        // 2. データを集計スプシに「転記」する (ETL実行)
         const processedClinics = await googleSheetsService.fetchAndAggregateReportData(clinicUrls, period, centralSheetId);
         
-        // 3. [変更なし] AI分析をバックグラウンドで実行 (await しない)
         if (processedClinics.length > 0) {
             console.log(`[/api/getReportData] Triggering background AI analysis for ${processedClinics.length} clinics...`);
-            
-            // AI分析の実行をトリガーする。
             runBackgroundAiAnalysis(centralSheetId, processedClinics);
-            
         }
         
         console.log('[/api/getReportData] Finished ETL process. Responding to client.');
-        // 4. AI分析の完了を待たずに、すぐにフロントエンドに応答を返す
         res.json({ status: 'ok', processed: processedClinics });
 
     } catch (err) {
@@ -173,8 +148,7 @@ exports.getReportData = async (req, res) => {
 };
 
 /**
- * [変更] AI分析をバックグラウンドで実行（「管理」シートマーカー対応）
- * ▼▼▼ コメントシート保存タスクを追加 ▼▼▼
+ * [大幅修正] AI分析 + 新しいコメントシート保存 をバックグラウンドで実行
  * @param {string} centralSheetId 
  * @param {string[]} clinicNames - 処理対象のクリニック名リスト
  */
@@ -183,7 +157,7 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
         console.error('[BG-AI] p-limit is not initialized! Running sequentially.');
         try {
             const PLimit = (await import('p-limit')).default;
-            limit = PLimit(2); // ここで再設定
+            limit = PLimit(2); 
         } catch (e) {
             const PLimitSync = require('p-limit');
             limit = PLimitSync(2);
@@ -192,77 +166,106 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
     
     console.log(`[BG-AI] Background task started for ${clinicNames.join(', ')}`);
     
-    // ▼▼▼ [変更] タスクは4種類 (コメント保存を追加) ▼▼▼
-    const analysisTasks = [
-        { type: 'COMMENTS', func: googleSheetsService.saveCommentDataToSheets },
+    // ▼▼▼ [変更] 分析タスク (AI, 市区町村, おすすめ理由) ▼▼▼
+    const analysisTasksDefinition = [
         { type: 'AI_ALL', func: aiAnalysisService.runAllAiAnalysesAndSave },
         { type: 'MUNICIPALITY', func: aiAnalysisService.runAndSaveMunicipalityAnalysis },
         { type: 'RECOMMENDATION', func: aiAnalysisService.runAndSaveRecommendationAnalysis }
     ];
     
-    // 転記されたクリニックごとにループ
     for (const clinicName of clinicNames) {
-        console.log(`[BG-AI] Starting all 4 analyses for ${clinicName} (Concurrency: 2)...`);
+        console.log(`[BG-AI] Starting all analyses for ${clinicName} (Concurrency: 2)...`);
         
         try {
-            // ▼▼▼ [新規] 1. コメント保存タスク用に、集計データを先に取得する ▼▼▼
-            console.log(`[BG-AI] Fetching aggregated data for ${clinicName} (for comments)...`);
+            // 1. [変更] 最初に集計データを取得
+            console.log(`[BG-AI] Fetching aggregated data for ${clinicName}...`);
             const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
 
-            // ▼▼▼ [新規] 2. 分析開始時に「管理」シートのA列に名前を書き込む ▼▼▼
+            // 2. [変更] 管理シートにマーカーを書き込む
             await googleSheetsService.writeInitialMarker(centralSheetId, clinicName);
 
-            // ▼▼▼ [変更] 4種類のタスクを並列数 2 で実行 ▼▼▼
-            const promises = analysisTasks.map(task => {
-                // p-limit (limit) でラップして呼び出す
+            // 3. [変更] 分析タスク(3種)のPromiseを作成
+            const analysisPromises = analysisTasksDefinition.map(task => {
                 return limit(async () => {
                     try {
                         console.log(`[BG-AI] Running ${clinicName} - ${task.type}...`);
-                        
-                        // ▼▼▼ [変更] COMMENTSタスクに reportData を渡す ▼▼▼
-                        if (task.type === 'COMMENTS') {
-                            await task.func(centralSheetId, clinicName, reportData);
-                        } else {
-                            await task.func(centralSheetId, clinicName);
-                        }
-                        
+                        await task.func(centralSheetId, clinicName); // (reportDataは不要)
                         console.log(`[BG-AI] SUCCESS: ${clinicName} - ${task.type}`);
                         return { type: task.type, status: 'success' };
                     } catch (e) {
-                        // ▼▼▼ [変更] スキップ対象のエラーメッセージを追加 ▼▼▼
-                        if (e.message && (
-                            e.message.includes('コメントデータが0件') || // (COMMENTS)
-                            e.message.includes('テキストデータが0件') || // (AI_ALL)
-                            e.message.includes('郵便番号データが0件') || // (MUNICIPALITY)
-                            e.message.includes('おすすめ理由データが0件') // (RECOMMENDATION)
-                        )) {
+                        // (データ0件エラーはスキップ扱い)
+                        if (e.message && e.message.includes('データが0件')) {
                             console.log(`[BG-AI] SKIP: ${clinicName} - ${task.type} (No data)`);
                             return { type: task.type, status: 'skipped' };
-                        } else {
-                            console.error(`[BG-AI] FAILED: ${clinicName} - ${task.type}: ${e.message}`, e.stack);
-                            return { type: task.type, status: 'failed', error: e.message };
                         }
+                        console.error(`[BG-AI] FAILED: ${clinicName} - ${task.type}: ${e.message}`, e.stack);
+                        return { type: task.type, status: 'failed', error: e.message };
                     }
                 });
             }); 
             
-            // 3. [変更なし] このクリニックの全タスク(4件)の完了を待つ
-            const results = await Promise.all(promises);
+            // 4. [新規] コメント保存タスク(NPS 5種 + その他 3種)のPromiseを動的に作成
+            const commentTasks = [];
+            
+            // NPS (L)
+            const npsResults = reportData.npsData.results;
+            if (npsResults) {
+                const nps10 = npsResults['10'] || [];
+                const nps9 = npsResults['9'] || [];
+                const nps8 = npsResults['8'] || [];
+                const nps7 = npsResults['7'] || [];
+                const nps6_under = Object.keys(npsResults)
+                    .map(Number)
+                    .filter(score => score <= 6)
+                    .flatMap(score => npsResults[score] || []);
+
+                if (nps10.length > 0) commentTasks.push({ type: 'L_10', comments: nps10 });
+                if (nps9.length > 0) commentTasks.push({ type: 'L_9', comments: nps9 });
+                if (nps8.length > 0) commentTasks.push({ type: 'L_8', comments: nps8 });
+                if (nps7.length > 0) commentTasks.push({ type: 'L_7', comments: nps7 });
+                if (nps6_under.length > 0) commentTasks.push({ type: 'L_6_under', comments: nps6_under });
+            }
+            
+            // Feedback (I, J, M)
+            const feedbackI = reportData.feedbackData.i_column.results;
+            const feedbackJ = reportData.feedbackData.j_column.results;
+            const feedbackM = reportData.feedbackData.m_column.results;
+            
+            if (feedbackI.length > 0) commentTasks.push({ type: 'I', comments: feedbackI });
+            if (feedbackJ.length > 0) commentTasks.push({ type: 'J', comments: feedbackJ });
+            if (feedbackM.length > 0) commentTasks.push({ type: 'M', comments: feedbackM });
+
+            // コメントタスクのPromiseを作成
+            const commentPromises = commentTasks.map(task => {
+                return limit(async () => {
+                    const sheetName = getCommentSheetName(clinicName, task.type);
+                    try {
+                        console.log(`[BG-AI] Running ${clinicName} - COMMENTS (${task.type}) -> ${sheetName}`);
+                        await googleSheetsService.saveCommentsToSheet(centralSheetId, sheetName, task.comments);
+                        console.log(`[BG-AI] SUCCESS: ${clinicName} - COMMENTS (${task.type})`);
+                        return { type: `COMMENTS_${task.type}`, status: 'success' };
+                    } catch (e) {
+                        console.error(`[BG-AI] FAILED: ${clinicName} - COMMENTS (${task.type}): ${e.message}`, e.stack);
+                        return { type: `COMMENTS_${task.type}`, status: 'failed', error: e.message };
+                    }
+                });
+            });
+            
+            // 5. [変更] 全タスク (分析 + コメント保存) の完了を待つ
+            const allPromises = [...analysisPromises, ...commentPromises];
+            const results = await Promise.all(allPromises);
             
             const hasFailed = results.some(r => r.status === 'failed');
             
             if (hasFailed) {
                  console.error(`[BG-AI] COMPLETED (WITH FAILURES) for ${clinicName}. Completion marker will NOT be set.`);
             } else {
-                // 4. [変更] 4件すべてが success または skipped の場合
-                console.log(`[BG-AI] COMPLETED (SUCCESS/SKIP) all 4 analyses for ${clinicName}.`);
-                // ▼▼▼ [変更] 「管理」シートのB列に "Complete" と書き込む ▼▼▼
+                console.log(`[BG-AI] COMPLETED (SUCCESS/SKIP) all tasks for ${clinicName}.`);
                 await googleSheetsService.writeCompletionMarker(centralSheetId, clinicName);
                 console.log(`[BG-AI] Set COMPLETION MARKER for ${clinicName}.`);
             }
 
         } catch (e) {
-            // ▼▼▼ [変更] getReportDataForCharts が失敗した場合のエラーハンドリング ▼▼▼
             console.error(`[BG-AI] FATAL ERROR during pre-fetch or execution for ${clinicName}: ${e.message}`);
         }
     }
@@ -270,9 +273,7 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
 }
 
 
-// =================================================================
-// === (変更なし) getChartData (3/3) ===
-// =================================================================
+// --- (変更なし) getChartData (3/3) ---
 exports.getChartData = async (req, res) => {
     const { centralSheetId, sheetName } = req.body;
     console.log(`POST /api/getChartData called for SheetID: ${centralSheetId}, Tab: "${sheetName}"`);
@@ -290,9 +291,7 @@ exports.getChartData = async (req, res) => {
     }
 };
 
-// =================================================================
-// === (変更なし) PDF生成 ===
-// =================================================================
+// --- (変更なし) PDF生成 ---
 exports.generatePdf = async (req, res) => {
     console.log("POST /generate-pdf called");
     const { clinicName, periodText, centralSheetId } = req.body;
@@ -304,9 +303,7 @@ exports.generatePdf = async (req, res) => {
 
     try {
         console.log(`[/generate-pdf] Fetching data for PDF from sheet: "${clinicName}"`);
-        // ▼▼▼ [変更] PDF生成に必要なデータを渡す (centralSheetId を含める) ▼▼▼
         const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
-        // getReportDataForCharts が centralSheetId を返さないため、ここで付与する
         reportData.centralSheetId = centralSheetId; 
         
         const pdfBuffer = await pdfGeneratorService.generatePdfFromData(clinicName, periodText, reportData);

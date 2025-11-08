@@ -26,12 +26,8 @@ router.post('/api/getChartData', reportController.getChartData);
 // 4. (画面2) [変更] 転記済みのタブリストと「完了ステータス」を取得
 router.post('/api/getTransferredList', reportController.getTransferredList);
 
-// 5. スライド生成 (DLボタン) (削除)
-// router.post('/api/generateSlide', reportController.generateSlide);
-
-
 // =================================================================
-// === ▼▼▼ 分析系APIルート (変更あり) ▼▼▼ ===
+// === ▼▼▼ 分析系APIルート (変更なし) ▼▼▼ ===
 // =================================================================
 
 // Kuromoji (ワードクラウド用 - 変更なし)
@@ -39,9 +35,6 @@ router.post('/api/analyzeText', analysisController.analyzeText);
 
 // 市区町村レポート (変更なし: 中身がRead-Onlyに変更されたがURLは同じ)
 router.post('/api/generateMunicipalityReport', analysisController.generateMunicipalityReport);
-
-// ▼▼▼ [削除] おすすめ理由(N列)分類 (古いAPI) ▼▼▼
-// router.post('/api/classifyRecommendations', analysisController.classifyRecommendationOthers);
 
 // ▼▼▼ [新規] おすすめ理由(N列)レポート読み取り (新しいRead-Only API) ▼▼▼
 router.post('/api/getRecommendationReport', analysisController.getRecommendationReport);
@@ -57,13 +50,13 @@ router.post('/api/getDetailedAnalysis', analysisController.getDetailedAnalysis);
 router.post('/api/updateDetailedAnalysis', analysisController.updateDetailedAnalysis);
 
 // =================================================================
-// === ▼▼▼ [新規] コメント編集用APIルート ▼▼▼ ===
+// === ▼▼▼ [変更なし] コメント編集用APIルート ▼▼▼ ===
 // =================================================================
 
-// [新規] コメントシートからデータを読み込む
+// [変更なし] コメントシートからデータを読み込む (コントローラー側で `sheetName` を読むよう変更)
 router.post('/api/getCommentData', analysisController.getCommentData);
 
-// [新規] コメントシートのセルを更新する
+// [変更なし] コメントシートのセルを更新する (コントローラー側で `sheetName` と `cell` を読むよう変更)
 router.post('/api/updateCommentData', analysisController.updateCommentData);
 
 

@@ -1,3 +1,5 @@
+/* public/style.css (ファイル5) */
+
 body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
 .btn{@apply py-2 px-6 border border-gray-800 text-gray-800 transition-all duration-300 rounded-md text-sm font-bold tracking-wider shadow-sm whitespace-nowrap;}
 .btn:hover:not(:disabled){@apply bg-gray-800 text-white shadow-md transform -translate-y-px;}
@@ -8,7 +10,7 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
 .card{@apply bg-white p-6 md:p-8 shadow-lg rounded-xl border border-gray-200;}
 #loading-overlay > div > div { border-top-color: #333; border-bottom-color: #333; }
 
-/* Word Cloud/Chartのコンテナはスクロール禁止 */
+/* Word Cloud/Chartのコンテナ */
 .chart-container { 
     overflow: hidden; 
     border: 1px solid #e5e7eb; 
@@ -19,18 +21,24 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
 }
 #word-cloud-canvas { width: 100%; height: 100%; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
 
-/* ▼▼▼ [修正] タブボタンはヘッダーに移動 ▼▼▼ */
+/* ▼▼▼ [新規] グラフ背景色 ▼▼▼ */
+.clinic-graph-bg-yellow {
+    background-color: #FFFFE0; /* 薄い黄色 */
+}
+
+/* AI分析タブ */
 .tab-button { @apply px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 hover:text-gray-700 whitespace-nowrap cursor-pointer; }
 .tab-button.active { @apply border-indigo-500 text-indigo-600; }
 .tab-content { @apply p-4 border border-t-0 rounded-b-md bg-gray-50;}
 
+/* AI分析 編集エリア */
 .edit-textarea {
     @apply w-full p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono;
     min-height: 400px;
-    font-size: 12pt; /* AI編集エリアも12pt */
+    font-size: 12pt;
 }
 
-/* ▼▼▼ [修正] 枠線 8px に調整 ▼▼▼ */
+/* ▼▼▼ [修正] レポート本文レイアウト (Flexbox化) ▼▼▼ */
 .report-body {
     width: 100%;
     max-width: 1122px; 
@@ -38,42 +46,94 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     min-height: 793px; 
     margin: 0 auto;
     padding: 40px;
-    
-    /* 薄いピンクの枠線 8px */
     border: 8px solid #fcf1ed; 
     border-radius: 12px;
     background-color: #ffffff;
+    
+    /* [修正] Flexboxコンテナ化 */
+    display: flex;
+    flex-direction: column;
     
     overflow: hidden;
     position: relative;
 }
 
-/* ▼▼▼ [修正] タイトル/サブタイトル/本体のスタイル (フォントサイズ調整) ▼▼▼ */
 .report-title {
-    font-size: 16pt; /* タイトル 16pt */
+    font-size: 16pt;
     font-weight: bold;
     margin-bottom: 8px;
     text-align: left !important;
+    flex-shrink: 0; /* 縮まない */
 }
 .report-subtitle {
-    font-size: 12pt; /* サブタイトル 12pt */
+    font-size: 12pt;
     color: #6b7280;
     margin-bottom: 16px;
     white-space: pre-wrap;
-    /* ▼▼▼ [修正] !important を削除。中央揃えはJS側で制御する ▼▼▼ */
-    text-align: left; 
+    text-align: left; /* デフォルト左揃え */
+    flex-shrink: 0;
 }
 .report-separator {
     border-top: 1px dashed #9ca3af;
-    margin-bottom: 24px;
-}
-.report-content {
-    height: calc(100% - 130px); /* タイトル, サブ, 点線を考慮し調整 */
-    overflow: hidden; 
-    position: relative;
+    margin-bottom: 16px; /* マージン調整 */
+    flex-shrink: 0;
 }
 
-/* ▼▼▼ [修正] AI分析専用スタイル (フォントサイズ 12pt) ▼▼▼ */
+/* ▼▼▼ [新規] コメント用ヘッダー (サブナビ/操作) ▼▼▼ */
+#slide-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 40px; /* 高さを確保 */
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+#comment-sub-nav {
+    @apply flex flex-wrap gap-2;
+}
+#comment-sub-nav .btn {
+    @apply !py-1 !px-3 !text-xs; /* サブナビボタンは小さく */
+}
+#comment-controls {
+    @apply flex items-center gap-3;
+}
+#comment-controls .btn {
+    @apply !py-1 !px-3 !text-xs; /* 操作ボタンも小さく */
+}
+#comment-controls span {
+    @apply text-sm font-semibold text-gray-600 whitespace-nowrap;
+}
+.comment-save-btn {
+    @apply !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white;
+}
+
+/* [修正] メインコンテンツエリア (flex-grow で残りを埋める) */
+.report-content {
+    flex-grow: 1; /* 残りの高さをすべて占有 */
+    overflow: hidden; 
+    position: relative;
+    height: 100%; /* Flexアイテムとして高さを100%に */
+}
+
+/* スライド本体 (グラフ/コメントリスト) */
+#slide-body {
+    height: 100%;
+    overflow-y: auto; /* コメントが20件を超える場合はスクロール (基本はしない想定) */
+}
+
+
+/* ▼▼▼ [新規] 著作権フッター ▼▼▼ */
+.report-copyright {
+    font-size: 12pt;
+    text-align: center;
+    color: #6b7280;
+    padding-top: 16px; /* コンテンツとのマージン */
+    border-top: 1px solid #eee; /* 念のため線引き */
+    flex-shrink: 0; /* 縮まない */
+}
+
+/* AI分析専用スタイル (変更なし) */
 .ai-analysis-container {
     @apply flex h-full;
     overflow: hidden;
@@ -86,12 +146,11 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
 .ai-analysis-content {
     @apply w-4/5 pl-4 whitespace-pre-wrap;
     height: 100%;
-    font-size: 12pt; /* 12ptに統一 */
+    font-size: 12pt;
     line-height: 1.5;
     overflow: hidden; 
 }
 .ai-analysis-shape {
-    /* 五角形矢印の吹き出しデザイン */
     @apply bg-gray-300 text-gray-800 font-bold p-3 rounded-md shadow-sm mb-4;
     width: 100%;
     height: 80px; 
@@ -100,17 +159,10 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     justify-content: center;
     text-align: center;
     clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%);
-    font-size: 14pt; /* 吹き出し内の文字はやや大きく */
+    font-size: 14pt;
 }
 
-/* ▼▼▼ コメントリストのスタイル (スクロール禁止) ▼▼▼ */
-.comment-list-content {
-    height: 100%; 
-    overflow: hidden; 
-    font-size: 12pt; /* コメントリストも12pt */
-    line-height: 1.5;
-}
-/* ▼▼▼ 表のフォントサイズを小さくする (1ページ収まるように) ▼▼▼ */
+/* 表のフォントサイズ (変更なし) */
 .municipality-table-container table {
     font-size: 10pt;
 }
@@ -119,19 +171,15 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     padding: 6px 12px;
 }
 
-/* ▼▼▼ [新規] コメント編集用textareaと保存ボタンのスタイル ▼▼▼ */
+/* ▼▼▼ [修正] コメント編集用textarea (1行ずつ表示) ▼▼▼ */
 .comment-edit-textarea {
     @apply w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none;
     font-size: 12pt;
     line-height: 1.5;
-    /* 1行の高さを 12pt * 1.5 = 18pt + padding = 28px 程度と仮定 */
-    /* 20件表示 (20 * 28px = 560px) + α が report-content (約600px) に収まるように */
-    height: 28px; /* 高さは1行分で、内容は pre-wrap で折り返す */
-    white-space: pre-wrap; /* 改行を反映 */
-    overflow: hidden; /* スクロールバー非表示 (見た目上) */
-    resize: none; /* リサイズ禁止 */
-    margin-bottom: 4px; /* 各コメント間の余白 */
-}
-.comment-save-btn {
-    @apply !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white;
+    white-space: pre-wrap;
+    overflow-y: auto; /* 内容が多い場合はスクロール許可 */
+    resize: vertical; /* 縦方向のリサイズのみ許可 */
+    min-height: 42px; /* 1行+paddingの高さ */
+    height: auto; /* 内容に応じて高さを自動調整 (JSでも補佐) */
+    margin-bottom: 6px; /* 各コメント間の余白 */
 }
