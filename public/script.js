@@ -26,7 +26,6 @@ let currentCommentPageIndex = 0;
 // --- ▲▲▲ ---
 
 // --- Google Charts ロード (変更なし) ---
-// (▼▼▼ [修正] 呼び出しブロックをファイル末尾に移動したため、ここは定義のみ ▼▼▼)
 const googleChartsLoaded = new Promise(resolve => { google.charts.load('current', {'packages':['corechart', 'bar']}); google.charts.setOnLoadCallback(resolve); });
 
 
@@ -742,7 +741,7 @@ async function fetchAndRenderCommentPage(commentKey) {
         
         const data = await response.json(); // 例: [ ['A列c1', 'A列c2'], ['B列c1'] ]
         
-        if (!data || data.length === 0 || data[0].length === 0) {
+        if (!data || data.length === 0 || (data.length > 0 && data[0].length === 0)) { // 修正: data[0].lengthもチェック
             currentCommentData = [];
             document.getElementById('slide-body').innerHTML = '<p class="text-center text-gray-500 py-16">コメントデータがありません</p>';
             renderCommentControls(); // (コントロールは「保存」ボタンだけでも表示)
@@ -1118,7 +1117,7 @@ async function prepareAndShowAnalysis(columnType) {
 function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},vAxis:{title:'単語', textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, chartArea:{height:'90%', width:'80%', left:'15%', top:'5%'}};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'transparent',clearCanvas:true};WordCloud(cv,options);}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
 function drawSingleBarChart(data, elementId, options) { const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
 function clearAnalysisCharts() { document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
-function getAnalysisTitle(columnType, count) { const bt=`アンケート結果{...}
+function getAnalysisTitle(columnType, count) { const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
 function getColumnName(columnType) { 
   switch(columnType){
       case'L':return'NPS推奨度 理由';
@@ -1487,4 +1486,25 @@ function showCopyrightFooter(show, screenId = 'screen3') {
     }
 }
 
+
+// --- ▼▼▼ [修正] 初期化ブロック (ファイル末尾に移動) ▼▼▼ ---
+(async () => {
+  console.log('DOM Loaded (assumed).');
+  
+  // 1. プルダウンを生成
+  populateDateSelectors();
+  
+  // 2. Google Charts のロードを待つ
+  try {
+      await googleChartsLoaded;
+      console.log('Charts loaded.');
+  } catch (err) {
+      console.error('Chart load fail:', err);
+      alert('グラフライブラリ読込失敗');
+      // (エラーが発生してもリスナーは設定する)
+  }
+  
+  // 3. イベントリスナーを設定
+  setupEventListeners();
+  console.log('Listeners setup.');
 })(); // 即時実行関数で全体をラップ
