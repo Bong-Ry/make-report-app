@@ -1,0 +1,137 @@
+body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
+.btn{@apply py-2 px-6 border border-gray-800 text-gray-800 transition-all duration-300 rounded-md text-sm font-bold tracking-wider shadow-sm whitespace-nowrap;}
+.btn:hover:not(:disabled){@apply bg-gray-800 text-white shadow-md transform -translate-y-px;}
+.btn:disabled{@apply border-gray-300 text-gray-400 cursor-not-allowed bg-gray-100 shadow-none;}
+.btn-active{@apply bg-gray-800 text-white shadow-md transform -translate-y-px;}
+.select-box{@apply block w-full p-3 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition-shadow;}
+.screen{@apply w-full max-w-7xl mx-auto p-4 md:p-8;}
+.card{@apply bg-white p-6 md:p-8 shadow-lg rounded-xl border border-gray-200;}
+#loading-overlay > div > div { border-top-color: #333; border-bottom-color: #333; }
+
+/* Word Cloud/Chartのコンテナはスクロール禁止 */
+.chart-container { 
+    overflow: hidden; 
+    border: 1px solid #e5e7eb; 
+    border-radius: 0.5rem; 
+    padding: 1rem; 
+    background-color: #f9fafb;
+    @apply flex flex-col justify-center items-center;
+}
+#word-cloud-canvas { width: 100%; height: 100%; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
+
+/* ▼▼▼ [修正] タブボタンはヘッダーに移動 ▼▼▼ */
+.tab-button { @apply px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 hover:text-gray-700 whitespace-nowrap cursor-pointer; }
+.tab-button.active { @apply border-indigo-500 text-indigo-600; }
+.tab-content { @apply p-4 border border-t-0 rounded-b-md bg-gray-50;}
+
+.edit-textarea {
+    @apply w-full p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono;
+    min-height: 400px;
+    font-size: 12pt; /* AI編集エリアも12pt */
+}
+
+/* ▼▼▼ [修正] 枠線 8px に調整 ▼▼▼ */
+.report-body {
+    width: 100%;
+    max-width: 1122px; 
+    aspect-ratio: 297 / 210; 
+    min-height: 793px; 
+    margin: 0 auto;
+    padding: 40px;
+    
+    /* 薄いピンクの枠線 8px */
+    border: 8px solid #fcf1ed; 
+    border-radius: 12px;
+    background-color: #ffffff;
+    
+    overflow: hidden;
+    position: relative;
+}
+
+/* ▼▼▼ [修正] タイトル/サブタイトル/本体のスタイル (フォントサイズ調整) ▼▼▼ */
+.report-title {
+    font-size: 16pt; /* タイトル 16pt */
+    font-weight: bold;
+    margin-bottom: 8px;
+    text-align: left !important;
+}
+.report-subtitle {
+    font-size: 12pt; /* サブタイトル 12pt */
+    color: #6b7280;
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+    /* ▼▼▼ [修正] !important を削除。中央揃えはJS側で制御する ▼▼▼ */
+    text-align: left; 
+}
+.report-separator {
+    border-top: 1px dashed #9ca3af;
+    margin-bottom: 24px;
+}
+.report-content {
+    height: calc(100% - 130px); /* タイトル, サブ, 点線を考慮し調整 */
+    overflow: hidden; 
+    position: relative;
+}
+
+/* ▼▼▼ [修正] AI分析専用スタイル (フォントサイズ 12pt) ▼▼▼ */
+.ai-analysis-container {
+    @apply flex h-full;
+    overflow: hidden;
+}
+.ai-analysis-sidebar {
+    @apply w-1/5 flex-shrink-0 pr-4 flex flex-col justify-start items-start;
+    height: 100%;
+    overflow: hidden;
+}
+.ai-analysis-content {
+    @apply w-4/5 pl-4 whitespace-pre-wrap;
+    height: 100%;
+    font-size: 12pt; /* 12ptに統一 */
+    line-height: 1.5;
+    overflow: hidden; 
+}
+.ai-analysis-shape {
+    /* 五角形矢印の吹き出しデザイン */
+    @apply bg-gray-300 text-gray-800 font-bold p-3 rounded-md shadow-sm mb-4;
+    width: 100%;
+    height: 80px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%);
+    font-size: 14pt; /* 吹き出し内の文字はやや大きく */
+}
+
+/* ▼▼▼ コメントリストのスタイル (スクロール禁止) ▼▼▼ */
+.comment-list-content {
+    height: 100%; 
+    overflow: hidden; 
+    font-size: 12pt; /* コメントリストも12pt */
+    line-height: 1.5;
+}
+/* ▼▼▼ 表のフォントサイズを小さくする (1ページ収まるように) ▼▼▼ */
+.municipality-table-container table {
+    font-size: 10pt;
+}
+.municipality-table-container th, 
+.municipality-table-container td {
+    padding: 6px 12px;
+}
+
+/* ▼▼▼ [新規] コメント編集用textareaと保存ボタンのスタイル ▼▼▼ */
+.comment-edit-textarea {
+    @apply w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none;
+    font-size: 12pt;
+    line-height: 1.5;
+    /* 1行の高さを 12pt * 1.5 = 18pt + padding = 28px 程度と仮定 */
+    /* 20件表示 (20 * 28px = 560px) + α が report-content (約600px) に収まるように */
+    height: 28px; /* 高さは1行分で、内容は pre-wrap で折り返す */
+    white-space: pre-wrap; /* 改行を反映 */
+    overflow: hidden; /* スクロールバー非表示 (見た目上) */
+    resize: none; /* リサイズ禁止 */
+    margin-bottom: 4px; /* 各コメント間の余白 */
+}
+.comment-save-btn {
+    @apply !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white;
+}

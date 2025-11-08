@@ -322,3 +322,62 @@ async function readTableFromSheet(centralSheetId, sheetName) {
         throw new Error(`分析テーブル(${sheetName})の読み込みに失敗しました: ${e.message}`);
     }
 }
+
+
+// =================================================================
+// === ▼▼▼ [新規] コメント編集用コントローラー ▼▼▼ ===
+// =================================================================
+
+/**
+ * [新規] /api/getCommentData (読み取り)
+ * (HTMLがコメントシートからデータを読み込む)
+ */
+exports.getCommentData = async (req, res) => {
+    const { centralSheetId, clinicName, commentType } = req.body;
+    console.log(`POST /api/getCommentData called for ${clinicName}, type: ${commentType}`);
+
+    if (!centralSheetId || !clinicName || !commentType) {
+        return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, commentType が必要です。');
+    }
+    
+    // commentType が 'L', 'I', 'J', 'M' であることを確認
+    if (!['L', 'I', 'J', 'M'].includes(commentType)) {
+        return res.status(400).send(`不正なリクエスト: 無効なコメントタイプです: ${commentType}`);
+    }
+
+    try {
+        const data = await googleSheetsService.readCommentSheetData(centralSheetId, clinicName, commentType);
+        res.json(data);
+    } catch (error) {
+        console.error('[/api/getCommentData] Error reading comment sheet:', error);
+        res.status(500).send(`コメントシートの読み込み中にエラーが発生しました: ${error.message}`);
+    }
+};
+
+/**
+ * [新規] /api/updateCommentData (書き込み)
+ * (HTMLが編集したコメントをシートに保存する)
+ */
+exports.updateCommentData = async (req, res) => {
+    const { centralSheetId, clinicName, commentType, col, row, value } = req.body;
+    console.log(`POST /api/updateCommentData called for ${clinicName}, type: ${commentType}, cell: ${col}${row}`);
+
+    // バリデーション
+    if (!centralSheetId || !clinicName || !commentType || !col || !row || value == null) {
+        return res.status(400).send('不正なリクエスト: 必須パラメータが不足しています。');
+    }
+    if (!['L', 'I', 'J', 'M'].includes(commentType)) {
+        return res.status(400).send(`不正なリクエスト: 無効なコメントタイプです: ${commentType}`);
+    }
+    if (!/^[A-Z]+$/.test(col) || typeof row !== 'number' || row < 2) {
+         return res.status(400).send(`不正なリクエスト: 無効なセル指定です (Col: ${col}, Row: ${row})。行は2以上である必要があります。`);
+    }
+
+    try {
+        await googleSheetsService.updateCommentSheetCell(centralSheetId, clinicName, commentType, col, row, value);
+        res.json({ status: 'ok', message: `セル ${col}${row} を更新しました。` });
+    } catch (error) {
+        console.error('[/api/updateCommentData] Error updating comment cell:', error);
+        res.status(500).send(`コメントシートの更新中にエラーが発生しました: ${error.message}`);
+    }
+};

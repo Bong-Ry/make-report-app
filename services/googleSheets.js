@@ -183,6 +183,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
                 console.log(`[googleSheetsService-ETL] Wrote ${filteredRows.length} rows to sheet: "${clinicSheetTitle}" (HEADERLESS)`);
 
                 // 5. データを「全体」タブに「追記」 (変更なし)
+                await findOrCreateSheet(centralSheetId, '全体'); // (追記前に「全体」タブも存在確認)
                 await writeData(centralSheetId, '全体', filteredRows, true); // append = true
                 console.log(`[googleSheetsService-ETL] Appended ${filteredRows.length} rows to sheet: "全体"`);
             }
@@ -345,6 +346,210 @@ function buildReportDataObject(data) {
     };
 }
 
+// =================================================================
+// === ▼▼▼ [新規] コメントシート名 取得ヘルパー (ローカル) ▼▼▼ ===
+// =================================================================
+/**
+ * [新規] 保存先のコメントシート名を取得する (ローカル関数)
+ * @param {string} clinicName (例: "クリニックA")
+ * @param {string} type (例: "L", "I", "J", "M")
+ * @returns {string} (例: "クリニックA_NPSコメント")
+ */
+function getCommentSheetName(clinicName, type) {
+    switch(type) {
+        case 'L':
+            return `${clinicName}_NPSコメント`;
+        case 'I':
+            return `${clinicName}_よかった点悪かった点`;
+        case 'J':
+            return `${clinicName}_印象スタッフ`;
+        case 'M':
+            return `${clinicName}_お産意見`;
+        default:
+            throw new Error(`[helpers] 無効なコメントシートタイプです: ${type}`);
+    }
+};
+
+// =================================================================
+// === ▼▼▼ [新規] コメントデータ保存・読み込み・更新 (5/X) ▼▼▼ ===
+// =================================================================
+
+/**
+ * [新規] NPSとその他コメント(I,J,M)を指定のシートにカラム分けして保存する
+ * @param {string} centralSheetId
+ * @param {string} clinicName
+ * @param {object} reportData (getReportDataForCharts が返すオブジェクト)
+ */
+exports.saveCommentDataToSheets = async (centralSheetId, clinicName, reportData) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService-Comments] Saving comment sheets for: "${clinicName}"`);
+    
+    let hasData = false;
+
+    // --- 1. NPSコメントシート (`_NPSコメント`) ---
+    try {
+        const npsSheetName = getCommentSheetName(clinicName, 'L');
+        const npsResults = reportData.npsData.results;
+        
+        if (reportData.npsData.totalCount > 0) {
+            hasData = true;
+            const colA = npsResults['10'] || []; // 10点
+            const colB = npsResults['9'] || [];  // 9点
+            const colC = npsResults['8'] || [];  // 8点
+            const colD = npsResults['7'] || [];  // 7点
+            // 6点以下をすべてE列にまとめる
+            const colE = Object.keys(npsResults)
+                .map(Number)
+                .filter(score => score <= 6)
+                .flatMap(score => npsResults[score] || []);
+            
+            const maxRows = Math.max(colA.length, colB.length, colC.length, colD.length, colE.length);
+            const dataToWrite = [];
+            
+            // ヘッダー行
+            dataToWrite.push(['10点', '9点', '8点', '7点', '6点以下']);
+            
+            for (let i = 0; i < maxRows; i++) {
+                dataToWrite.push([
+                    colA[i] || '',
+                    colB[i] || '',
+                    colC[i] || '',
+                    colD[i] || '',
+                    colE[i] || ''
+                ]);
+            }
+            
+            await findOrCreateSheet(centralSheetId, npsSheetName);
+            await clearSheet(centralSheetId, npsSheetName);
+            await writeData(centralSheetId, npsSheetName, dataToWrite);
+            console.log(`[googleSheetsService-Comments] Saved NPS comments to "${npsSheetName}".`);
+        }
+    } catch (e) {
+        console.error(`[googleSheetsService-Comments] Failed to save NPS comments: ${e.message}`, e);
+    }
+    
+    // --- 2. その他フィードバック (I, J, M) ---
+    const feedbackTypes = [
+        { type: 'I', data: reportData.feedbackData.i_column },
+        { type: 'J', data: reportData.feedbackData.j_column },
+        { type: 'M', data: reportData.feedbackData.m_column }
+    ];
+
+    for (const fb of feedbackTypes) {
+        try {
+            const sheetName = getCommentSheetName(clinicName, fb.type);
+            if (fb.data.totalCount > 0) {
+                hasData = true;
+                // 1D配列 (['c1', 'c2']) を 2D配列 ([['c1'], ['c2']]) に変換
+                const dataToWrite = fb.data.results.map(comment => [comment]);
+                
+                // ヘッダー行
+                dataToWrite.unshift(['コメント一覧']);
+
+                await findOrCreateSheet(centralSheetId, sheetName);
+                await clearSheet(centralSheetId, sheetName);
+                await writeData(centralSheetId, sheetName, dataToWrite);
+                console.log(`[googleSheetsService-Comments] Saved ${fb.type} comments to "${sheetName}".`);
+            }
+        } catch (e) {
+            console.error(`[googleSheetsService-Comments] Failed to save ${fb.type} comments: ${e.message}`, e);
+        }
+    }
+    
+    if (!hasData) {
+        throw new Error('分析対象のコメントデータが0件です。 (Type: COMMENTS)');
+    }
+};
+
+/**
+ * [新規] HTML側がコメントシートからデータを読み込む
+ * @param {string} centralSheetId
+ * @param {string} clinicName
+ * @param {string} type (例: "L", "I", "J", "M")
+ * @returns {Promise<object | string[]>} 
+ * NPS(L)の場合: { "10": [...], "9": [...], "8": [...], "7": [...], "6_under": [...] }
+ * それ以外の場合: [ "comment1", "comment2", ... ]
+ */
+exports.readCommentSheetData = async (centralSheetId, clinicName, type) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    
+    const sheetName = getCommentSheetName(clinicName, type);
+    const isNPS = (type === 'L');
+    const range = isNPS ? `'${sheetName}'!A:E` : `'${sheetName}'!A:A`;
+    
+    console.log(`[googleSheetsService-Comments] Reading comments from "${sheetName}" (Range: ${range})`);
+
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: range,
+            valueRenderOption: 'FORMATTED_VALUE'
+        });
+
+        const rows = response.data.values;
+
+        if (!rows || rows.length < 2) { // (ヘッダー + データ)
+            console.log(`[googleSheetsService-Comments] No data found in "${sheetName}".`);
+            return isNPS ? { "10": [], "9": [], "8": [], "7": [], "6_under": [] } : [];
+        }
+
+        rows.shift(); // ヘッダーを捨てる
+
+        if (isNPS) {
+            const npsData = { "10": [], "9": [], "8": [], "7": [], "6_under": [] };
+            rows.forEach(row => {
+                if (row[0] != null && row[0] !== '') npsData["10"].push(row[0]);
+                if (row[1] != null && row[1] !== '') npsData["9"].push(row[1]);
+                if (row[2] != null && row[2] !== '') npsData["8"].push(row[2]);
+                if (row[3] != null && row[3] !== '') npsData["7"].push(row[3]);
+                if (row[4] != null && row[4] !== '') npsData["6_under"].push(row[4]);
+            });
+            return npsData;
+        } else {
+            const comments = [];
+            rows.forEach(row => {
+                if (row[0] != null && row[0] !== '') comments.push(row[0]);
+            });
+            return comments;
+        }
+
+    } catch (e) {
+        if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
+            console.warn(`[googleSheetsService-Comments] Sheet "${sheetName}" not found. Returning empty data.`);
+            return isNPS ? { "10": [], "9": [], "8": [], "7": [], "6_under": [] } : [];
+        }
+        console.error(`[googleSheetsService-Comments] Error reading comment data: ${e.message}`, e);
+        throw new Error(`コメントシート(${sheetName})の読み込みに失敗しました: ${e.message}`);
+    }
+};
+
+/**
+ * [新規] HTML側が編集したコメントをシートの特定のセルに書き戻す
+ * @param {string} centralSheetId
+ * @param {string} clinicName
+ * @param {string} type (例: "L", "I", "J", "M")
+ * @param {string} col (例: "A", "B")
+ * @param {number} row (1-based index)
+ * @param {string} value
+ */
+exports.updateCommentSheetCell = async (centralSheetId, clinicName, type, col, row, value) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    
+    const sheetName = getCommentSheetName(clinicName, type);
+    // (rowはHTML側でヘッダー行(1)を考慮して +1 された 2-based のインデックスで来る想定)
+    const range = `'${sheetName}'!${col}${row}`;
+    
+    console.log(`[googleSheetsService-Comments] Updating cell "${range}" with new value...`);
+    
+    try {
+        await writeData(centralSheetId, range, [[value]], false); // append = false
+        console.log(`[googleSheetsService-Comments] Cell update successful.`);
+    } catch (e) {
+        console.error(`[googleSheetsService-Comments] Error updating cell "${range}": ${e.message}`, e);
+        throw new Error(`コメントシート(${sheetName})のセル(${range})更新に失敗しました: ${e.message}`);
+    }
+};
+
 
 // =================================================================
 // === (変更なし) 関数 (10/X) (シート名一覧取得) ===
@@ -503,14 +708,12 @@ exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
 
 
 // =================================================================
-// === ▼▼▼ [新規] 完了マーカー (管理シート) I/O関数 (12/X) ▼▼▼ ===
+// === (変更なし) 完了マーカー (管理シート) I/O関数 (12/X) ===
 // =================================================================
 const MANAGEMENT_SHEET_NAME = '管理'; // (ご要望: 管理シート)
 
 /**
- * [新規] 「管理」タブのA列にクリニック名を追記する (分析開始時)
- * @param {string} centralSheetId
- * @param {string} clinicName
+ * [変更なし] 「管理」タブのA列にクリニック名を追記する (分析開始時)
  */
 exports.writeInitialMarker = async (centralSheetId, clinicName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
@@ -528,9 +731,7 @@ exports.writeInitialMarker = async (centralSheetId, clinicName) => {
 };
 
 /**
- * [新規] 「管理」タブのB列に "Complete" と書き込む (分析完了時)
- * @param {string} centralSheetId
- * @param {string} clinicName
+ * [変更なし] 「管理」タブのB列に "Complete" と書き込む (分析完了時)
  */
 exports.writeCompletionMarker = async (centralSheetId, clinicName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
@@ -568,9 +769,7 @@ exports.writeCompletionMarker = async (centralSheetId, clinicName) => {
 };
 
 /**
- * [新規] 「管理」タブを読み込み、完了ステータスのMapを作成する (DLボタンチェック用)
- * @param {string} centralSheetId
- * @returns {Promise<Record<string, boolean>>} (例: { "クリニックA": true, "クリニックB": false })
+ * [変更なし] 「管理」タブを読み込み、完了ステータスのMapを作成する (DLボタンチェック用)
  */
 exports.readCompletionStatusMap = async (centralSheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');

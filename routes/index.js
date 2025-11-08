@@ -56,5 +56,15 @@ router.post('/api/getDetailedAnalysis', analysisController.getDetailedAnalysis);
 // AI詳細分析 (編集・保存) (変更なし: 中身が単一シート参照に変更されたがURLは同じ)
 router.post('/api/updateDetailedAnalysis', analysisController.updateDetailedAnalysis);
 
+// =================================================================
+// === ▼▼▼ [新規] コメント編集用APIルート ▼▼▼ ===
+// =================================================================
+
+// [新規] コメントシートからデータを読み込む
+router.post('/api/getCommentData', analysisController.getCommentData);
+
+// [新規] コメントシートのセルを更新する
+router.post('/api/updateCommentData', analysisController.updateCommentData);
+
 
 module.exports = router;

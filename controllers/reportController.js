@@ -174,6 +174,7 @@ exports.getReportData = async (req, res) => {
 
 /**
  * [変更] AI分析をバックグラウンドで実行（「管理」シートマーカー対応）
+ * ▼▼▼ コメントシート保存タスクを追加 ▼▼▼
  * @param {string} centralSheetId 
  * @param {string[]} clinicNames - 処理対象のクリニック名リスト
  */
@@ -191,8 +192,9 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
     
     console.log(`[BG-AI] Background task started for ${clinicNames.join(', ')}`);
     
-    // ▼▼▼ [変更なし] タスクは3種類 ▼▼▼
+    // ▼▼▼ [変更] タスクは4種類 (コメント保存を追加) ▼▼▼
     const analysisTasks = [
+        { type: 'COMMENTS', func: googleSheetsService.saveCommentDataToSheets },
         { type: 'AI_ALL', func: aiAnalysisService.runAllAiAnalysesAndSave },
         { type: 'MUNICIPALITY', func: aiAnalysisService.runAndSaveMunicipalityAnalysis },
         { type: 'RECOMMENDATION', func: aiAnalysisService.runAndSaveRecommendationAnalysis }
@@ -200,26 +202,39 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
     
     // 転記されたクリニックごとにループ
     for (const clinicName of clinicNames) {
-        console.log(`[BG-AI] Starting all 3 analyses for ${clinicName} (Concurrency: 2)...`);
+        console.log(`[BG-AI] Starting all 4 analyses for ${clinicName} (Concurrency: 2)...`);
         
         try {
-            // ▼▼▼ [新規] 1. 分析開始時に「管理」シートのA列に名前を書き込む ▼▼▼
+            // ▼▼▼ [新規] 1. コメント保存タスク用に、集計データを先に取得する ▼▼▼
+            console.log(`[BG-AI] Fetching aggregated data for ${clinicName} (for comments)...`);
+            const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
+
+            // ▼▼▼ [新規] 2. 分析開始時に「管理」シートのA列に名前を書き込む ▼▼▼
             await googleSheetsService.writeInitialMarker(centralSheetId, clinicName);
 
-            // ▼▼▼ [変更なし] 3種類のタスクを並列数 2 で実行 ▼▼▼
+            // ▼▼▼ [変更] 4種類のタスクを並列数 2 で実行 ▼▼▼
             const promises = analysisTasks.map(task => {
                 // p-limit (limit) でラップして呼び出す
                 return limit(async () => {
                     try {
                         console.log(`[BG-AI] Running ${clinicName} - ${task.type}...`);
-                        await task.func(centralSheetId, clinicName);
+                        
+                        // ▼▼▼ [変更] COMMENTSタスクに reportData を渡す ▼▼▼
+                        if (task.type === 'COMMENTS') {
+                            await task.func(centralSheetId, clinicName, reportData);
+                        } else {
+                            await task.func(centralSheetId, clinicName);
+                        }
+                        
                         console.log(`[BG-AI] SUCCESS: ${clinicName} - ${task.type}`);
                         return { type: task.type, status: 'success' };
                     } catch (e) {
+                        // ▼▼▼ [変更] スキップ対象のエラーメッセージを追加 ▼▼▼
                         if (e.message && (
-                            e.message.includes('テキストデータが0件') ||
-                            e.message.includes('郵便番号データが0件') ||
-                            e.message.includes('おすすめ理由データが0件')
+                            e.message.includes('コメントデータが0件') || // (COMMENTS)
+                            e.message.includes('テキストデータが0件') || // (AI_ALL)
+                            e.message.includes('郵便番号データが0件') || // (MUNICIPALITY)
+                            e.message.includes('おすすめ理由データが0件') // (RECOMMENDATION)
                         )) {
                             console.log(`[BG-AI] SKIP: ${clinicName} - ${task.type} (No data)`);
                             return { type: task.type, status: 'skipped' };
@@ -231,7 +246,7 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
                 });
             }); 
             
-            // 2. [変更なし] このクリニックの全タスク(3件)の完了を待つ
+            // 3. [変更なし] このクリニックの全タスク(4件)の完了を待つ
             const results = await Promise.all(promises);
             
             const hasFailed = results.some(r => r.status === 'failed');
@@ -239,15 +254,16 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
             if (hasFailed) {
                  console.error(`[BG-AI] COMPLETED (WITH FAILURES) for ${clinicName}. Completion marker will NOT be set.`);
             } else {
-                // 3. [変更] 3件すべてが success または skipped の場合
-                console.log(`[BG-AI] COMPLETED (SUCCESS/SKIP) all 3 analyses for ${clinicName}.`);
+                // 4. [変更] 4件すべてが success または skipped の場合
+                console.log(`[BG-AI] COMPLETED (SUCCESS/SKIP) all 4 analyses for ${clinicName}.`);
                 // ▼▼▼ [変更] 「管理」シートのB列に "Complete" と書き込む ▼▼▼
                 await googleSheetsService.writeCompletionMarker(centralSheetId, clinicName);
                 console.log(`[BG-AI] Set COMPLETION MARKER for ${clinicName}.`);
             }
 
         } catch (e) {
-            console.error(`[BG-AI] FATAL ERROR during parallel execution for ${clinicName}: ${e.message}`);
+            // ▼▼▼ [変更] getReportDataForCharts が失敗した場合のエラーハンドリング ▼▼▼
+            console.error(`[BG-AI] FATAL ERROR during pre-fetch or execution for ${clinicName}: ${e.message}`);
         }
     }
     console.log('[BG-AI] All background tasks finished.');
@@ -288,7 +304,10 @@ exports.generatePdf = async (req, res) => {
 
     try {
         console.log(`[/generate-pdf] Fetching data for PDF from sheet: "${clinicName}"`);
+        // ▼▼▼ [変更] PDF生成に必要なデータを渡す (centralSheetId を含める) ▼▼▼
         const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
+        // getReportDataForCharts が centralSheetId を返さないため、ここで付与する
+        reportData.centralSheetId = centralSheetId; 
         
         const pdfBuffer = await pdfGeneratorService.generatePdfFromData(clinicName, periodText, reportData);
 
@@ -304,7 +323,3 @@ exports.generatePdf = async (req, res) => {
     }
 };
 
-// =================================================================
-// === ▼▼▼ [削除] スライド生成 (generateSlide) ▼▼▼ ===
-// =================================================================
-// (関数全体を削除しました)
