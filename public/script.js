@@ -29,21 +29,30 @@
   // --- Google Charts ロード (変更なし) ---
   const googleChartsLoaded = new Promise(resolve => { google.charts.load('current', {'packages':['corechart', 'bar']}); google.charts.setOnLoadCallback(resolve); });
 
-  // --- 初期化 (変更なし) ---
-  document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOM Loaded.');
-    populateDateSelectors();
-    try {
-        await googleChartsLoaded;
-        console.log('Charts loaded.');
-    } catch (err) {
-        console.error('Chart load fail:', err);
-        alert('グラフライブラリ読込失敗');
-        return;
-    }
-    setupEventListeners();
-    console.log('Listeners setup.');
-  });
+  // --- ▼▼▼ [修正] DOMContentLoaded イベントリスナーを削除 ---
+  // (スクリプトは body の最後に配置されているため、DOMは既にロード済み)
+  
+  console.log('DOM Loaded (assumed).');
+  
+  // 1. プルダウンを生成
+  populateDateSelectors();
+  
+  // 2. Google Charts のロードを待つ
+  try {
+      await googleChartsLoaded;
+      console.log('Charts loaded.');
+  } catch (err) {
+      console.error('Chart load fail:', err);
+      alert('グラフライブラリ読込失敗');
+      // (ここで return するとイベントリスナーが設定されないので続行)
+  }
+  
+  // 3. イベントリスナーを設定
+  setupEventListeners();
+  console.log('Listeners setup.');
+  
+  // --- ▲▲▲ 修正 終わり ▲▲▲ ---
+
 
   // --- ▼▼▼ [修正] イベントリスナー設定 (新UI対応) ▼▼▼ ---
   function setupEventListeners() {
@@ -480,12 +489,15 @@
     // ページタイトル設定とグラフ描画準備
     if (reportType === 'nps_score'){ prepareChartPage('アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー', 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない', 'nps_score'); isChart=true; }
     else if (reportType === 'satisfaction_b'){ prepareChartPage('アンケート結果　ー満足度ー','ご出産された産婦人科医院への満足度について、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_b'); isChart=true; }
-    else if (reportType === 'satisfaction_c'){ prepareChartPage('アンケート結果{...}
-    // (中略 - 他の satisfaction, age, children, income グラフ)
-    else if (reportType === 'satisfaction_h'){ prepareChartPage('アンケート結果{...}
-    else if (reportType === 'age'){ prepareChartPage('アンケート結果{...}
-    else if (reportType === 'children'){ prepareChartPage('アンケート結果{...}
-    else if (reportType === 'income'){ prepareChartPage('アンケート結果{...}
+    else if (reportType === 'satisfaction_c'){ prepareChartPage('アンケート結果　ー施設の充実度・快適さー','ご出産された産婦人科医院への施設の充実度・快適さについて、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_c'); isChart=true; }
+    else if (reportType === 'satisfaction_d'){ prepareChartPage('アンケート結果　ーアクセスの良さー','ご出産された産婦人科医院へのアクセスの良さについて、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_d'); isChart=true; }
+    else if (reportType === 'satisfaction_e'){ prepareChartPage('アンケート結果　ー費用ー','ご出産された産婦人科医院への費用について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_e'); isChart=true; }
+    else if (reportType === 'satisfaction_f'){ prepareChartPage('アンケート結果　ー病院の雰囲気ー','ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_f'); isChart=true; }
+    else if (reportType === 'satisfaction_g'){ prepareChartPage('アンケート結果　ースタッフの対応ー','ご出産された産婦人科医院へのスタッフの対応について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_g'); isChart=true; }
+    else if (reportType === 'satisfaction_h'){ prepareChartPage('アンケート結果　ー先生の診断・説明ー','ご出産された産婦人科医院への先生の診断・説明について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_h'); isChart=true; }
+    else if (reportType === 'age'){ prepareChartPage('アンケート結果　ーご回答者さまの年代ー','ご出産された方の年代について教えてください。', 'age'); isChart=true; }
+    else if (reportType === 'children'){ prepareChartPage('アンケート結果　ーご回答者さまのお子様の人数ー','ご出産された方のお子様の人数について教えてください。', 'children'); isChart=true; }
+    else if (reportType === 'income'){ prepareChartPage('アンケート結果　ーご回答者さまの世帯年収ー','ご出産された方の世帯年収について教えてください。', 'income', true); isChart=true; }
 
     
     if (isChart) { 
@@ -1141,7 +1153,9 @@
     showScreen('screen5');
     updateNavActiveState(null, null, analysisType);
     toggleEditDetailedAnalysis(false); 
-    showCopyrightFooter(true); // AIページにもフッター表示
+    
+    // ▼▼▼ [修正] Screen5のフッターも表示/非表示制御 ▼▼▼
+    showCopyrightFooter(true, 'screen5'); 
     
     const errorDiv = document.getElementById('detailed-analysis-error');
     errorDiv.classList.add('hidden');
@@ -1473,15 +1487,18 @@
   }
   
   // ▼▼▼ [新規] フッター表示切替 ▼▼▼
-  function showCopyrightFooter(show) {
-      const footer = document.getElementById('report-copyright');
+  function showCopyrightFooter(show, screenId = 'screen3') {
+      let footer;
+      if (screenId === 'screen3') {
+          footer = document.getElementById('report-copyright');
+      } else if (screenId === 'screen5') {
+          // Screen 5 のフッターも制御 (Screen 5 の .report-body 内の .report-copyright を探す)
+          footer = document.querySelector('#screen5 .report-copyright');
+      }
+      
       if (footer) {
           footer.style.display = show ? 'block' : 'none';
       }
-      
-      // Screen 5 (AI) にもフッター要素 (report-copyright) が必要
-      // (index.html側で Screen 5 の main にもフッターを追加する必要があるが、
-      // ここでは Screen 3 のフッターの表示/非表示のみ制御する)
   }
 
 })(); // 即時実行関数で全体をラップ
