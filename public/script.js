@@ -772,7 +772,7 @@ function showCommentSubNav(reportType) {
 }
 
 /**
- * [修正] APIからコメントシートのデータを取得し、最初のページを描画 (NPSサブタイトル設定)
+ * [修正] APIからコメントシートのデータを取得し、最初のページを描画 (NPSサブタイトル・件数修正)
  */
 async function fetchAndRenderCommentPage(commentKey) {
     currentCommentData = null;
@@ -810,7 +810,14 @@ async function fetchAndRenderCommentPage(commentKey) {
         
         const data = await response.json(); // 例: [ ['A列c1', 'A列c2'], ['B列c1'] ]
         
-        if (!data || data.length === 0 || (data.length > 0 && data[0].length === 0)) {
+        // ▼▼▼ [修正] (Req 3) 1ページ目の件数ではなく、全ページの合計件数を計算 ▼▼▼
+        let totalCommentCount = 0;
+        if (data && data.length > 0) {
+            totalCommentCount = data.reduce((acc, column) => acc + column.length, 0);
+        }
+        // ▲▲▲
+
+        if (totalCommentCount === 0) {
             currentCommentData = [];
             document.getElementById('slide-body').innerHTML = '<p class="text-center text-gray-500 py-16">コメントデータがありません</p>';
             renderCommentControls(); 
@@ -818,9 +825,8 @@ async function fetchAndRenderCommentPage(commentKey) {
             setNpsSubtitle(commentKey, 0); 
         } else {
             currentCommentData = data;
-            // ▼▼▼ [修正] 描画の前にNPSサブタイトルを設定 (件数取得のため) ▼▼▼
-            const firstPageCount = (data[0] || []).length;
-            setNpsSubtitle(commentKey, firstPageCount); 
+            // ▼▼▼ [修正] 描画の前にNPSサブタイトルを設定 (合計件数を渡す) ▼▼▼
+            setNpsSubtitle(commentKey, totalCommentCount); 
             
             renderCommentPage(0); // 最初のページ (A列) を描画
         }
@@ -834,9 +840,9 @@ async function fetchAndRenderCommentPage(commentKey) {
 }
 
 /**
- * [新規] NPSコメント用のサブタイトルを設定する
+ * [修正] NPSコメント用のサブタイトルを設定する (ご要望の形式)
  * @param {string} commentKey (例: "L_10", "I")
- * @param {number} count (現在のページの件数、または総件数)
+ * @param {number} count (★グループの合計件数)
  */
 function setNpsSubtitle(commentKey, count) {
     const subTitleEl = document.getElementById('report-subtitle');
@@ -846,6 +852,7 @@ function setNpsSubtitle(commentKey, count) {
     // (アイコンURLは未指定のため、プレースホルダ)
     if (commentKey === 'L_10' || commentKey === 'L_9') {
         const score = commentKey.split('_')[1];
+        // ▼▼▼ [修正] count は既に合計件数 (Req 3) ▼▼▼
         subTitle = `[アイコン①] NPS ${score} ${count}人`; 
     } else if (commentKey === 'L_8' || commentKey === 'L_7') {
         const score = commentKey.split('_')[1];
@@ -1107,7 +1114,7 @@ async function prepareAndShowAnalysis(columnType) {
       return;
   }
   
-  // ▼▼▼ [修正] WCシェル (ルール ①) ▼▼▼
+  // ▼▼▼ [修正] WCシェル (Req 1, 2: テキスト修正) ▼▼▼
   slideBody.innerHTML = `
       <div class="grid grid-cols-2 gap-4 h-full">
           <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2">
@@ -1130,12 +1137,9 @@ async function prepareAndShowAnalysis(columnType) {
           </div>
           <div class="space-y-4 flex flex-col h-full">
               <p class="text-sm text-gray-600">
-                  スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>
+                  スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。
                   単語の色は品詞の種類で異なります。<br>
-                  <span class="text-blue-600 font-semibold">青色=名詞</span>、
-                  <span class="text-red-600 font-semibold">赤色=動詞</span>、
-                  <span class="text-green-600 font-semibold">緑色=形容詞</span>、
-                  <span class="text-gray-600 font-semibold">灰色=感動詞</span>
+                  <span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span>
               </p>
               <div id="word-cloud-container" class="h-[calc(100%-80px)] border border-gray-200">
                   <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
@@ -1159,7 +1163,7 @@ async function prepareAndShowAnalysis(columnType) {
   }
 }
 
-// ▼▼▼ [修正] Word Cloud描画 (Top 8, レイアウト調整, 画質/サイズ調整) ▼▼▼
+// ▼▼▼ [修正] Word Cloud描画 (Req 4, 5, 6: 余白削除, 安定化) ▼▼▼
 function drawAnalysisCharts(results) { 
     if(!results||results.length===0){
         console.log("No analysis results.");
@@ -1177,51 +1181,28 @@ function drawAnalysisCharts(results) {
     chartArea:{height:'90%', width:'70%', left:'25%', top:'5%'}, 
     backgroundColor: 'transparent'};
     
-    // ▼▼▼ [修正] グラフの高さを 100% に指定, Top 8 (ご要望) ▼▼▼
-    drawSingleBarChart(nouns.slice(0,8),'noun-chart',{...barOpt,colors:['#3b82f6'], height: '100%', width: '100%'});
-    drawSingleBarChart(verbs.slice(0,8),'verb-chart',{...barOpt,colors:['#ef4444'], height: '100%', width: '100%'});
-    drawSingleBarChart(adjs.slice(0,8),'adj-chart',{...barOpt,colors:['#22c55e'], height: '100%', width: '100%'});
-    drawSingleBarChart(ints.slice(0,8),'int-chart',{...barOpt,colors:['#6b7280'], height: '100%', width: '100%'});
+    // ▼▼▼ [修正] (Req 4) グラフの height: 100% を削除し、余白を詰める ▼▼▼
+    drawSingleBarChart(nouns.slice(0,8),'noun-chart',{...barOpt,colors:['#3b82f6']});
+    drawSingleBarChart(verbs.slice(0,8),'verb-chart',{...barOpt,colors:['#ef4444']});
+    drawSingleBarChart(adjs.slice(0,8),'adj-chart',{...barOpt,colors:['#22c55e']});
+    drawSingleBarChart(ints.slice(0,8),'int-chart',{...barOpt,colors:['#6b7280']});
     
-    // ▼▼▼ [修正] WordCloud (サイズ・画質調整) ▼▼▼
+    // ▼▼▼ [修正] (Req 5, 6) WordCloud (安定化のためDPRと動的サイズ計算を削除し、オリジナルロジックに戻す) ▼▼▼
     const wl=results.map(r=>[r.word,r.score]).slice(0,100);
     const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});
     const cv=document.getElementById('word-cloud-canvas');
     
     if(WordCloud.isSupported&&cv){
         try{
-            // ▼▼▼ [修正] 高解像度DPR対応 (画質改善) ▼▼▼
-            const dpr = window.devicePixelRatio || 1;
-            const rect = cv.getBoundingClientRect();
-            cv.width = rect.width * dpr;
-            cv.height = rect.height * dpr;
-            const ctx = cv.getContext('2d');
-            ctx.scale(dpr, dpr);
-            
-            // ▼▼▼ [修正] サイズ計算ロジック (ご要望: 10〜18pt) ▼▼▼
-            const minSize = 10;
-            const maxSize = 18;
-            let maxScore = 0;
-            if (wl.length > 0) {
-                 maxScore = wl[0][1]; // (scoreでソート済み前提)
-            }
-            const weightFactor = (size) => {
-                if (maxScore === 0) return minSize;
-                const score = size;
-                // スコアを 0-1 の範囲に正規化 (ただし最低スコアは考慮しない)
-                const normalizedScore = Math.max(0, score / maxScore);
-                // 10pt (min) から 18pt (max) の範囲にマッピング
-                return minSize + (maxSize - minSize) * normalizedScore;
-            };
-            // ▲▲▲
+            // (DPR scaling 削除)
             
             const options={
                 list:wl,
-                // ▼▼▼ [修正] gridSize (画質改善) ▼▼▼
-                gridSize: 8, 
-                // ▼▼▼ [修正] weightFactor, minSize (サイズ指定) ▼▼▼
-                weightFactor: weightFactor,
-                minSize: minSize, 
+                // ▼▼▼ [修正] オリジナルのロジックに戻す (安定化) ▼▼▼
+                gridSize:Math.round(16*cv.width/1024), 
+                weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;}, 
+                // minSize: 10, (削除)
+                // ▲▲▲
                 fontFamily:'Noto Sans JP,sans-serif',
                 color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},
                 backgroundColor:'transparent',
