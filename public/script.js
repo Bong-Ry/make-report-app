@@ -1163,7 +1163,7 @@ async function prepareAndShowAnalysis(columnType) {
   }
 }
 
-// ▼▼▼ [修正] Word Cloud描画 (Req 4, 5, 6: 余白削除, 安定化) ▼▼▼
+// ▼▼▼ [修正] Word Cloud描画 (Req 4, 5, 6: 余白削除, ぼやけ解消, 10-17pt) ▼▼▼
 function drawAnalysisCharts(results) { 
     if(!results||results.length===0){
         console.log("No analysis results.");
@@ -1182,27 +1182,51 @@ function drawAnalysisCharts(results) {
     backgroundColor: 'transparent'};
     
     // ▼▼▼ [修正] (Req 4) グラフの height: 100% を削除し、余白を詰める ▼▼▼
-    drawSingleBarChart(nouns.slice(0,8),'noun-chart',{...barOpt,colors:['#3b82f6']});
-    drawSingleBarChart(verbs.slice(0,8),'verb-chart',{...barOpt,colors:['#ef4444']});
-    drawSingleBarChart(adjs.slice(0,8),'adj-chart',{...barOpt,colors:['#22c55e']});
-    drawSingleBarChart(ints.slice(0,8),'int-chart',{...barOpt,colors:['#6b7280']});
+    drawSingleBarChart(nouns.slice(0,8),'noun-chart',{...barOpt,colors:['#3b82f6'], width: '100%'});
+    drawSingleBarChart(verbs.slice(0,8),'verb-chart',{...barOpt,colors:['#ef4444'], width: '100%'});
+    drawSingleBarChart(adjs.slice(0,8),'adj-chart',{...barOpt,colors:['#22c55e'], width: '100%'});
+    drawSingleBarChart(ints.slice(0,8),'int-chart',{...barOpt,colors:['#6b7280'], width: '100%'});
     
-    // ▼▼▼ [修正] (Req 5, 6) WordCloud (安定化のためDPRと動的サイズ計算を削除し、オリジナルロジックに戻す) ▼▼▼
+    // ▼▼▼ [修正] (Req 5, 6) WordCloud (ぼやけ解消, 10-17pt) ▼▼▼
     const wl=results.map(r=>[r.word,r.score]).slice(0,100);
     const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});
     const cv=document.getElementById('word-cloud-canvas');
     
     if(WordCloud.isSupported&&cv){
         try{
-            // (DPR scaling 削除)
+            // ▼▼▼ [修正] (Req 6) 高解像度DPR対応 (ぼやけ解消) ▼▼▼
+            const dpr = window.devicePixelRatio || 1;
+            const rect = cv.getBoundingClientRect();
+            cv.width = rect.width * dpr;
+            cv.height = rect.height * dpr;
+            const ctx = cv.getContext('2d');
+            ctx.scale(dpr, dpr); // Scale context for high-res
+
+            // ▼▼▼ [修正] (Req 5) サイズ計算ロジック (ご要望: 10〜17pt) ▼▼▼
+            const minSize = 10;
+            const maxSize = 17; // 18 -> 17
+            
+            let maxScore = 0;
+            if (wl.length > 0) {
+                 maxScore = wl[0][1]; // (scoreでソート済み前提)
+            }
+            
+            // スコアを 10pt-17pt の範囲にマッピングする
+            const weightFactor = (size) => {
+                if (maxScore === 0) return minSize;
+                const score = size;
+                // スコアを 0-1 の範囲に正規化
+                const normalizedScore = Math.max(0, score / maxScore);
+                // 10pt (min) から 17pt (max) の範囲にマッピング
+                return minSize + (maxSize - minSize) * normalizedScore;
+            };
+            // ▲▲▲
             
             const options={
                 list:wl,
-                // ▼▼▼ [修正] オリジナルのロジックに戻す (安定化) ▼▼▼
-                gridSize:Math.round(16*cv.width/1024), 
-                weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;}, 
-                // minSize: 10, (削除)
-                // ▲▲▲
+                gridSize: 8, // (密度)
+                weightFactor: weightFactor, // (Req 5)
+                minSize: minSize, // (Req 5)
                 fontFamily:'Noto Sans JP,sans-serif',
                 color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},
                 backgroundColor:'transparent',

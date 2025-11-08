@@ -209,7 +209,8 @@ body{
 }
 .report-separator {
     border-top: 1px dashed #9ca3af;
-    margin-bottom: 16px; /* マージン調整 */
+    /* ▼▼▼ [修正] WCレイアウト調整のためマージンを 0 に ▼▼▼ */
+    margin-bottom: 0; 
     flex-shrink: 0;
 }
 
