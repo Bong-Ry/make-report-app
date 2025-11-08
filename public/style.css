@@ -43,8 +43,11 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
 .report-body {
     width: 100%;
     max-width: 1122px; 
+    /* ▼▼▼ [修正] A4横の固定比率・高さを復活 ▼▼▼ */
     aspect-ratio: 297 / 210; 
     min-height: 793px; 
+    /* height: auto; (削除) */
+    
     margin: 0 auto;
     padding: 40px;
     border: 8px solid #fcf1ed; 
@@ -71,7 +74,8 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     color: #6b7280;
     margin-bottom: 16px;
     white-space: pre-wrap;
-    text-align: left; /* デフォルト左揃え */
+    /* ▼▼▼ [修正] text-align: left -> center !important ▼▼▼ */
+    text-align: center !important;
     flex-shrink: 0;
 }
 .report-separator {
@@ -181,18 +185,15 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     padding: 6px 12px;
 }
 
-/* ▼▼▼ [修正] コメント編集用textarea (テキスト風スタイルに変更) ▼▼▼ */
-.comment-edit-textarea {
-    @apply w-full p-1 border-0 rounded-none focus:ring-0 focus:outline-none focus:bg-gray-100;
+/* ▼▼▼ [修正] コメント編集用textarea を削除し、表示用スタイルを追加 ▼▼▼ */
+/* .comment-edit-textarea { ... } (削除) */
+
+/* [新規] コメント表示用スタイル (編集不可) */
+.comment-display-item {
     font-size: 12pt;
     line-height: 1.5;
-    white-space: pre-wrap;
-    /* ▼▼▼ [修正] 内容が多い場合はスクロール許可 (textarea自体) ▼▼▼ */
-    overflow-y: auto; 
-    resize: none; /* リサイズ禁止 */
-    min-height: 42px; /* 1行+paddingの高さ */
-    height: auto; /* 内容に応じて高さを自動調整 (JSでも補佐) */
-    margin-bottom: 0px; /* 余白を削除 */
-    border-bottom: 1px solid #eee; /* テキスト間の区切り線 */
-    background-color: transparent; /* 背景色を透明に */
+    white-space: pre-wrap; /* 改行をそのまま表示 */
+    padding: 4px 0;
+    border-bottom: 1px solid #eee; /* 項目間の薄い線 */
+    word-break: break-word;
 }

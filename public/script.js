@@ -82,12 +82,15 @@ function setupEventListeners() {
       }
 
       // (ヘッダー内 保存ボタン)
+      // ▼▼▼ [修正] 保存ボタンのリスナーを削除 ▼▼▼
+      /*
       const saveBtn = e.target.closest('#comment-save-btn');
       if (saveBtn) {
           e.preventDefault();
           handleSaveComment();
           return;
       }
+      */
   });
 
   // Screen 5 (Nav)
@@ -647,7 +650,7 @@ function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = doc
 function calculateNps(counts, totalCount) { if (totalCount === 0) return 0;let promoters = 0, passives = 0, detractors = 0;for (let i = 0; i <= 10; i++) {const count = counts[i] || 0;if (i >= 9) promoters += count;else if (i >= 7) passives += count;else detractors += count;} return ((promoters / totalCount) - (detractors / totalCount)) * 100; }
 
 
-// --- ▼▼▼ [修正] コメントスライド構築関数群 ▼▼▼ ---
+// --- ▼▼▼ [修正] コメントスライド構築関数群 (非編集化) ▼▼▼ ---
 
 /**
  * [新規] JS側でコメントシート名を取得するヘルパー
@@ -778,7 +781,7 @@ async function fetchAndRenderCommentPage(commentKey) {
 }
 
 /**
- * [修正] 指定されたページ(列)のコメントを <textarea> (テキスト風) として描画
+ * [修正] 指定されたページ(列)のコメントを <p> (編集不可) として描画
  */
 function renderCommentPage(pageIndex) {
     if (!currentCommentData) return;
@@ -797,37 +800,14 @@ function renderCommentPage(pageIndex) {
     } else {
         const fragment = document.createDocumentFragment();
         columnData.forEach((comment, index) => {
-            const sheetRowIndex = index + 1; // 1-based index (行番号)
-            const sheetColLetter = getExcelColumnName(pageIndex); // (列番号)
-            const cellAddress = `${sheetColLetter}${sheetRowIndex}`; // (例: "A1", "B5")
+            // ▼▼▼ [修正] <textarea> の代わりに <p> を使用 ▼▼▼
+            const p = document.createElement('p');
+            p.className = 'comment-display-item';
+            p.textContent = comment; // .textContent を使って安全にテキストを挿入
             
-            // ▼▼▼ [修正] XSS対策は .value セット時にブラウザが行うため、エスケープしない素の comment を使用 ▼▼▼
-            const escapedComment = String(comment).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);
-            
-            const ta = document.createElement('textarea');
-            ta.className = 'comment-edit-textarea';
-            ta.dataset.sheet = currentCommentSheetName;
-            ta.dataset.cell = cellAddress;
-            ta.dataset.originalValue = escapedComment; // 差分比較用にエスケープ後を保持
-            ta.value = comment; // textarea には素のテキストをセット
-            
-            // ▼▼▼ [追加] 内容に応じて高さを自動調整するリスナー ▼▼▼
-            ta.style.height = 'auto';
-            ta.addEventListener('input', () => {
-                ta.style.height = 'auto';
-                ta.style.height = (ta.scrollHeight) + 'px';
-            });
-            
-            fragment.appendChild(ta);
+            fragment.appendChild(p);
         });
         bodyEl.appendChild(fragment);
-        
-        // ▼▼▼ [追加] 追加後に高さを再計算 ▼▼▼
-        setTimeout(() => {
-            bodyEl.querySelectorAll('.comment-edit-textarea').forEach(ta => {
-                ta.style.height = (ta.scrollHeight) + 'px';
-            });
-        }, 0);
     }
     
     // ヘッダーのコントロール（ページャー、保存ボタン）を再描画
@@ -835,7 +815,7 @@ function renderCommentPage(pageIndex) {
 }
 
 /**
- * [新規] ヘッダーのコメントコントロール（ページャー、保存ボタン）を描画
+ * [修正] ヘッダーのコメントコントロール（保存ボタン削除）
  */
 function renderCommentControls() {
     const controlsContainer = document.getElementById('comment-controls');
@@ -846,11 +826,10 @@ function renderCommentControls() {
     controlsContainer.innerHTML = '';
     
     if (!currentCommentData) {
-        // (データ取得失敗時などはボタンを表示しない)
         return;
     }
 
-    const totalPages = Math.max(1, currentCommentData.length); // 少なくとも1ページ
+    const totalPages = Math.max(1, currentCommentData.length); 
     const currentPage = currentCommentPageIndex + 1;
     const currentCol = getExcelColumnName(currentCommentPageIndex);
     
@@ -859,88 +838,16 @@ function renderCommentControls() {
     const prevCol = prevDisabled ? '' : getExcelColumnName(currentCommentPageIndex - 1);
     const nextCol = nextDisabled ? '' : getExcelColumnName(currentCommentPageIndex + 1);
 
+    // ▼▼▼ [修正] 保存ボタンを削除 ▼▼▼
     controlsContainer.innerHTML = `
         <button id="comment-prev" class="btn" ${prevDisabled ? 'disabled' : ''}>&lt; ${prevCol}</button>
         <span>${currentCol}列 (${currentPage} / ${totalPages})</span>
         <button id="comment-next" class="btn" ${nextDisabled ? 'disabled' : ''}>${nextCol} &gt;</button>
-        <button id="comment-save-btn" class="btn comment-save-btn">このページの編集を保存</button>
     `;
 }
 
-/**
- * [修正] コメント保存処理 (差分比較ロジックを修正)
- */
-async function handleSaveComment() {
-    const textareas = document.querySelectorAll('#slide-body .comment-edit-textarea');
-    if (textareas.length === 0) {
-        alert('保存対象のコメントがありません。');
-        return;
-    }
-    
-    showLoading(true, '変更を保存中...');
-    
-    const promises = [];
-    const changedTextareas = [];
-
-    textareas.forEach(ta => {
-        const newValue = ta.value;
-        // ▼▼▼ [修正] originalValue はエスケープ済みなので、比較用に newValue もエスケープする ▼▼▼
-        const escapedNewValue = String(newValue).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);
-        const originalValue = ta.dataset.originalValue;
-
-        if (escapedNewValue !== originalValue) {
-            const payload = {
-                centralSheetId: currentCentralSheetId,
-                sheetName: ta.dataset.sheet,
-                cell: ta.dataset.cell,
-                value: newValue // APIには素のテキストを送る
-            };
-            
-            console.log('Saving change:', payload);
-            promises.push(fetch('/api/updateCommentData', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }));
-            changedTextareas.push(ta); 
-        }
-    });
-
-    if (promises.length === 0) {
-        showLoading(false);
-        alert('変更されたコメントはありません。');
-        return;
-    }
-
-    try {
-        const results = await Promise.all(promises);
-        
-        let failedCount = 0;
-        results.forEach(async (res, index) => {
-            const ta = changedTextareas[index];
-            if (res.ok) {
-                // 成功した場合、DOMの data-original-value を更新
-                const newEscapedValue = String(ta.value).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);
-                ta.dataset.originalValue = newEscapedValue;
-            } else {
-                failedCount++;
-                console.error('Save failed:', await res.text());
-            }
-        });
-
-        if (failedCount > 0) {
-            alert(`${failedCount}件の保存に失敗しました。ページをリロードして確認してください。`);
-        } else {
-            alert(`${promises.length}件の変更を保存しました。`);
-        }
-
-    } catch (err) {
-        console.error('Error saving comments:', err);
-        alert(`保存中にエラーが発生しました: ${err.message}`);
-    } finally {
-        showLoading(false);
-    }
-}
+// ▼▼▼ [修正] handleSaveComment 関数を削除 ▼▼▼
+// async function handleSaveComment() { ... } (削除)
 // --- ▲▲▲ コメントスライド構築関数群 終わり ▲▲▲ ---
 
 
