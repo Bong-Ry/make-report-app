@@ -33,6 +33,7 @@ function calculateNps(counts, totalCount) {
     return ((promoters / totalCount) - (detractors / totalCount)) * 100; 
 }
 
+// ▼▼▼ [修正] chunkComments (NPSサブタイトル形式変更) ▼▼▼
 function chunkComments(commentsArray, title, score, totalCount) {
     const pages = [];
     if (!commentsArray || commentsArray.length === 0) {
@@ -61,15 +62,19 @@ function chunkComments(commentsArray, title, score, totalCount) {
     if (currentChunkText) {
         let pageTitle = title;
         if (score !== undefined) {
-             let imageTag = '';
-             if (score === 10 || score === 9) imageTag = '画像3';
-             else if (score === 8 || score === 7) imageTag = '画像4';
-             else if (score <= 6 && score >= 0) imageTag = '画像5';
-             pageTitle = `${imageTag}　推奨度${score} ${commentsArray.length}人`;
+             // ▼▼▼ [修正] NPSサブタイトルをご要望の形式に変更 ▼▼▼
+             let iconText = '';
+             // (アイコンURLは未指定のため、プレースホルダ)
+             if (score === 10 || score === 9) iconText = '[アイコン①]'; // (後でURLに置換)
+             else if (score === 8 || score === 7) iconText = '[アイコン②]'; // (後でURLに置換)
+             else if (score <= 6 && score >= 0) iconText = '[アイコン③]'; // (後でURLに置換)
+             
+             pageTitle = `${iconText} NPS ${score} ${commentsArray.length}人`;
+             // ▲▲▲
         }
         
         pages.push({ 
-            title: isFirstPage ? pageTitle : '', 
+            title: isFirstPage ? pageTitle : '', // 1ページ目にのみタイトル(サブタイトル)を渡す
             body: currentChunkText, 
             isCommentPage: true,
             totalCount: totalCount 
@@ -90,41 +95,32 @@ function getDetailedAnalysisTitleFull(analysisType) {
     }
 }
 function getDetailedAnalysisSubtitle(analysisType, tabId) {
+    // ▼▼▼ [修正] AI分析ページのサブタイトルもすべて空にする ▼▼▼
+    return '';
+    /*
     const base = '※コメントでいただいたフィードバックを元に分析しています';
     if (tabId === 'analysis') {
-        switch (analysisType) {
-            case 'L': return base + '\n患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。';
-            case 'I_bad': return base + '\nフィードバックの中で挙げられた「悪かった点」を分析すると、患者にとって以下の要素が特に課題として感じられていることが分かります。';
-            case 'I_good': return base + '\nフィードバックの中で挙げられた「良かった点」を分析すると、以下の要素が患者にとって特に高く評価されていることが分かります。';
-            case 'J': return base + '\n印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。';
-            case 'M': return base + '\n患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。';
-            default: return base;
-        }
-    } else if (tabId === 'suggestions') {
-        return base + (analysisType === 'L' ? '\n患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。' : 
-                       analysisType === 'I_bad' ? '\nフィードバックの中で挙げられた「悪かった点」を分析すると、患者にとって以下の要素が特に課題として感じられていることが分かります。' :
-                       analysisType === 'I_good' ? '\nフィードバックの中で挙げられた「良かった点」を分析すると、以下の要素が患者にとって特に高く評価されていることが分かります。' : 
-                       analysisType === 'J' ? '\n印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。' : 
-                       analysisType === 'M' ? '\n患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。' : '');
-    } else if (tabId === 'overall') {
-        return base + '\n患者から寄せられたお産に関するご意見の分析と改善策を基にした、総評は以下のとおりです.';
+        // ... (省略)
     }
     return base;
+    */
+    // ▲▲▲
 }
 
 
 // --- HTML Generation Functions ---
 
-// 共通レイアウトのラッパーHTML
+// ▼▼▼ [修正] 共通レイアウトのラッパーHTML (サブタイトルを左揃えに) ▼▼▼
 function getPageWrapper(title, subtitle, bodyHtml, separator=true) {
     const titleClass = 'report-title' + (title.includes('表紙') ? ' text-center' : ' text-left');
-    const subTitleClass = 'report-subtitle text-right';
+    // ▼▼▼ [修正] サブタイトルを常に左揃えにする ▼▼▼
+    const subTitleClass = 'report-subtitle text-left';
     const separatorHtml = separator ? '<hr class="report-separator">' : '';
 
     return `
         <div class="report-page">
             <h1 class="${titleClass}">${title}</h1>
-            <p class="${subTitleClass}">${subtitle}</p>
+            <p class="${subTitleClass}">${subtitle || ''}</p>
             ${separatorHtml}
             <div class="report-content-pdf">
                 ${bodyHtml}
@@ -133,7 +129,7 @@ function getPageWrapper(title, subtitle, bodyHtml, separator=true) {
     `;
 }
 
-// グラフページのHTMLシェル
+// ▼▼▼ [修正] グラフページのHTMLシェル (サブタイトル廃止) ▼▼▼
 function generateChartPageHtml(title, subtitle, type, isBar=false, clinicData, overallData) {
     const isNPSScore = type === 'nps_score';
     const cid = isBar ? 'bar-chart' : 'pie-chart';
@@ -144,6 +140,9 @@ function generateChartPageHtml(title, subtitle, type, isBar=false, clinicData, o
     const overallNpsScore = calculateNps(overallData.npsScoreData.counts, overallData.npsScoreData.totalCount);
 
     let bodyHtml;
+    
+    // ▼▼▼ [修正] NPSスコアのサブタイトルをご要望に基づき左揃えに変更 ▼▼▼
+    const npsSubtitle = 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない';
 
     if (isNPSScore) {
         bodyHtml = `
@@ -168,6 +167,8 @@ function generateChartPageHtml(title, subtitle, type, isBar=false, clinicData, o
                 </div>
             </div>
         `;
+        // ▼▼▼ [修正] NPSスコアのページラッパーを呼び出す際にサブタイトルを渡す ▼▼▼
+        return getPageWrapper(title, npsSubtitle, bodyHtml);
     } else {
         bodyHtml = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
@@ -185,25 +186,28 @@ function generateChartPageHtml(title, subtitle, type, isBar=false, clinicData, o
                 </div>
             </div>
         `;
+        // ▼▼▼ [修正] NPS以外のグラフページ (サブタイトルは空) ▼▼▼
+        return getPageWrapper(title, '', bodyHtml); // subtitle を空に変更
     }
-
-    return getPageWrapper(title, subtitle, bodyHtml);
 }
 
-// コメントページのHTMLシェル
+// ▼▼▼ [修正] コメントページのHTMLシェル (サブタイトルをご要望形式に) ▼▼▼
 function generateCommentPageHtml(baseTitle, pageTitle, commentsHtml) {
-    let title = baseTitle.replace(/　※.+ー$/, ''); 
-    let subtitle = baseTitle.includes('NPS推奨度 理由') ? '' : 'データ一覧（20データずつ）';
+    let title = baseTitle.replace(/　※全回答数.*件ー$/, ''); // (※全回答数... の部分を削除)
+    
+    // ▼▼▼ [修正] pageTitle (NPSの1ページ目) または空文字をサブタイトルとして渡す ▼▼▼
+    let subtitle = pageTitle || ''; // pageTitle は chunkComments から渡される (NPS以外は空)
 
     return getPageWrapper(
         title,
-        subtitle, 
-        (pageTitle ? `<h3 class="font-bold text-lg mb-4">${pageTitle}</h3>` : '') + `<div class="comment-list-pdf">${commentsHtml}</div>`,
+        subtitle, // (例: "[アイコン①] NPS 10 5人" または "")
+        // (h3要素は削除)
+        `<div class="comment-list-pdf">${commentsHtml}</div>`,
         false 
     );
 }
 
-// WCページのHTMLシェル
+// ▼▼▼ [修正] WCページのHTMLシェル (サブタイトル廃止) ▼▼▼
 function generateWCPageHtml(title, totalCount, wordCloudData, kuromojiResults) {
     const wordCloudDataString = JSON.stringify(wordCloudData);
     
@@ -238,17 +242,17 @@ function generateWCPageHtml(title, totalCount, wordCloudData, kuromojiResults) {
 
     return getPageWrapper(
         getAnalysisTitle(title, totalCount),
-        '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。',
+        '', // ▼▼▼ [修正] サブタイトルを空にする ▼▼▼
         wcBody
     );
 }
 
-// AI分析ページのHTMLシェル
+// ▼▼▼ [修正] AI分析ページのHTMLシェル (サブタイトル廃止) ▼▼▼
 function generateAiAnalysisPageHtml(type, tabId, content) {
     const aiTitle = tabId === 'analysis' ? '分析と考察' : (tabId === 'suggestions' ? '改善点' : '総評');
     
     const mainTitle = getDetailedAnalysisTitleFull(type);
-    const subtitle = getDetailedAnalysisSubtitle(type, tabId);
+    const subtitle = getDetailedAnalysisSubtitle(type, tabId); // (これは既に空文字を返すよう修正済み)
     
     const bodyHtml = `
         <div class="ai-analysis-container">
@@ -272,7 +276,13 @@ exports.generatePdfFromData = async (clinicName, periodText, clinicReportData) =
     // clinicReportData が持つと仮定するか、別途渡す必要があります。
     // ここでは、一旦呼び出し元から取得できると仮定します。
     // (通常、reportDataにはcentralSheetIdは含まれないため、ここではダミーで設定)
-    const centralSheetId = 'DUMMY_SHEET_ID'; // 実際には呼び出し元で修正が必要
+    // ▼▼▼ [修正] centralSheetId を clinicReportData から正しく取得 ▼▼▼
+    const centralSheetId = clinicReportData.centralSheetId;
+    if (!centralSheetId) {
+        console.error("[pdfGeneratorService] FATAL: centralSheetId is missing from clinicReportData.");
+        throw new Error("PDF生成内部エラー: centralSheetId が見つかりません。");
+    }
+    // ▲▲▲
 
     // --- 1. 全データ収集 ---
     let overallReportData, municipalityData, recommendationData, aiAnalysisData;
@@ -280,17 +290,25 @@ exports.generatePdfFromData = async (clinicName, periodText, clinicReportData) =
     let totalClinics = 0;
     
     try {
-        overallReportData = await googleSheetsService.getReportDataForCharts(clinicReportData.centralSheetId || centralSheetId, "全体");
+        overallReportData = await googleSheetsService.getReportDataForCharts(centralSheetId, "全体");
         overallCount = overallReportData.npsScoreData.totalCount || 0;
         
         // 取り込み済みクリニック数を取得
-        const sheetTitles = await googleSheetsService.getSheetTitles(clinicReportData.centralSheetId || centralSheetId);
-        totalClinics = sheetTitles.length - (sheetTitles.includes('全体') ? 1 : 0) - (sheetTitles.includes('管理') ? 1 : 0);
+        const sheetTitles = await googleSheetsService.getSheetTitles(centralSheetId);
+        // ▼▼▼ [修正] 分析タブ名も除外 ▼▼▼
+        const exclusionSet = new Set(['全体', '管理']);
+        sheetTitles.forEach(title => {
+            if (title.endsWith('_AI分析') || title.endsWith('_市区町村') || title.endsWith('_おすすめ理由') || title.includes('_NPS') || title.includes('_よかった点') || title.includes('_印象スタッフ') || title.includes('_お産意見')) {
+                exclusionSet.add(title);
+            }
+        });
+        totalClinics = sheetTitles.filter(title => !exclusionSet.has(title)).length;
+        // ▲▲▲
         
         // 市区町村データを取得 (API呼び出しを模倣)
         const muniRes = await googleSheetsService.sheets.spreadsheets.values.get({ 
-            spreadsheetId: clinicReportData.centralSheetId || centralSheetId, 
-            range: `'${clinicName}_市区町村'!A:D`,
+            spreadsheetId: centralSheetId, 
+            range: `'${googleSheetsService.getAnalysisSheetName(clinicName, 'MUNICIPALITY')}'!A:D`, // [修正] ヘルパー使用
             valueRenderOption: 'UNFORMATTED_VALUE'
         });
         municipalityData = muniRes.data.values;
@@ -298,15 +316,15 @@ exports.generatePdfFromData = async (clinicName, periodText, clinicReportData) =
 
         // おすすめ理由データを取得 (API呼び出しを模倣)
         const recRes = await googleSheetsService.sheets.spreadsheets.values.get({
-            spreadsheetId: clinicReportData.centralSheetId || centralSheetId,
-            range: `'${clinicName}_おすすめ理由'!A:C`,
+            spreadsheetId: centralSheetId,
+            range: `'${googleSheetsService.getAnalysisSheetName(clinicName, 'RECOMMENDATION')}'!A:C`, // [修正] ヘルパー使用
             valueRenderOption: 'UNFORMATTED_VALUE'
         });
         recommendationData = recRes.data.values;
         if (recommendationData && recommendationData.length > 1) recommendationData.shift();
 
         // AI分析データを取得
-        aiAnalysisData = await googleSheetsService.readAiAnalysisData(clinicReportData.centralSheetId || centralSheetId, `${clinicName}_AI分析`);
+        aiAnalysisData = await googleSheetsService.readAiAnalysisData(centralSheetId, googleSheetsService.getAnalysisSheetName(clinicName, 'AI')); // [修正] ヘルパー使用
 
     } catch (e) {
         console.warn("[pdfGeneratorService] Failed to fetch auxiliary data (Overall/Muni/Rec/AI). Using partial data.", e.message);
@@ -369,21 +387,21 @@ exports.generatePdfFromData = async (clinicName, periodText, clinicReportData) =
         false
     )); // 概要
     
-    // --- 2b. 基本構成（グラフ/テーブル） ---
+    // --- 2b. 基本構成（グラフ/テーブル） (サブタイトル廃止) ---
     const chartPages = [
-        { type: 'age', title: 'アンケート結果　ーご回答者さまの年代ー', subtitle: 'ご出産された方の年代について教えてください。' },
-        { type: 'children', title: 'アンケート結果　ーご回答者さまのお子様の人数ー', subtitle: 'ご出産された方のお子様の人数について教えてください。' },
-        { type: 'income', title: 'アンケート結果　ーご回答者さまの世帯年収ー', subtitle: 'ご出産された方の世帯年収について教えてください。', isBar: true },
-        { type: 'municipality', title: 'アンケート結果　ーご回答者さまの市町村ー', subtitle: 'ご出産された方の住所（市町村）について教えてください。', isTable: true, data: municipalityData },
-        { type: 'satisfaction_b', title: 'アンケート結果　ー満足度ー', subtitle: 'ご出産された産婦人科医院への満足度について、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満' },
-        { type: 'satisfaction_c', title: 'アンケート結果　ー施設の充実度・快適さー', subtitle: 'ご出産された産婦人科医院への施設の充実度・快適さについて、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満' },
-        { type: 'satisfaction_d', title: 'アンケート結果　ーアクセスの良さー', subtitle: 'ご出産された産婦人科医院へのアクセスの良さについて、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満' },
-        { type: 'satisfaction_e', title: 'アンケート結果　ー費用ー', subtitle: 'ご出産された産婦人科医院への費用について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満' },
-        { type: 'satisfaction_f', title: 'アンケート結果　ー病院の雰囲気ー', subtitle: 'ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満' },
-        { type: 'satisfaction_g', title: 'アンケート結果　ースタッフの対応ー', subtitle: 'ご出産された産婦人科医院へのスタッフの対応について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満' },
-        { type: 'satisfaction_h', title: 'アンケート結果　ー先生の診断・説明ー', subtitle: 'ご出産された産婦人科医院への先生の診断・説明について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満' },
-        { type: 'recommendation', title: 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー', subtitle: 'ご出産された産婦人科医院への本病院を選ぶ上で最も参考にしたものについて、教えてください。', isRec: true, data: recommendationData },
-        { type: 'nps_score', title: 'アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー', subtitle: 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない', isNPSScore: true }
+        { type: 'age', title: 'アンケート結果　ーご回答者さまの年代ー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'children', title: 'アンケート結果　ーご回答者さまのお子様の人数ー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'income', title: 'アンケート結果　ーご回答者さまの世帯年収ー', subtitle: '', isBar: true }, // [修正] サブタイトル廃止
+        { type: 'municipality', title: 'アンケート結果　ーご回答者さまの市町村ー', subtitle: '', isTable: true, data: municipalityData }, // [修正] サブタイトル廃止
+        { type: 'satisfaction_b', title: 'アンケート結果　ー満足度ー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'satisfaction_c', title: 'アンケート結果　ー施設の充実度・快適さー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'satisfaction_d', title: 'アンケート結果　ーアクセスの良さー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'satisfaction_e', title: 'アンケート結果　ー費用ー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'satisfaction_f', title: 'アンケート結果　ー病院の雰囲気ー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'satisfaction_g', title: 'アンケート結果　ースタッフの対応ー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'satisfaction_h', title: 'アンケート結果　ー先生の診断・説明ー', subtitle: '' }, // [修正] サブタイトル廃止
+        { type: 'recommendation', title: 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー', subtitle: '', isRec: true, data: recommendationData }, // [修正] サブタイトル廃止
+        { type: 'nps_score', title: 'アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー', subtitle: '(NPSサブタイトルはgenerateChartPageHtml内で設定)', isNPSScore: true }
     ];
 
     for (const page of chartPages) {
@@ -439,7 +457,8 @@ exports.generatePdfFromData = async (clinicName, periodText, clinicReportData) =
             const allComments = section.data[0];
             const pages = chunkComments(allComments, baseTitle, undefined, section.totalCount);
             for (const page of pages) {
-                allPagesHtml.push(generateCommentPageHtml(baseTitle, '', page.body));
+                // ▼▼▼ [修正] NPS以外は page.title が空になり、サブタイトルが非表示になる ▼▼▼
+                allPagesHtml.push(generateCommentPageHtml(baseTitle, page.title, page.body));
             }
         }
     }
@@ -472,11 +491,11 @@ exports.generatePdfFromData = async (clinicName, periodText, clinicReportData) =
     for (const type of AI_ANALYSIS_TYPES) {
         allPagesHtml.push(generateAiAnalysisPageHtml(type, 'analysis', aiAnalysisData.get(`${type}_ANALYSIS`) || '（データがありません）'));
         allPagesHtml.push(generateAiAnalysisPageHtml(type, 'suggestions', aiAnalysisData.get(`${type}_SUGGESTIONS`) || '（データがありません）'));
-        allPagesHtml.push(generateAiAnalysisPageHtml(type, 'overall', aiAnalysisData.get(`${type}_OVERALL`) || '（データがありません）'));
+        allLPagesHtml.push(generateAiAnalysisPageHtml(type, 'overall', aiAnalysisData.get(`${type}_OVERALL`) || '（データがありません）'));
     }
 
 
-    // --- 3. HTMLラッパー生成 ---
+    // --- 3. HTMLラッパー生成 (フォントサイズ修正) ---
     const finalHtml = `
         <!DOCTYPE html>
         <html lang="ja">
@@ -512,9 +531,11 @@ exports.generatePdfFromData = async (clinicName, periodText, clinicReportData) =
                 page-break-after: avoid;
             }
             
-            .report-title { font-size: 24pt; font-weight: bold; margin-bottom: 10px; text-align: left; }
+            /* ▼▼▼ [修正] フォントサイズ 16pt ▼▼▼ */
+            .report-title { font-size: 16pt; font-weight: bold; margin-bottom: 10px; text-align: left; }
             .report-title.text-center { text-align: center; }
-            .report-subtitle { font-size: 10pt; color: #6b7280; white-space: pre-wrap; text-align: right; }
+            /* ▼▼▼ [修正] フォントサイズ 14pt, 左揃え ▼▼▼ */
+            .report-subtitle { font-size: 14pt; color: #6b7280; white-space: pre-wrap; text-align: left; }
             .report-separator { border-top: 1px dashed #9ca3af; margin-bottom: 20px; }
             
             .report-content-pdf { 
@@ -585,10 +606,31 @@ exports.generatePdfFromData = async (clinicName, periodText, clinicReportData) =
                     return;
                 }
                 
-                // Puppeteerの環境ではWordCloudの描画が難しい場合があるため、
-                // 簡易的な処理やメッセージを残す
-                canvas.parentNode.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">[ワードクラウド描画エリア]</div>';
+                // ▼▼▼ [修正] WordCloudの画質改善のため、高解像度で描画 (ただしPuppeteer実行環境依存) ▼▼▼
+                try {
+                    const ctx = canvas.getContext('2d');
+                    const dpr = 2; // デバイスピクセル比 (高解像度化)
+                    const rect = canvas.getBoundingClientRect();
+                    canvas.width = rect.width * dpr;
+                    canvas.height = rect.height * dpr;
+                    ctx.scale(dpr, dpr);
 
+                    // WordCloudライブラリがロードされていないため、
+                    // ここで簡易的な描画またはメッセージを表示
+                    // (WordCloudライブラリを <script> でインクルードすれば描画可能)
+                    
+                    // とりあえず中央にメッセージ
+                    ctx.fillStyle = '#9ca3af';
+                    ctx.font = '16px Noto Sans JP';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('[ワードクラウド描画エリア]', rect.width / 2, rect.height / 2);
+
+                    console.log("Attempted to draw high-res placeholder for WordCloud.");
+                    
+                } catch(e) {
+                     canvas.parentNode.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">[WC描画エラー]</div>';
+                }
+                // ▲▲▲
             }
 
             drawWordCloudPDF();

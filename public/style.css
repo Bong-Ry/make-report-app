@@ -190,20 +190,21 @@ body{
 }
 
 .report-title {
-    /* ▼▼▼ [修正] 16pt -> 14pt (ルール⑦) ▼▼▼ */
-    font-size: 14pt;
+    /* ▼▼▼ [修正] 14pt -> 16pt (ご要望) ▼▼▼ */
+    font-size: 16pt;
     font-weight: bold;
     margin-bottom: 8px;
     text-align: left !important;
     flex-shrink: 0; /* 縮まない */
 }
 .report-subtitle {
-    font-size: 12pt;
+    /* ▼▼▼ [修正] 12pt -> 14pt (ご要望) ▼▼▼ */
+    font-size: 14pt;
     color: #6b7280;
     margin-bottom: 16px;
     white-space: pre-wrap;
-    /* ▼▼▼ [修正] text-align: left -> center !important (ルール③) ▼▼▼ */
-    text-align: center !important;
+    /* ▼▼▼ [修正] text-align: center -> left (NPS左揃え対応) ▼▼▼ */
+    text-align: left !important;
     flex-shrink: 0;
 }
 .report-separator {
