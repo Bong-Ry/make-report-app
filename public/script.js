@@ -412,7 +412,12 @@ async function prepareAndShowReport(reportType){
   document.getElementById('report-title').style.textAlign = 'left';
   document.getElementById('report-subtitle').style.textAlign = 'left';
   document.getElementById('report-separator').style.display = 'block'; 
-  document.getElementById('slide-header').innerHTML = ''; // コメントUIクリア
+  // ▼▼▼ [修正] slide-header の中身(innerHTML)を直接クリアするのをやめ、子要素を個別にクリアする ▼▼▼
+  const subNav = document.getElementById('comment-sub-nav');
+  const controls = document.getElementById('comment-controls');
+  if (subNav) subNav.innerHTML = '';
+  if (controls) controls.innerHTML = '';
+  // ▲▲▲
   document.getElementById('slide-body').innerHTML='';
   document.getElementById('slide-body').classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
   showCopyrightFooter(reportType !== 'cover'); // フッター表示
@@ -477,7 +482,7 @@ async function prepareAndShowReport(reportType){
   else if (reportType === 'satisfaction_c'){ prepareChartPage('アンケート結果　ー施設の充実度・快適さー','ご出産された産婦人科医院への施設の充実度・快適さについて、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_c'); isChart=true; }
   else if (reportType === 'satisfaction_d'){ prepareChartPage('アンケート結果　ーアクセスの良さー','ご出産された産婦人科医院へのアクセスの良さについて、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_d'); isChart=true; }
   else if (reportType === 'satisfaction_e'){ prepareChartPage('アンケート結果　ー費用ー','ご出産された産婦人科医院への費用について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_e'); isChart=true; }
-  else if (reportType === 'satisfaction_f'){ prepareChartPage('アンケート結果　ー病院の雰囲気ー','ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_f'); isChart=true; }
+  else if (reportType === 'satisfaction_f'){ prepareChartPage('アンケート結果_ー病院の雰囲気ー','ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_f'); isChart=true; }
   else if (reportType === 'satisfaction_g'){ prepareChartPage('アンケート結果　ースタッフの対応ー','ご出産された産婦人科医院へのスタッフの対応について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_g'); isChart=true; }
   else if (reportType === 'satisfaction_h'){ prepareChartPage('アンケート結果　ー先生の診断・説明ー','ご出産された産婦人科医院への先生の診断・説明について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_h'); isChart=true; }
   else if (reportType === 'age'){ prepareChartPage('アンケート結果　ーご回答者さまの年代ー','ご出産された方の年代について教えてください。', 'age'); isChart=true; }
@@ -584,7 +589,7 @@ async function prepareAndShowIntroPages(reportType) {
   }
 }
 
-// ▼▼▼ [修正] グラフ描画用シェル設定 (NPS値に背景色クラス追加) ▼▼▼
+// ▼▼▼ [修正] グラフ描画用シェル設定 (高さ 320px, 左側背景色) ▼▼▼
 function prepareChartPage(title, subtitle, type, isBar=false) { 
   document.getElementById('report-title').textContent = title;
   document.getElementById('report-subtitle').textContent = subtitle;
@@ -593,7 +598,8 @@ function prepareChartPage(title, subtitle, type, isBar=false) {
 
   let htmlContent = '';
   const cid = isBar ? 'bar-chart' : 'pie-chart';
-  const chartHeightClass = 'h-[350px]'; 
+  // ▼▼▼ [修正] 高さを 320px に (スクロール廃止のため) ▼▼▼
+  const chartHeightClass = 'h-[320px]'; 
 
   if (type === 'nps_score') {
       htmlContent = `
@@ -618,7 +624,7 @@ function prepareChartPage(title, subtitle, type, isBar=false) {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
               <div class="flex flex-col items-center h-full">
                   <h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
-                  <div id="clinic-${cid}" class="w-full ${chartHeightClass}"></div>
+                  <div id="clinic-${cid}" class="w-full ${chartHeightClass} clinic-graph-bg-yellow"></div>
               </div>
               <div class="flex flex-col items-center h-full">
                   <h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3>
@@ -631,10 +637,10 @@ function prepareChartPage(title, subtitle, type, isBar=false) {
   document.getElementById('slide-body').innerHTML = htmlContent;
 }
 
-// --- ▼▼▼ [修正] グラフ描画関数 (フォントサイズ 12pt を維持) ▼▼▼
-function drawSatisfactionCharts(clinicChartData, overallChartData){ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:12,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:12}},tooltip:{showColorCode:true,textStyle:{fontSize:12},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099']};const cdEl=document.getElementById('clinic-pie-chart');if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');if(clinicChartData&&clinicChartData.length>1&&clinicChartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(clinicChartData);const c=new google.visualization.PieChart(cdEl);c.draw(d,opt);} else {cdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-pie-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');if(overallChartData&&overallChartData.length>1&&overallChartData.slice(1).some(row=>row[1]>0)){const avgD=google.visualization.arrayToDataTable(overallChartData);const avgC=new google.visualization.PieChart(avgEl);avgC.draw(avgD,opt);} else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
-function drawIncomeCharts(clinicData, overallData){ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:"#.##'%'",viewWindow:{min:0}, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, hAxis:{textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}};const ccdEl=document.getElementById('clinic-bar-chart');if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');if(clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1){const cd=google.visualization.arrayToDataTable(clinicData.results);const cc=new google.visualization.ColumnChart(ccdEl);cc.draw(cd,opt);} else {ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-bar-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');if(overallData.totalCount > 0 && overallData.results && overallData.results.length > 1){const avgD=google.visualization.arrayToDataTable(overallData.results);const avgC=new google.visualization.ColumnChart(avgEl);avgC.draw(avgD,opt); } else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
-function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = document.getElementById('clinic-bar-chart');if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];if (clinicData.totalCount > 0) {for (let i = 0; i <= 10; i++) {const count = clinicData.counts[i] || 0;const percentage = (count / clinicData.totalCount) * 100;clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);}} const opt = {legend: { position: 'none' },colors: ['#DE5D83'], annotations: {textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },alwaysOutside: false,stem: { color: 'transparent' }},vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},hAxis: { title: '推奨度スコア (0〜10)', textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},bar: { groupWidth: '80%' },isStacked: false, chartArea:{height:'75%', width:'90%', left:'5%', top:'5%'}};if (clinicData.totalCount > 0 && clinicChartData.length > 1) {const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);const clinicChart = new google.visualization.ColumnChart(clinicChartEl);clinicChart.draw(clinicDataVis, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const summaryArea = document.getElementById('nps-summary-area');if (summaryArea) {summaryArea.innerHTML = ` <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs"> <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p> <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p> </div> `;} const clinicHeaderEl = document.getElementById('clinic-chart-header');if (clinicHeaderEl) {clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;} }
+// --- ▼▼▼ [修正] グラフ描画関数 (フォントサイズ 10pt に縮小) ▼▼▼
+function drawSatisfactionCharts(clinicChartData, overallChartData){ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:10,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:10}},tooltip:{showColorCode:true,textStyle:{fontSize:10},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099'], backgroundColor: 'transparent'};const cdEl=document.getElementById('clinic-pie-chart');if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');if(clinicChartData&&clinicChartData.length>1&&clinicChartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(clinicChartData);const c=new google.visualization.PieChart(cdEl);c.draw(d,opt);} else {cdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-pie-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');if(overallChartData&&overallChartData.length>1&&overallChartData.slice(1).some(row=>row[1]>0)){const avgD=google.visualization.arrayToDataTable(overallChartData);const avgC=new google.visualization.PieChart(avgEl);avgC.draw(avgD,opt);} else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
+function drawIncomeCharts(clinicData, overallData){ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:10,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:"#.##'%'",viewWindow:{min:0}, textStyle:{fontSize:10}, titleTextStyle:{fontSize:10}}, hAxis:{textStyle:{fontSize:10}, titleTextStyle:{fontSize:10}}, backgroundColor: 'transparent'};const ccdEl=document.getElementById('clinic-bar-chart');if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');if(clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1){const cd=google.visualization.arrayToDataTable(clinicData.results);const cc=new google.visualization.ColumnChart(ccdEl);cc.draw(cd,opt);} else {ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-bar-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');if(overallData.totalCount > 0 && overallData.results && overallData.results.length > 1){const avgD=google.visualization.arrayToDataTable(overallData.results);const avgC=new google.visualization.ColumnChart(avgEl);avgC.draw(avgD,opt); } else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
+function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = document.getElementById('clinic-bar-chart');if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];if (clinicData.totalCount > 0) {for (let i = 0; i <= 10; i++) {const count = clinicData.counts[i] || 0;const percentage = (count / clinicData.totalCount) * 100;clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);}} const opt = {legend: { position: 'none' },colors: ['#DE5D83'], annotations: {textStyle: { fontSize: 10, color: 'black', auraColor: 'none' },alwaysOutside: false,stem: { color: 'transparent' }},vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle:{fontSize:10}, titleTextStyle:{fontSize:10}},hAxis: { title: '推奨度スコア (0〜10)', textStyle:{fontSize:10}, titleTextStyle:{fontSize:10}},bar: { groupWidth: '80%' },isStacked: false, chartArea:{height:'75%', width:'90%', left:'5%', top:'5%'}, backgroundColor: 'transparent'};if (clinicData.totalCount > 0 && clinicChartData.length > 1) {const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);const clinicChart = new google.visualization.ColumnChart(clinicChartEl);clinicChart.draw(clinicDataVis, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const summaryArea = document.getElementById('nps-summary-area');if (summaryArea) {summaryArea.innerHTML = ` <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs"> <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p> <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p> </div> `;} const clinicHeaderEl = document.getElementById('clinic-chart-header');if (clinicHeaderEl) {clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;} }
 function calculateNps(counts, totalCount) { if (totalCount === 0) return 0;let promoters = 0, passives = 0, detractors = 0;for (let i = 0; i <= 10; i++) {const count = counts[i] || 0;if (i >= 9) promoters += count;else if (i >= 7) passives += count;else detractors += count;} return ((promoters / totalCount) - (detractors / totalCount)) * 100; }
 
 
@@ -676,6 +682,10 @@ function getExcelColumnName(colIndex) {
  */
 function showCommentSubNav(reportType) {
     const navContainer = document.getElementById('comment-sub-nav');
+    if (!navContainer) {
+        console.error('comment-sub-nav element not found');
+        return;
+    }
     navContainer.innerHTML = '';
     
     let title = '';
@@ -723,7 +733,13 @@ async function fetchAndRenderCommentPage(commentKey) {
 
     showLoading(true, `コメントシート (${currentCommentSheetName}) を読み込み中...`);
     document.getElementById('slide-body').innerHTML = '';
-    document.getElementById('comment-controls').innerHTML = ''; // コントロールもクリア
+    // ▼▼▼ [修正] comment-controls が存在するか確認 ▼▼▼
+    const controlsContainer = document.getElementById('comment-controls');
+    if (controlsContainer) {
+        controlsContainer.innerHTML = ''; // コントロールもクリア
+    } else {
+        console.error('fetchAndRenderCommentPage: comment-controls element not found!');
+    }
 
     try {
         const response = await fetch('/api/getCommentData', {
@@ -803,6 +819,11 @@ function renderCommentPage(pageIndex) {
  */
 function renderCommentControls() {
     const controlsContainer = document.getElementById('comment-controls');
+    // ▼▼▼ [修正] controlsContainer の存在チェック ▼▼▼
+    if (!controlsContainer) {
+        console.error('renderCommentControls: comment-controls element not found!');
+        return;
+    }
     controlsContainer.innerHTML = '';
     
     if (!currentCommentData) {
@@ -957,7 +978,7 @@ function displayMunicipalityTable(data) {
 }
 
 
-// (変更なし) おすすめ理由 (フォントサイズ 12pt)
+// ▼▼▼ [修正] おすすめ理由 (フォントサイズ 10pt, 左側背景色) ▼▼▼
 async function prepareAndShowRecommendationReport() {
     console.log('Prepare recommendation report');
     updateNavActiveState('recommendation', null, null);
@@ -970,7 +991,8 @@ async function prepareAndShowRecommendationReport() {
     const slideBody = document.getElementById('slide-body');
     slideBody.style.whiteSpace = 'normal';
     slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
-    slideBody.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-full"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-pie-chart" class="w-full h-[400px]"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-pie-chart" class="w-full h-[400px]"></div></div></div>`;
+    // ▼▼▼ [修正] 高さを h-[320px] に、左側に背景色クラスを追加 ▼▼▼
+    slideBody.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-full"><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3><div id="clinic-pie-chart" class="w-full h-[320px] clinic-graph-bg-yellow"></div></div><div class="flex flex-col items-center"><h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3><div id="average-pie-chart" class="w-full h-[320px]"></div></div></div>`;
     
     try {
         showLoading(true, '集計済みのおすすめ理由データを読込中...');
@@ -1001,7 +1023,8 @@ async function prepareAndShowRecommendationReport() {
         
         showLoading(false);
         
-        const opt = {is3D: true,chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },pieSliceText: 'percentage',pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },};
+        // ▼▼▼ [修正] フォントサイズを 10pt に ▼▼▼
+        const opt = {is3D: true,chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },pieSliceText: 'percentage',pieSliceTextStyle: { color: 'black', fontSize: 10, bold: true },legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 10 } },tooltip: { showColorCode: true, textStyle: { fontSize: 10 }, trigger: 'focus' }, backgroundColor: 'transparent'};
         const clinicChartEl = document.getElementById('clinic-pie-chart');
         if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
         const totalClinicCount = clinicChartData.slice(1).reduce((sum, row) => sum + row[1], 0);
@@ -1032,7 +1055,12 @@ async function prepareAndShowAnalysis(columnType) {
   document.getElementById('report-subtitle').textContent = '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。';
   document.getElementById('report-subtitle').style.textAlign = 'left'; 
   document.getElementById('report-separator').style.display='block';
-  document.getElementById('slide-header').innerHTML = ''; // コメントUIクリア
+  // ▼▼▼ [修正] slide-header の子要素を個別にクリア ▼▼▼
+  const subNav = document.getElementById('comment-sub-nav');
+  const controls = document.getElementById('comment-controls');
+  if (subNav) subNav.innerHTML = '';
+  if (controls) controls.innerHTML = '';
+  // ▲▲▲
 
   const slideBody = document.getElementById('slide-body');
   slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
@@ -1113,10 +1141,10 @@ async function prepareAndShowAnalysis(columnType) {
   }
 }
 
-// ▼▼▼ [修正] Word Cloud描画 (フォントサイズ 12pt を維持) ▼▼▼
-function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},vAxis:{title:'単語', textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, chartArea:{height:'90%', width:'80%', left:'15%', top:'5%'}};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'transparent',clearCanvas:true};WordCloud(cv,options);}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
+// ▼▼▼ [修正] Word Cloud描画 (フォントサイズ 10pt に縮小) ▼▼▼
+function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:10}, titleTextStyle:{fontSize:10}},vAxis:{title:'単語', textStyle:{fontSize:10}, titleTextStyle:{fontSize:10}}, chartArea:{height:'90%', width:'80%', left:'15%', top:'5%'}, backgroundColor: 'transparent'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'transparent',clearCanvas:true};WordCloud(cv,options);}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
 function drawSingleBarChart(data, elementId, options) { const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
-function clearAnalysisCharts() { document.getElementById('noun-chart').innerHTML='';document.getElementById('verb-chart').innerHTML='';document.getElementById('adj-chart').innerHTML='';document.getElementById('int-chart').innerHTML='';const c=document.getElementById('word-cloud-canvas');const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);document.getElementById('analysis-error').classList.add('hidden');document.getElementById('analysis-error').textContent=''; }
+function clearAnalysisCharts() { const nounChart = document.getElementById('noun-chart'); if(nounChart) nounChart.innerHTML=''; const verbChart = document.getElementById('verb-chart'); if(verbChart) verbChart.innerHTML=''; const adjChart = document.getElementById('adj-chart'); if(adjChart) adjChart.innerHTML=''; const intChart = document.getElementById('int-chart'); if(intChart) intChart.innerHTML=''; const c=document.getElementById('word-cloud-canvas');if(c){const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);} const analysisError = document.getElementById('analysis-error'); if(analysisError){analysisError.classList.add('hidden');analysisError.textContent='';} }
 function getAnalysisTitle(columnType, count) { const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
 function getColumnName(columnType) { 
   switch(columnType){

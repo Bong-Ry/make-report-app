@@ -119,7 +119,8 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
 /* スライド本体 (グラフ/コメントリスト) */
 #slide-body {
     height: 100%;
-    overflow-y: auto; /* コメントが20件を超える場合はスクロール (基本はしない想定) */
+    /* ▼▼▼ [修正] スクロールを廃止 ▼▼▼ */
+    overflow-y: hidden; /* auto; */
 }
 
 
