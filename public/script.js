@@ -29,6 +29,42 @@ let currentCommentPageIndex = 0;
 const googleChartsLoaded = new Promise(resolve => { google.charts.load('current', {'packages':['corechart', 'bar']}); google.charts.setOnLoadCallback(resolve); });
 
 
+// --- ▼▼▼ [新規] フォントサイズ自動調整 (ルール ⑥, ④) ▼▼▼ ---
+/**
+ * [新規] コンテナの高さにテキストが収まるようフォントサイズを調整する (ルール ⑥, ④)
+ * @param {HTMLElement} container - .ai-analysis-content または #slide-body (コメント時)
+ * @param {number} initialSize - ルール ⑦ (基本 12pt, コメント 9pt)
+ */
+function adjustFontSize(container, initialSize = 12) {
+    if (!container) return;
+    
+    // (ルール ⑦) 基本フォントサイズを設定
+    container.style.fontSize = `${initialSize}pt`;
+    container.style.lineHeight = initialSize <= 9 ? '1.4' : '1.5';
+    
+    // スクロールNG (ルール ④) のため、はみ出ていたらフォントを小さくする
+    let currentSize = initialSize;
+    
+    // HACK: わずかな時間待機してレンダリング後の高さを取得
+    setTimeout(() => {
+         // (20回まで試行)
+        for (let i = 0; i < 20; i++) {
+            // (clientHeight よりも scrollHeight が大きい ＝ はみ出ている)
+            const isOverflowing = container.scrollHeight > container.clientHeight;
+            
+            if (isOverflowing && currentSize > 6) { // 6pt未満にはしない
+                currentSize -= 0.5; // 0.5pt ずつ小さくする
+                container.style.fontSize = `${currentSize}pt`;
+                container.style.lineHeight = '1.4'; // 少し詰める
+            } else {
+                break; // 収まったか、最小サイズになった
+            }
+        }
+    }, 50); // 50ms待ってから高さをチェック
+}
+// --- ▲▲▲ ---
+
+
 // --- ▼▼▼ [修正] イベントリスナー設定 (新UI対応) ▼▼▼ ---
 function setupEventListeners() {
   // Screen 1/2
@@ -792,8 +828,8 @@ function renderCommentPage(pageIndex) {
     const bodyEl = document.getElementById('slide-body');
     bodyEl.innerHTML = '';
     
-    // ▼▼▼ [修正] コメント表示エリアにスクロールを追加 ▼▼▼
-    bodyEl.style.overflowY = 'auto'; 
+    // ▼▼▼ [修正] スクロールを 'hidden' に変更 (ルール ④) ▼▼▼
+    bodyEl.style.overflowY = 'hidden'; 
     
     if (columnData.length === 0 && currentCommentData.length > 0) {
         bodyEl.innerHTML = '<p class="text-center text-gray-500 py-16">(このページは空です)</p>';
@@ -812,6 +848,10 @@ function renderCommentPage(pageIndex) {
     
     // ヘッダーのコントロール（ページャー、保存ボタン）を再描画
     renderCommentControls();
+    
+    // ▼▼▼ [新規] フォントサイズ自動調整を実行 (ルール ④, ⑥) ▼▼▼
+    // (CSSで 9pt が指定されているため、9pt から開始)
+    adjustFontSize(bodyEl, 9);
 }
 
 /**
@@ -865,7 +905,7 @@ async function prepareAndShowMunicipalityReport() {
   slideBody.style.whiteSpace = 'normal';
   slideBody.innerHTML = '<p class="text-center text-gray-500 py-16">市区町村データを読み込み中...</p>';
   slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
-  slideBody.style.overflowY = 'auto'; // ★ 市区町村テーブルはスクロール許可
+  slideBody.style.overflowY = 'auto'; // ★ 市区町村テーブルはスクロール許可 (ルール④の例外)
   
   showLoading(true, '市区町村データを読み込み中...');
   
@@ -972,7 +1012,7 @@ async function prepareAndShowRecommendationReport() {
 }
 
 
-// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (背景色クラス削除, 2x2レイアウト) ▼▼▼
+// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (背景色クラス削除, 2x2レイアウト, 収まり改善) ▼▼▼
 async function prepareAndShowAnalysis(columnType) {
   showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
   showScreen('screen3');
@@ -1021,25 +1061,25 @@ async function prepareAndShowAnalysis(columnType) {
       return;
   }
   
-  // ▼▼▼ [修正] WCシェル (2x2 グリッドレイアウト, h-full, 背景色削除) ▼▼▼
+  // ▼▼▼ [修正] WCシェル (2x2 グリッドレイアウト, h-full, 背景色削除, グラフコンテナ修正) ▼▼▼
   slideBody.innerHTML = `
       <div class="grid grid-cols-2 gap-4 h-full">
           <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2">
               <div id="noun-chart-container" class="chart-container h-full">
-                  <h3 class="font-bold text-center mb-2 text-blue-600">名詞</h3>
-                  <div id="noun-chart" class="w-full h-[90%]"></div>
+                  <h3 class="font-bold text-center mb-1 text-blue-600 text-sm">名詞</h3>
+                  <div id="noun-chart" class="w-full flex-grow min-h-0"></div>
               </div>
               <div id="verb-chart-container" class="chart-container h-full">
-                  <h3 class="font-bold text-center mb-2 text-red-600">動詞</h3>
-                  <div id="verb-chart" class="w-full h-[90%]"></div>
+                  <h3 class="font-bold text-center mb-1 text-red-600 text-sm">動詞</h3>
+                  <div id="verb-chart" class="w-full flex-grow min-h-0"></div>
               </div>
               <div id="adj-chart-container" class="chart-container h-full">
-                  <h3 class="font-bold text-center mb-2 text-green-600">形容詞</h3>
-                  <div id="adj-chart" class="w-full h-[90%]"></div>
+                  <h3 class="font-bold text-center mb-1 text-green-600 text-sm">形容詞</h3>
+                  <div id="adj-chart" class="w-full flex-grow min-h-0"></div>
               </div>
               <div id="int-chart-container" class="chart-container h-full">
-                  <h3 class="font-bold text-center mb-2 text-gray-600">感動詞</h3>
-                  <div id="int-chart" class="w-full h-[90%]"></div>
+                  <h3 class="font-bold text-center mb-1 text-gray-600 text-sm">感動詞</h3>
+                  <div id="int-chart" class="w-full flex-grow min-h-0"></div>
               </div>
           </div>
           <div class="space-y-4 flex flex-col h-full">
@@ -1073,8 +1113,13 @@ async function prepareAndShowAnalysis(columnType) {
   }
 }
 
-// ▼▼▼ [修正] Word Cloud描画 (フォントサイズ 12pt, ソート順修正) ▼▼▼
-function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},vAxis:{title:'単語', textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, chartArea:{height:'90%', width:'80%', left:'15%', top:'5%'}, backgroundColor: 'transparent'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'transparent',clearCanvas:true};WordCloud(cv,options);}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
+// ▼▼▼ [修正] Word Cloud描画 (フォントサイズ 12pt, 収まり改善, ソート順修正) ▼▼▼
+function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');
+    // ▼▼▼ [修正] chartArea を調整して収まりを改善 (ルール ①) ▼▼▼
+    const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},vAxis:{title:'単語', textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, 
+    chartArea:{height:'85%', width:'75%', left:'20%', top:'10%'}, /* 修正: 90/80/15/5 -> 85/75/20/10 */
+    backgroundColor: 'transparent'};
+    drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'transparent',clearCanvas:true};WordCloud(cv,options);}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
 function drawSingleBarChart(data, elementId, options) { const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';/* ▼▼▼ [修正] .reverse() を削除 (頻度高い順) ▼▼▼ */ data.slice().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
 function clearAnalysisCharts() { const nounChart = document.getElementById('noun-chart'); if(nounChart) nounChart.innerHTML=''; const verbChart = document.getElementById('verb-chart'); if(verbChart) verbChart.innerHTML=''; const adjChart = document.getElementById('adj-chart'); if(adjChart) adjChart.innerHTML=''; const intChart = document.getElementById('int-chart'); if(intChart) intChart.innerHTML=''; const c=document.getElementById('word-cloud-canvas');if(c){const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);} const analysisError = document.getElementById('analysis-error'); if(analysisError){analysisError.classList.add('hidden');analysisError.textContent='';} }
 function getAnalysisTitle(columnType, count) { const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
@@ -1089,7 +1134,7 @@ function getColumnName(columnType) {
 }
 
 
-// --- ▼▼▼ [修正] AI詳細分析 (Screen 5) 処理 (フッター表示) ▼▼▼
+// --- ▼▼▼ [修正] AI詳細分析 (Screen 5) 処理 (フッター表示, フォント調整) ▼▼▼
 async function prepareAndShowDetailedAnalysis(analysisType) {
   console.log(`Prepare detailed analysis: ${analysisType}`);
   const clinicName = currentClinicForModal;
@@ -1193,7 +1238,7 @@ async function runDetailedAnalysisGeneration(analysisType) {
     }
 }
 
-// (AI表示 (共通) - 変更なし)
+// (AI表示 (共通) - ▼▼▼ [修正] フォント調整呼び出し追加 (ルール ②, ④, ⑥) ▼▼▼)
 function displayDetailedAnalysis(data, analysisType, isRawJson) {
     let analysisText, suggestionsText, overallText;
     if (isRawJson) {
@@ -1206,13 +1251,27 @@ function displayDetailedAnalysis(data, analysisType, isRawJson) {
         overallText = data.overall;
     }
     
-    document.getElementById('display-analysis').textContent = analysisText;
+    // --- 表示エリア (display-*) ---
+    const displayAnalysis = document.getElementById('display-analysis');
+    const displaySuggestions = document.getElementById('display-suggestions');
+    const displayOverall = document.getElementById('display-overall');
+    
+    displayAnalysis.textContent = analysisText;
+    displaySuggestions.textContent = suggestionsText;
+    displayOverall.textContent = overallText;
+
+    // --- 編集エリア (textarea-*) ---
     document.getElementById('textarea-analysis').value = analysisText;
-    document.getElementById('display-suggestions').textContent = suggestionsText;
     document.getElementById('textarea-suggestions').value = suggestionsText;
-    document.getElementById('display-overall').textContent = overallText;
     document.getElementById('textarea-overall').value = overallText;
     
+    // ▼▼▼ [新規] フォントサイズ自動調整 (ルール ⑥, ④) ▼▼▼
+    // (ルール ⑦: 基本 12pt)
+    adjustFontSize(displayAnalysis, 12);
+    adjustFontSize(displaySuggestions, 12);
+    adjustFontSize(displayOverall, 12);
+    
+    // (編集エリアの高さ調整)
     ['analysis', 'suggestions', 'overall'].forEach(tabId => {
          const textarea = document.getElementById(`textarea-${tabId}`);
          if (textarea) {
@@ -1232,7 +1291,7 @@ function clearDetailedAnalysisDisplay() {
     document.getElementById('textarea-overall').value = '';
 }
 
-// (タブ切り替え - サブタイトル更新ロジックを反映)
+// (タブ切り替え - ▼▼▼ [修正] フォント調整呼び出し追加 (ルール ⑥, ④) ▼▼▼)
 function handleTabClick(event) { 
   const tabId = event.target.dataset.tabId; 
   if (tabId) { 
@@ -1242,19 +1301,26 @@ function handleTabClick(event) {
 function switchTab(tabId) { 
     document.getElementById('detailed-analysis-subtitle').textContent = getDetailedAnalysisSubtitleForUI(currentDetailedAnalysisType, tabId);
     
-    if (isEditingDetailedAnalysis) { } 
     document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => { if (button.dataset.tabId === tabId) { button.classList.add('active'); } else { button.classList.remove('active'); } }); 
     document.querySelectorAll('#screen5 .tab-content').forEach(content => { if (content.id === `content-${tabId}`) { content.classList.remove('hidden'); } else { content.classList.add('hidden'); } }); 
+
     if (isEditingDetailedAnalysis) {
+        // 編集中の場合：textareaの高さを調整
         const activeTextarea = document.getElementById(`textarea-${tabId}`);
         if (activeTextarea) {
             activeTextarea.style.height = 'auto';
             activeTextarea.style.height = (activeTextarea.scrollHeight + 5) + 'px';
         }
+    } else {
+        // ▼▼▼ [新規] 表示中の場合：フォントサイズを再調整 (ルール ⑥, ④) ▼▼▼
+        const activeDisplay = document.getElementById(`display-${tabId}`);
+        if (activeDisplay) {
+            adjustFontSize(activeDisplay, 12);
+        }
     }
 }
 
-// (編集モード切り替え - 変更なし)
+// (編集モード切り替え - ▼▼▼ [修正] フォント調整呼び出し追加 (ルール ⑥, ④) ▼▼▼)
 function toggleEditDetailedAnalysis(isEdit) {
     isEditingDetailedAnalysis = isEdit;
     const editBtn = document.getElementById('edit-detailed-analysis-btn');
@@ -1286,6 +1352,13 @@ function toggleEditDetailedAnalysis(isEdit) {
         cancelBtn.classList.add('hidden');
         displayAreas.forEach(el => el.classList.remove('hidden'));
         editAreas.forEach(el => el.classList.add('hidden'));
+        
+        // ▼▼▼ [新規] 表示モードに戻る際、フォントサイズを再調整 (ルール ⑥, ④) ▼▼▼
+        const activeTab = document.querySelector('#ai-tab-nav .tab-button.active').dataset.tabId;
+        const activeDisplay = document.getElementById(`display-${activeTab}`);
+        if (activeDisplay) {
+            adjustFontSize(activeDisplay, 12);
+        }
     }
 }
 

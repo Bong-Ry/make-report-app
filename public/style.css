@@ -15,16 +15,17 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     overflow: hidden; 
     border: 1px solid #e5e7eb; 
     border-radius: 0.5rem; 
-    padding: 1rem; 
+    padding: 0.5rem; /* [修正] 1rem -> 0.5rem (WCグラフの収まり改善) */
     background-color: #f9fafb;
-    /* ▼▼▼ [修正] h-full を追加 (WCの2x2グリッド対応) ▼▼▼ */
-    @apply flex flex-col justify-center items-center h-full;
+    /* ▼▼▼ [修正] justify-center -> justify-start (WCグラフの収まり改善) ▼▼▼ */
+    @apply flex flex-col justify-start items-center h-full;
 }
 #word-cloud-canvas { width: 100%; height: 100%; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
 
 /* ▼▼▼ [新規] グラフ背景色 ▼▼▼ */
 .clinic-graph-bg-yellow {
-    background-color: #FFFFE0; /* 薄い黄色 */
+    /* ▼▼▼ [修正] ご指定の色 #ffff95 に変更 ▼▼▼ */
+    background-color: #ffff95; /* 薄い黄色 */
 }
 
 /* AI分析タブ */
@@ -63,7 +64,8 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
 }
 
 .report-title {
-    font-size: 16pt;
+    /* ▼▼▼ [修正] 16pt -> 14pt (ルール⑦) ▼▼▼ */
+    font-size: 14pt;
     font-weight: bold;
     margin-bottom: 8px;
     text-align: left !important;
@@ -190,10 +192,11 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
 
 /* [新規] コメント表示用スタイル (編集不可) */
 .comment-display-item {
-    font-size: 12pt;
-    line-height: 1.5;
+    /* ▼▼▼ [修正] 12pt -> 9pt (ルール④,⑥対応: スクロールなしで収めるため) ▼▼▼ */
+    font-size: 9pt;
+    line-height: 1.4; /* 1.5 -> 1.4 */
     white-space: pre-wrap; /* 改行をそのまま表示 */
-    padding: 4px 0;
+    padding: 2px 0; /* 4px -> 2px */
     border-bottom: 1px solid #eee; /* 項目間の薄い線 */
     word-break: break-word;
 }
