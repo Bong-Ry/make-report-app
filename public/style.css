@@ -17,7 +17,8 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     border-radius: 0.5rem; 
     padding: 1rem; 
     background-color: #f9fafb;
-    @apply flex flex-col justify-center items-center;
+    /* ▼▼▼ [修正] h-1/4 -> h-full (WCの2x2グリッド対応) ▼▼▼ */
+    @apply flex flex-col justify-center items-center h-full;
 }
 #word-cloud-canvas { width: 100%; height: 100%; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
 
@@ -38,12 +39,17 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     font-size: 12pt;
 }
 
-/* ▼▼▼ [修正] レポート本文レイアウト (Flexbox化) ▼▼▼ */
+/* ▼▼▼ [修正] レポート本文レイアウト (Flexbox化 + 高さ自動調整) ▼▼▼ */
 .report-body {
     width: 100%;
     max-width: 1122px; 
-    aspect-ratio: 297 / 210; 
-    min-height: 793px; 
+    /* ▼▼▼ [修正] 固定の縦横比と高さを削除 ▼▼▼ */
+    /* aspect-ratio: 297 / 210; */
+    /* min-height: 793px; */
+    /* ▼▼▼ [修正] 高さを自動にし、最低限の高さを設定 ▼▼▼ */
+    height: auto;
+    min-height: 700px; 
+    
     margin: 0 auto;
     padding: 40px;
     border: 8px solid #fcf1ed; 
@@ -79,14 +85,14 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     flex-shrink: 0;
 }
 
-/* ▼▼▼ [新規] コメント用ヘッダー (サブナビ/操作) ▼▼▼ */
+/* ▼▼▼ [修正] コメント用ヘッダー (レイアウトは index.html 側で <main> の外に移動) ▼▼▼ */
 #slide-header {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     min-height: 40px; /* 高さを確保 */
-    margin-bottom: 16px;
+    /* margin-bottom: 16px; (index.html 側で mb-4 を指定) */
     flex-shrink: 0;
 }
 #comment-sub-nav {
@@ -108,17 +114,18 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     @apply !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white;
 }
 
-/* [修正] メインコンテンツエリア (flex-grow で残りを埋める) */
+/* [修正] メインコンテンツエリア (flex-grow を削除し、高さ自動) */
 .report-content {
-    flex-grow: 1; /* 残りの高さをすべて占有 */
+    /* flex-grow: 1; */ /* 削除 */
     overflow: hidden; 
     position: relative;
-    height: 100%; /* Flexアイテムとして高さを100%に */
+    /* height: 100%; */ /* 削除 */
+    min-height: 400px; /* 内容が空でも最低限の高さを確保 */
 }
 
 /* スライド本体 (グラフ/コメントリスト) */
 #slide-body {
-    height: 100%;
+    /* height: 100%; */ /* 削除 */
     /* ▼▼▼ [修正] スクロールを廃止 ▼▼▼ */
     overflow-y: hidden; /* auto; */
 }
@@ -134,7 +141,7 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     flex-shrink: 0; /* 縮まない */
 }
 
-/* AI分析専用スタイル (変更なし) */
+/* ▼▼▼ [修正] AI分析専用スタイル (20/80レイアウト, 五角形矢印) ▼▼▼ */
 .ai-analysis-container {
     @apply flex h-full;
     overflow: hidden;
@@ -150,17 +157,26 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     font-size: 12pt;
     line-height: 1.5;
     overflow: hidden; 
+    /* ▼▼▼ [追加] 左揃えを明記 ▼▼▼ */
+    text-align: left;
 }
+
+/* ▼▼▼ [修正] AI分析の「形」を五角形矢印に変更 ▼▼▼ */
 .ai-analysis-shape {
-    @apply bg-gray-300 text-gray-800 font-bold p-3 rounded-md shadow-sm mb-4;
+    /* @apply bg-gray-300 text-gray-800 font-bold p-3 rounded-md shadow-sm mb-4; */
+    /* @apply h-auto; */ /* 高さを自動に */
+    
+    /* ▼▼▼ [置換] 新しいスタイル ▼▼▼ */
+    @apply bg-gray-700 text-white font-bold py-3 px-4 rounded-sm shadow-md mb-4;
     width: 100%;
-    height: 80px; 
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%);
     font-size: 14pt;
+    /* clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%); (古い形状) */
+    /* ▼▼▼ ご提示いただいた画像（スクリーンショット 2025-11-08 12.29.58.png）の形状 ▼▼▼ */
+    clip-path: polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%);
 }
 
 /* 表のフォントサイズ (変更なし) */

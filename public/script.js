@@ -589,7 +589,7 @@ async function prepareAndShowIntroPages(reportType) {
   }
 }
 
-// ▼▼▼ [修正] グラフ描画用シェル設定 (高さ 320px, 左側背景色) ▼▼▼
+// ▼▼▼ [修正] グラフ描画用シェル設定 (高さ 320px, 左側背景色, NPS背景色削除) ▼▼▼
 function prepareChartPage(title, subtitle, type, isBar=false) { 
   document.getElementById('report-title').textContent = title;
   document.getElementById('report-subtitle').textContent = subtitle;
@@ -606,7 +606,7 @@ function prepareChartPage(title, subtitle, type, isBar=false) {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full">
               <div class="flex flex-col h-full">
                   <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
-                  <div id="clinic-bar-chart" class="w-full ${chartHeightClass} border border-gray-200 flex items-center justify-center clinic-graph-bg-yellow"></div>
+                  <div id="clinic-bar-chart" class="w-full ${chartHeightClass} border border-gray-200 flex items-center justify-center"></div>
                   <div class="w-full h-[150px] flex flex-col justify-center items-center mt-4">
                       <p class="text-sm text-gray-500 mb-2">【画像入力エリア】</p>
                       <div class="w-full h-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400">
@@ -1041,7 +1041,7 @@ async function prepareAndShowRecommendationReport() {
 }
 
 
-// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (背景色クラス追加) ▼▼▼
+// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (背景色クラス削除, 2x2レイアウト) ▼▼▼
 async function prepareAndShowAnalysis(columnType) {
   showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
   showScreen('screen3');
@@ -1089,23 +1089,23 @@ async function prepareAndShowAnalysis(columnType) {
       return;
   }
   
-  // ▼▼▼ [修正] WCシェル (clinic-graph-bg-yellow を追加) ▼▼▼
+  // ▼▼▼ [修正] WCシェル (2x2 グリッドレイアウト, 背景色削除) ▼▼▼
   slideBody.innerHTML = `
       <div class="grid grid-cols-2 gap-4 h-full">
-          <div class="space-y-2 h-full pr-2 flex flex-col">
-              <div id="noun-chart-container" class="chart-container h-1/4">
+          <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2">
+              <div id="noun-chart-container" class="chart-container h-full">
                   <h3 class="font-bold text-center mb-2 text-blue-600">名詞</h3>
                   <div id="noun-chart" class="w-full h-full"></div>
               </div>
-              <div id="verb-chart-container" class="chart-container h-1/4">
+              <div id="verb-chart-container" class="chart-container h-full">
                   <h3 class="font-bold text-center mb-2 text-red-600">動詞</h3>
                   <div id="verb-chart" class="w-full h-full"></div>
               </div>
-              <div id="adj-chart-container" class="chart-container h-1/4">
+              <div id="adj-chart-container" class="chart-container h-full">
                   <h3 class="font-bold text-center mb-2 text-green-600">形容詞</h3>
                   <div id="adj-chart" class="w-full h-full"></div>
               </div>
-              <div id="int-chart-container" class="chart-container h-1/4">
+              <div id="int-chart-container" class="chart-container h-full">
                   <h3 class="font-bold text-center mb-2 text-gray-600">感動詞</h3>
                   <div id="int-chart" class="w-full h-full"></div>
               </div>
@@ -1119,7 +1119,7 @@ async function prepareAndShowAnalysis(columnType) {
                   <span class="text-green-600 font-semibold">緑色=形容詞</span>、
                   <span class="text-gray-600 font-semibold">灰色=感動詞</span>
               </p>
-              <div id="word-cloud-container" class="h-[calc(100%-80px)] clinic-graph-bg-yellow border border-gray-200">
+              <div id="word-cloud-container" class="h-[calc(100%-80px)] border border-gray-200">
                   <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
               </div>
               <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
@@ -1141,9 +1141,9 @@ async function prepareAndShowAnalysis(columnType) {
   }
 }
 
-// ▼▼▼ [修正] Word Cloud描画 (フォントサイズ 10pt に縮小) ▼▼▼
+// ▼▼▼ [修正] Word Cloud描画 (フォントサイズ 10pt, ソート順修正) ▼▼▼
 function drawAnalysisCharts(results) { if(!results||results.length===0){console.log("No analysis results.");document.getElementById('analysis-error').textContent='分析結果なし';document.getElementById('analysis-error').classList.remove('hidden');return;} const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');const barOpt={bars:'horizontal',legend:{position:'none'},hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:10}, titleTextStyle:{fontSize:10}},vAxis:{title:'単語', textStyle:{fontSize:10}, titleTextStyle:{fontSize:10}}, chartArea:{height:'90%', width:'80%', left:'15%', top:'5%'}, backgroundColor: 'transparent'};drawSingleBarChart(nouns.slice(0,20),'noun-chart',{...barOpt,colors:['#3b82f6']});drawSingleBarChart(verbs.slice(0,20),'verb-chart',{...barOpt,colors:['#ef4444']});drawSingleBarChart(adjs.slice(0,20),'adj-chart',{...barOpt,colors:['#22c55e']});drawSingleBarChart(ints.slice(0,20),'int-chart',{...barOpt,colors:['#6b7280']});const wl=results.map(r=>[r.word,r.score]).slice(0,100);const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});const cv=document.getElementById('word-cloud-canvas');if(WordCloud.isSupported&&cv){try{const options={list:wl,gridSize:Math.round(16*cv.width/1024),weightFactor:function(s){return Math.pow(s,0.8)*cv.width/250;},fontFamily:'Noto Sans JP,sans-serif',color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},backgroundColor:'transparent',clearCanvas:true};WordCloud(cv,options);}catch(wcError){console.error("Error drawing WordCloud:",wcError);document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;}}else{console.warn("WordCloud unsupported/canvas missing.");document.getElementById('word-cloud-container').innerHTML='<p class="text-center text-gray-500">ワードクラウド非対応</p>';} }
-function drawSingleBarChart(data, elementId, options) { const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';data.slice().reverse().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
+function drawSingleBarChart(data, elementId, options) { const c=document.getElementById(elementId);if(!c){console.error(`Element not found: ${elementId}`);return;} if(!data||data.length===0){c.innerHTML='<p class="text-center text-gray-500 text-sm py-4">データなし</p>';return;} const cd=[['単語','スコア',{role:'style'}]];const color=options.colors&&options.colors.length>0?options.colors[0]:'#a8a29e';/* ▼▼▼ [修正] .reverse() を削除 ▼▼▼ */ data.slice().forEach(item=>{cd.push([item.word,item.score,color]);});try{const dt=google.visualization.arrayToDataTable(cd);const chart=new google.visualization.BarChart(c);chart.draw(dt,options);}catch(chartError){console.error(`Error drawing bar chart for ${elementId}:`,chartError);c.innerHTML=`<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;} }
 function clearAnalysisCharts() { const nounChart = document.getElementById('noun-chart'); if(nounChart) nounChart.innerHTML=''; const verbChart = document.getElementById('verb-chart'); if(verbChart) verbChart.innerHTML=''; const adjChart = document.getElementById('adj-chart'); if(adjChart) adjChart.innerHTML=''; const intChart = document.getElementById('int-chart'); if(intChart) intChart.innerHTML=''; const c=document.getElementById('word-cloud-canvas');if(c){const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);} const analysisError = document.getElementById('analysis-error'); if(analysisError){analysisError.classList.add('hidden');analysisError.textContent='';} }
 function getAnalysisTitle(columnType, count) { const bt=`アンケート結果　ー${getColumnName(columnType)}ー`;return`${bt}　※全回答数${count}件ー`; }
 function getColumnName(columnType) { 
