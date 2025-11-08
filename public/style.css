@@ -17,7 +17,7 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     border-radius: 0.5rem; 
     padding: 1rem; 
     background-color: #f9fafb;
-    /* ▼▼▼ [修正] h-1/4 -> h-full (WCの2x2グリッド対応) ▼▼▼ */
+    /* ▼▼▼ [修正] h-full を追加 (WCの2x2グリッド対応) ▼▼▼ */
     @apply flex flex-col justify-center items-center h-full;
 }
 #word-cloud-canvas { width: 100%; height: 100%; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
@@ -39,17 +39,12 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     font-size: 12pt;
 }
 
-/* ▼▼▼ [修正] レポート本文レイアウト (Flexbox化 + 高さ自動調整) ▼▼▼ */
+/* ▼▼▼ [修正] レポート本文レイアウト (A4固定) ▼▼▼ */
 .report-body {
     width: 100%;
     max-width: 1122px; 
-    /* ▼▼▼ [修正] 固定の縦横比と高さを削除 ▼▼▼ */
-    /* aspect-ratio: 297 / 210; */
-    /* min-height: 793px; */
-    /* ▼▼▼ [修正] 高さを自動にし、最低限の高さを設定 ▼▼▼ */
-    height: auto;
-    min-height: 700px; 
-    
+    aspect-ratio: 297 / 210; 
+    min-height: 793px; 
     margin: 0 auto;
     padding: 40px;
     border: 8px solid #fcf1ed; 
@@ -85,7 +80,7 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     flex-shrink: 0;
 }
 
-/* ▼▼▼ [修正] コメント用ヘッダー (レイアウトは index.html 側で <main> の外に移動) ▼▼▼ */
+/* ▼▼▼ [修正] コメント用ヘッダー (index.html で <main> の外に移動) ▼▼▼ */
 #slide-header {
     display: flex;
     flex-wrap: wrap;
@@ -114,31 +109,31 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     @apply !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white;
 }
 
-/* [修正] メインコンテンツエリア (flex-grow を削除し、高さ自動) */
+/* [修正] メインコンテンツエリア (flex-grow で残りを埋める) */
 .report-content {
-    /* flex-grow: 1; */ /* 削除 */
+    flex-grow: 1; /* 残りの高さをすべて占有 */
     overflow: hidden; 
     position: relative;
-    /* height: 100%; */ /* 削除 */
-    min-height: 400px; /* 内容が空でも最低限の高さを確保 */
+    height: 100%; /* Flexアイテムとして高さを100%に */
 }
 
 /* スライド本体 (グラフ/コメントリスト) */
 #slide-body {
-    /* height: 100%; */ /* 削除 */
-    /* ▼▼▼ [修正] スクロールを廃止 ▼▼▼ */
-    overflow-y: hidden; /* auto; */
+    height: 100%;
+    /* ▼▼▼ [修正] スクロールは内部要素で行うためここは hidden ▼▼▼ */
+    overflow-y: hidden; 
 }
 
 
-/* ▼▼▼ [新規] 著作権フッター ▼▼▼ */
+/* ▼▼▼ [修正] 著作権フッター (高さを詰めて最下部に配置) ▼▼▼ */
 .report-copyright {
     font-size: 12pt;
     text-align: center;
     color: #6b7280;
-    padding-top: 16px; /* コンテンツとのマージン */
-    border-top: 1px solid #eee; /* 念のため線引き */
+    padding-top: 8px; /* 16px -> 8px */
+    border-top: none; /* 1px solid #eee -> none */
     flex-shrink: 0; /* 縮まない */
+    margin-top: auto; /* ★ Flexコンテナの最下部に配置 */
 }
 
 /* ▼▼▼ [修正] AI分析専用スタイル (20/80レイアウト, 五角形矢印) ▼▼▼ */
@@ -156,25 +151,23 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     height: 100%;
     font-size: 12pt;
     line-height: 1.5;
-    overflow: hidden; 
+    /* ▼▼▼ [修正] overflow: hidden -> auto (改行＆スクロール対応) ▼▼▼ */
+    overflow-y: auto; 
     /* ▼▼▼ [追加] 左揃えを明記 ▼▼▼ */
     text-align: left;
 }
 
 /* ▼▼▼ [修正] AI分析の「形」を五角形矢印に変更 ▼▼▼ */
 .ai-analysis-shape {
-    /* @apply bg-gray-300 text-gray-800 font-bold p-3 rounded-md shadow-sm mb-4; */
-    /* @apply h-auto; */ /* 高さを自動に */
-    
-    /* ▼▼▼ [置換] 新しいスタイル ▼▼▼ */
+    /* ▼▼▼ [置換] 新しいスタイル (濃いグレーの五角形矢印) ▼▼▼ */
     @apply bg-gray-700 text-white font-bold py-3 px-4 rounded-sm shadow-md mb-4;
     width: 100%;
+    min-height: 60px; /* 最低限の高さを確保 */
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     font-size: 14pt;
-    /* clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%); (古い形状) */
     /* ▼▼▼ ご提示いただいた画像（スクリーンショット 2025-11-08 12.29.58.png）の形状 ▼▼▼ */
     clip-path: polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%);
 }
@@ -188,15 +181,18 @@ body{font-family:'Noto Sans JP',sans-serif;background-color:#f8f7f7;}
     padding: 6px 12px;
 }
 
-/* ▼▼▼ [修正] コメント編集用textarea (1行ずつ表示) ▼▼▼ */
+/* ▼▼▼ [修正] コメント編集用textarea (テキスト風スタイルに変更) ▼▼▼ */
 .comment-edit-textarea {
-    @apply w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none;
+    @apply w-full p-1 border-0 rounded-none focus:ring-0 focus:outline-none focus:bg-gray-100;
     font-size: 12pt;
     line-height: 1.5;
     white-space: pre-wrap;
-    overflow-y: auto; /* 内容が多い場合はスクロール許可 */
-    resize: vertical; /* 縦方向のリサイズのみ許可 */
+    /* ▼▼▼ [修正] 内容が多い場合はスクロール許可 (textarea自体) ▼▼▼ */
+    overflow-y: auto; 
+    resize: none; /* リサイズ禁止 */
     min-height: 42px; /* 1行+paddingの高さ */
     height: auto; /* 内容に応じて高さを自動調整 (JSでも補佐) */
-    margin-bottom: 6px; /* 各コメント間の余白 */
+    margin-bottom: 0px; /* 余白を削除 */
+    border-bottom: 1px solid #eee; /* テキスト間の区切り線 */
+    background-color: transparent; /* 背景色を透明に */
 }
