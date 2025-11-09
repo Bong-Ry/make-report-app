@@ -635,22 +635,24 @@ async function prepareAndShowIntroPages(reportType) {
   }
 }
 
-// ▼▼▼ [修正] グラフ描画用シェル設定 (サブタイトル制御) ▼▼▼
+// ▼▼▼ [修正] グラフ描画用シェル設定 (サブタイトル制御 + 余白変更) ▼▼▼
 function prepareChartPage(title, subtitle, type, isBar=false) { 
   document.getElementById('report-title').textContent = title;
   document.getElementById('report-subtitle').textContent = subtitle; // (NPS以外は空文字が渡される)
   // ▼▼▼ [修正] サブタイトルのtextAlign指定を削除 (CSS側で left !important に任せる) ▼▼▼
   // document.getElementById('report-subtitle').style.textAlign = 'center'; 
   
-  // ▼▼▼ [修正] (Req ⑤) グラフページではセパレーターマージンを 16px に戻す ▼▼▼
+  // ▼▼▼ [変更] (Req ⑤) グラフページではセパレーターマージンを 24px に変更 ▼▼▼
   document.getElementById('report-separator').style.display='block';
-  document.getElementById('report-separator').style.marginBottom = '16px';
+  document.getElementById('report-separator').style.marginBottom = '24px'; // 16px -> 24px
 
   let htmlContent = '';
   const cid = isBar ? 'bar-chart' : 'pie-chart';
   const chartHeightClass = 'h-[320px]'; // A4枠内に収まるように高さを固定
 
   if (type === 'nps_score') {
+      // ▼▼▼ [修正] (Req ⑤) NPSスコアのセパレーターマージンは 16px のままにする ▼▼▼
+      document.getElementById('report-separator').style.marginBottom = '16px';
       htmlContent = `
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full">
               <div class="flex flex-col h-full">
@@ -948,7 +950,7 @@ function renderCommentControls() {
 // --- ▲▲▲ コメントスライド構築関数群 終わり ▲▲▲ ---
 
 
-// ▼▼▼ [修正] 市区町村 (Req ④: サブタイトル廃止, ソート) ▼▼▼
+// ▼▼▼ [修正] 市区町村 (Req ④: サブタイトル廃止, ソート) (Req ⑤: 余白変更) ▼▼▼
 async function prepareAndShowMunicipalityReport() {
   console.log('Prepare municipality report');
   updateNavActiveState('municipality', null, null);
@@ -957,8 +959,8 @@ async function prepareAndShowMunicipalityReport() {
   // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
   document.getElementById('report-subtitle').textContent = ''; 
   document.getElementById('report-separator').style.display='block';
-  // ▼▼▼ [修正] (Req ⑤) グラフページではセパレーターマージンを 16px に戻す ▼▼▼
-  document.getElementById('report-separator').style.marginBottom = '16px';
+  // ▼▼▼ [変更] (Req ⑤) グラフページではセパレーターマージンを 24px に変更 ▼▼▼
+  document.getElementById('report-separator').style.marginBottom = '24px'; // 16px -> 24px
   
   const slideBody = document.getElementById('slide-body');
   slideBody.style.whiteSpace = 'normal';
@@ -1016,7 +1018,7 @@ function displayMunicipalityTable(data) {
 }
 
 
-// ▼▼▼ [修正] おすすめ理由 (サブタイトル廃止) ▼▼▼
+// ▼▼▼ [修正] おすすめ理由 (サブタイトル廃止) (Req ⑤: 余白変更) ▼▼▼
 async function prepareAndShowRecommendationReport() {
     console.log('Prepare recommendation report');
     updateNavActiveState('recommendation', null, null);
@@ -1024,9 +1026,9 @@ async function prepareAndShowRecommendationReport() {
     document.getElementById('report-title').textContent = 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー';
     // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
     document.getElementById('report-subtitle').textContent = '';
-    // ▼▼▼ [修正] (Req ⑤) グラフページではセパレーターマージンを 16px に戻す ▼▼▼
+    // ▼▼▼ [変更] (Req ⑤) グラフページではセパレーターマージンを 24px に変更 ▼▼▼
     document.getElementById('report-separator').style.display='block';
-    document.getElementById('report-separator').style.marginBottom = '16px';
+    document.getElementById('report-separator').style.marginBottom = '24px'; // 16px -> 24px
     
     const slideBody = document.getElementById('slide-body');
     slideBody.style.whiteSpace = 'normal';
@@ -1082,7 +1084,7 @@ async function prepareAndShowRecommendationReport() {
 }
 
 
-// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (Req ⑤, ⑦) ▼▼▼
+// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (Req ⑤, ⑦.1, ⑦.2, ⑦.3) ▼▼▼
 async function prepareAndShowAnalysis(columnType) {
   showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
   showScreen('screen3');
@@ -1093,11 +1095,11 @@ async function prepareAndShowAnalysis(columnType) {
   let tl = [], td = 0;
   
   document.getElementById('report-title').textContent = getAnalysisTitle(columnType, 0); 
-  // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
+  // ▼▼▼ [修正] (Req ⑦.3) サブタイトル廃止 ▼▼▼
   document.getElementById('report-subtitle').textContent = ''; 
   document.getElementById('report-subtitle').style.textAlign = 'left'; 
   
-  // ▼▼▼ [修正] (Req ⑤) WCページではセパレーターマージンを 0 に ▼▼▼
+  // ▼▼▼ [修正] (Req ⑦.3) WCページではセパレーターマージンを 0 に ▼▼▼
   document.getElementById('report-separator').style.display='block';
   document.getElementById('report-separator').style.marginBottom = '0';
   
@@ -1135,10 +1137,10 @@ async function prepareAndShowAnalysis(columnType) {
       return;
   }
   
-  // ▼▼▼ [修正] WCシェル (Req ⑦: テキスト修正, 余白削除) ▼▼▼
+  // ▼▼▼ [変更] WCシェル (Req ⑦.1: gap-1に変更, Req ⑦.2: text-left に変更) ▼▼▼
   slideBody.innerHTML = `
       <div class="grid grid-cols-2 gap-4 h-full">
-          <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2">
+          <div class="grid grid-cols-2 grid-rows-2 gap-1 h-full pr-2">
               <div id="noun-chart-container" class="chart-container h-full">
                   <h3 class="font-bold text-center mb-0 text-blue-600 text-sm">名詞</h3>
                   <div id="noun-chart" class="w-full h-[calc(100%-20px)]"></div>
@@ -1157,7 +1159,7 @@ async function prepareAndShowAnalysis(columnType) {
               </div>
           </div>
           <div class="space-y-2 flex flex-col h-full">
-              <p class="text-sm text-gray-600 text-left">
+              <p class="text-sm text-gray-600 text-left px-2">
                   スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。単語の色は品詞の種類で異なります。<br>
                   <span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span>
               </p>
