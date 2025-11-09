@@ -22,13 +22,13 @@ let currentCommentData = null;
 let currentCommentPageIndex = 0; 
 // --- ▲▲▲ ---
 
-// --- Google Charts ロード ---
+// --- Google Charts ロード (変更なし) ---
 const googleChartsLoaded = new Promise(resolve => {
   google.charts.load('current', { packages: ['corechart', 'bar'] });
   google.charts.setOnLoadCallback(resolve);
 });
 
-// --- イベントリスナー設定 ---
+// --- ▼▼▼ [修正] イベントリスナー設定 (新UI対応) ▼▼▼ ---
 function setupEventListeners() {
   // Screen 1/2
   document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); 
@@ -99,7 +99,7 @@ function setupEventListeners() {
   });
 }
 
-// --- 画面1/2 処理 ---
+// --- 画面1/2 処理 (変更なし) ---
 function populateDateSelectors() {
   const now = new Date();
   const cy = now.getFullYear();
@@ -337,6 +337,7 @@ function handleReportNavClick(e) {
   const analysisType = targetButton.dataset.analysisType;
   const detailedAnalysisType = targetButton.dataset.detailedAnalysisType;
   
+  // コメント系の種別保持
   const commentTypeMap = { 'nps': 'nps', 'feedback_i': 'feedback_i', 'feedback_j': 'feedback_j', 'feedback_m': 'feedback_m' };
   currentCommentType = commentTypeMap[reportType] || null;
 
@@ -344,17 +345,18 @@ function handleReportNavClick(e) {
     showScreen('screen3');
     prepareAndShowReport(reportType);
   } else if (analysisType) {
-    currentCommentType = null; 
+    currentCommentType = null; // WCはコメント系ではない
     currentAnalysisTarget = analysisType;
     showScreen('screen3');
     prepareAndShowAnalysis(analysisType); 
   } else if (detailedAnalysisType) {
-    currentCommentType = null; 
+    currentCommentType = null; // AI分析もコメント系ではない
     currentDetailedAnalysisType = detailedAnalysisType;
     prepareAndShowDetailedAnalysis(detailedAnalysisType); 
   }
 }
 
+// 共通データ取得関数 (キャッシュ対応)
 async function getReportDataForCurrentClinic(sheetName) {
   const isOverall = sheetName === "全体";
   const cache = isOverall ? overallDataCache : clinicDataCache;
@@ -387,6 +389,7 @@ async function prepareAndShowReport(reportType) {
   showScreen('screen3');
   updateNavActiveState(reportType, null, null);
   
+  // UI初期化
   document.getElementById('report-title').textContent = '';
   document.getElementById('report-subtitle').textContent = '';
   document.getElementById('report-title').style.textAlign = 'left';
@@ -517,6 +520,7 @@ async function prepareAndShowReport(reportType) {
   } 
 }
 
+// (変更なし) 例外構成（表紙・目次・概要）の表示
 async function prepareAndShowIntroPages(reportType) {
   document.getElementById('report-separator').style.display = 'none'; 
   document.getElementById('report-subtitle').style.textAlign = 'center'; 
@@ -584,6 +588,7 @@ async function prepareAndShowIntroPages(reportType) {
   }
 }
 
+// ▼▼▼ グラフ描画用シェル設定 ▼▼▼
 function prepareChartPage(title, subtitle, type, isBar = false) { 
   document.getElementById('report-title').textContent = title;
   document.getElementById('report-subtitle').textContent = subtitle;
@@ -847,7 +852,7 @@ async function fetchAndRenderCommentPage(commentKey) {
       throw new Error(`コメント取得APIエラー (${response.status}): ${await response.text()}`);
     }
         
-    const data = await response.json(); 
+    const data = await response.json(); // 例: [ ['A列c1', 'A列c2'], ['B列c1'] ]
         
     if (!data || data.length === 0 || (data.length > 0 && data[0].length === 0)) {
       currentCommentData = [];
@@ -855,7 +860,7 @@ async function fetchAndRenderCommentPage(commentKey) {
       renderCommentControls(); 
     } else {
       currentCommentData = data;
-      renderCommentPage(0); 
+      renderCommentPage(0); // 最初のページ (A列) を描画
     }
         
   } catch (e) {
@@ -1332,9 +1337,10 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
   errorDiv.classList.add('hidden');
   errorDiv.textContent = '';
   
+  // ▼ [修正] メインタイトルはここで設定
   document.getElementById('detailed-analysis-title').textContent = getDetailedAnalysisTitleFull(analysisType);
-  document.getElementById('detailed-analysis-subtitle').textContent = getDetailedAnalysisSubtitleForUI(analysisType, 'analysis'); 
   
+  // ▼ [修正] サブタイトルと五角形は switchTab('analysis') で設定
   switchTab('analysis'); 
   
   try {
@@ -1373,6 +1379,7 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
   }
 }
 
+// 再実行
 async function handleRegenerateDetailedAnalysis() {
   const typeName = getDetailedAnalysisTitleBase(currentDetailedAnalysisType);
   if (!confirm(`「${typeName}」のAI分析を再実行しますか？\n\n・現在の分析内容は破棄されます。\n・編集中の内容は保存されません。`)) {
@@ -1383,6 +1390,7 @@ async function handleRegenerateDetailedAnalysis() {
   await runDetailedAnalysisGeneration(currentDetailedAnalysisType);
 }
 
+// AI実行
 async function runDetailedAnalysisGeneration(analysisType) {
   const errorDiv = document.getElementById('detailed-analysis-error');
   errorDiv.classList.add('hidden');
@@ -1416,6 +1424,7 @@ async function runDetailedAnalysisGeneration(analysisType) {
   }
 }
 
+// 表示
 function displayDetailedAnalysis(data, analysisType, isRawJson) {
   let analysisText, suggestionsText, overallText;
   if (isRawJson) {
@@ -1466,20 +1475,82 @@ function handleTabClick(event) {
   if (tabId) switchTab(tabId);
 }
 
+// =================================================================
+// === ▼▼▼ [修正] 問題①②③ すべてを修正 ▼▼▼ ===
+// =================================================================
 function switchTab(tabId) { 
-  document.getElementById('detailed-analysis-subtitle').textContent =
-    getDetailedAnalysisSubtitleForUI(currentDetailedAnalysisType, tabId);
+  // 1. 要素を取得
+  const subtitleEl = document.getElementById('detailed-analysis-subtitle');
+  
+  // 2. 表示するテキストを定義 (ハードコード)
+  // (currentDetailedAnalysisType は 'L', 'I_bad' などのグローバル変数)
+  const baseSubtitle = '※コメントでいただいたフィードバックを元に分析しています\n';
 
+  // 「分析と考察」と「改善提案」は同じサブタイトルを共有
+  const bodySubtitleMap = {
+      'L': '知人への推奨理由を分析すると、以下の主要なテーマが浮かび上がります。',
+      'I_bad': 'フィードバックの中で挙げられた「悪かった点」を分析すると、\n患者にとって以下の要素が特に課題として感じられていることが分かります。',
+      'I_good': 'フィードバックの中で挙げられた「良かった点」を分析すると、\n以下の要素が患者にとって特に高く評価されていることが分かります。',
+      'J': '印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。',
+      'M': '患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。'
+  };
+
+  // 「総評」のみ別のサブタイトル
+  const overallSubtitleMap = {
+      'L': 'NPS推奨理由の分析と強みを伸ばす提案を基にした、総評は以下のとおりです。',
+      'I_bad': '「悪かった点」の分析と改善策を基にした、総評は以下のとおりです。',
+      'I_good': '「良かった点」の分析と強みを伸ばす提案を基にした、総評は以下のとおりです。',
+      'J': 'スタッフ評価コメントの分析と接遇改善策を基にした、総評は以下のとおりです。',
+      'M': '患者から寄せられたお産に関するご意見の分析と改善策を基にした、総評は以下のとおりです。'
+  };
+
+  const textData = {
+      shape: '分析と考察', // デフォルト
+      subtitle: ''
+  };
+
+  // 3. [修正-P2] タブに応じてサブタイトルと五角形のテキストを決定
+  if (tabId === 'analysis') {
+      textData.shape = '分析と考察';
+      textData.subtitle = baseSubtitle + (bodySubtitleMap[currentDetailedAnalysisType] || bodySubtitleMap['L']);
+  } else if (tabId === 'suggestions') {
+      textData.shape = '改善提案';
+      textData.subtitle = baseSubtitle + (bodySubtitleMap[currentDetailedAnalysisType] || bodySubtitleMap['L']); // 改善提案も「分析」と同じサブタイトル
+  } else if (tabId === 'overall') {
+      textData.shape = '総評';
+      textData.subtitle = baseSubtitle + (overallSubtitleMap[currentDetailedAnalysisType] || overallSubtitleMap['L']);
+  }
+
+  // 4. サブタイトルを更新
+  if (subtitleEl) subtitleEl.textContent = textData.subtitle;
+
+  // 5. タブの active 表示を更新
   document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => {
     const isActive = button.dataset.tabId === tabId;
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
 
+  // 6. [修正-P1, P3] コンテンツの表示切替と、五角形テキストの更新
+  const activeContent = document.getElementById(`content-${tabId}`);
+  
+  // まず全てのコンテナを非表示に
   document.querySelectorAll('#detailed-analysis-content-area .ai-analysis-container').forEach(content => { 
-    content.classList.toggle('hidden', content.id !== `content-${tabId}`);
+    content.classList.add('hidden');
   });
 
+  if (activeContent) {
+    // アクティブなコンテナのみ表示
+    activeContent.classList.remove('hidden');
+    
+    // [修正-P3] アクティブなコンテナ *内部の* 五角形(shape)を探してテキストを更新
+    const shape = activeContent.querySelector('.ai-analysis-shape'); 
+    if (shape) {
+      shape.textContent = textData.shape;
+    }
+  }
+
+  // 7. 編集中なら textarea の高さ調整
   if (isEditingDetailedAnalysis) {
     const activeTextarea = document.getElementById(`textarea-${tabId}`);
     if (activeTextarea) {
@@ -1489,6 +1560,14 @@ function switchTab(tabId) {
   }
 }
 
+// [削除] この関数は switchTab に統合されたため不要
+// function updateAnalysisHeadingUI(tabId) { ... }
+// =================================================================
+// === ▲▲▲ 修正完了 ▲▲▲ ===
+// =================================================================
+
+
+// [変更なし] メインタイトル (H1)
 function getDetailedAnalysisTitleFull(analysisType) {
   switch (analysisType) {
     case 'L': return '知人に病院を紹介したいと思う理由の分析';
@@ -1500,32 +1579,10 @@ function getDetailedAnalysisTitleFull(analysisType) {
   }
 }
 
-function getDetailedAnalysisSubtitleForUI(analysisType, tabId) {
-  const base = '※コメントでいただいたフィードバックを元に分析しています';
-  const getBodyText = (type) => {
-    switch (type) {
-      case 'L': return '知人への推奨理由を分析すると、以下の主要なテーマが浮かび上がります。';
-      case 'M': return '患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。';
-      case 'I_bad': return 'フィードバックの中で挙げられた「悪かった点」を分析すると、\n患者にとって以下の要素が特に課題として感じられていることが分かります。';
-      case 'I_good': return 'フィードバックの中で挙げられた「良かった点」を分析すると、\n以下の要素が患者にとって特に高く評価されていることが分かります。';
-      case 'J': return '印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。';
-      default: return '';
-    }
-  };
-  const getOverallText = (type) => {
-    switch (type) {
-      case 'L': return 'NPS推奨理由の分析と強みを伸ばす提案を基にした、総評は以下のとおりです。';
-      case 'I_bad': return '「悪かった点」の分析と改善策を基にした、総評は以下のとおりです。';
-      case 'I_good': return '「良かった点」の分析と強みを伸ばす提案を基にした、総評は以下のとおりです。';
-      case 'J': return 'スタッフ評価コメントの分析と接遇改善策を基にした、総評は以下のとおりです。';
-      case 'M': return '患者から寄せられたお産に関するご意見の分析と改善策を基にした、総評は以下のとおりです。';
-      default: return '分析と改善策を基にした、総評は以下のとおりです。';
-    }
-  };
-  if (tabId === 'overall') return `${base}\n${getOverallText(analysisType)}`;
-  return `${base}\n${getBodyText(analysisType)}`;
-}
+// [削除] サブタイトル (P) - switchTab にロジックを移動したため不要
+// function getDetailedAnalysisSubtitleForUI(analysisType, tabId) { ... }
 
+// [変更なし] 
 function getDetailedAnalysisTitleBase(analysisType) {
   switch (analysisType) {
     case 'L': return 'NPS推奨度 理由';
@@ -1537,6 +1594,10 @@ function getDetailedAnalysisTitleBase(analysisType) {
   }
 }
 
+
+// =================================================================
+// === ▼▼▼ [修正] 編集モード切替のバグを修正 ▼▼▼ ===
+// =================================================================
 function toggleEditDetailedAnalysis(isEdit) {
   isEditingDetailedAnalysis = isEdit;
   const editBtn = document.getElementById('edit-detailed-analysis-btn');
@@ -1544,6 +1605,7 @@ function toggleEditDetailedAnalysis(isEdit) {
   const saveBtn = document.getElementById('save-detailed-analysis-btn');
   const cancelBtn = document.getElementById('cancel-edit-detailed-analysis-btn');
 
+  // [修正] 3つの表示/編集エリアを明示的に取得
   const displayAreas = [
     document.getElementById('display-analysis'),
     document.getElementById('display-suggestions'),
@@ -1556,14 +1618,17 @@ function toggleEditDetailedAnalysis(isEdit) {
   ];
 
   if (isEditingDetailedAnalysis) {
+    // --- 編集モード開始 ---
     editBtn.classList.add('hidden');
     regenBtn.classList.add('hidden');
     saveBtn.classList.remove('hidden');
     cancelBtn.classList.remove('hidden');
     
+    // すべての表示エリア(display)を隠し、すべての編集エリア(edit)を表示
     displayAreas.forEach(el => el.classList.add('hidden'));
     editAreas.forEach(el => el.classList.remove('hidden'));
         
+    // 現在アクティブなタブのTextareaの高さを調整
     const activeTab = document.querySelector('#ai-tab-nav .tab-button.active')?.dataset.tabId || 'analysis';
     const activeTextarea = document.getElementById(`textarea-${activeTab}`);
     if (activeTextarea) {
@@ -1572,24 +1637,35 @@ function toggleEditDetailedAnalysis(isEdit) {
     }
     
   } else {
+    // --- 編集モード終了 (保存・キャンセル時) ---
     editBtn.classList.remove('hidden');
     regenBtn.classList.remove('hidden');
     saveBtn.classList.add('hidden');
     cancelBtn.classList.add('hidden');
     
+    // [修正]
+    // 1. まず、すべての編集エリア(Textarea)を隠す
     editAreas.forEach(el => el.classList.add('hidden'));
     
+    // 2. [修正] すべての表示エリアを一度隠す (リセット)
     displayAreas.forEach(el => el.classList.add('hidden'));
     
+    // 3. [修正] 現在アクティブなタブのIDを取得
     const activeTab = document.querySelector('#ai-tab-nav .tab-button.active')?.dataset.tabId || 'analysis';
     
+    // 4. [修正] アクティブなタブの表示エリア「だけ」を表示する
     const activeDisplayArea = document.getElementById(`display-${activeTab}`);
     if (activeDisplayArea) {
       activeDisplayArea.classList.remove('hidden');
     }
   }
 }
+// =================================================================
+// === ▲▲▲ 修正完了 ▲▲▲ ===
+// =================================================================
 
+
+// 保存
 async function saveDetailedAnalysisEdits() {
   showLoading(true, '変更を保存中...');
   const analysisContent = document.getElementById('textarea-analysis').value;
@@ -1614,6 +1690,7 @@ async function saveDetailedAnalysisEdits() {
       throw new Error(`保存失敗 (${response.status}): ${await response.text()}`);
     }
         
+    // 表示エリア(display)のテキストも更新
     document.getElementById('display-analysis').textContent = analysisContent;
     document.getElementById('display-suggestions').textContent = suggestionsContent;
     document.getElementById('display-overall').textContent = overallContent;
@@ -1662,6 +1739,7 @@ function showLoading(isLoading, message = '') {
   }
 }
 
+// ▼▼▼ フッター表示切替 ▼▼▼
 function showCopyrightFooter(show, screenId = 'screen3') {
   let footer;
   if (screenId === 'screen3') {
@@ -1685,4 +1763,4 @@ function showCopyrightFooter(show, screenId = 'screen3') {
   }
   setupEventListeners();
   console.log('Listeners setup.');
-})();
+})(); // 即時実行関数で全体をラップ
