@@ -1320,6 +1320,7 @@ function handleTabClick(event) {
   } 
 }
 function switchTab(tabId) { 
+    // ▼▼▼ [バグ修正] サブタイトル関数呼び出しを、正しい引数で呼び出すように修正 ▼▼▼
     document.getElementById('detailed-analysis-subtitle').textContent = getDetailedAnalysisSubtitleForUI(currentDetailedAnalysisType, tabId);
     
     if (isEditingDetailedAnalysis) { } 
@@ -1435,11 +1436,14 @@ function getDetailedAnalysisTitleFull(analysisType) {
     }
 }
 
+// ▼▼▼ [バグ修正] サブタイトルが正しく分岐するように修正 ▼▼▼
 function getDetailedAnalysisSubtitleForUI(analysisType, tabId) {
      const base = '※コメントでいただいたフィードバックを元に分析しています';
+     
+     // 1. "分析と考察" / "改善提案" タブ用のサブタイトル
      const getBodyText = (type) => {
          switch (type) {
-             case 'L': 
+             case 'L': return '知人への推奨理由を分析すると、以下の主要なテーマが浮かび上がります。'; // [修正] 'L' (NPS) 用のテキストを追加
              case 'M': return '患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。';
              case 'I_bad': return 'フィードバックの中で挙げられた「悪かった点」を分析すると、\n患者にとって以下の要素が特に課題として感じられていることが分かります。';
              case 'I_good': return 'フィードバックの中で挙げられた「良かった点」を分析すると、\n以下の要素が患者にとって特に高く評価されていることが分かります。';
@@ -1448,11 +1452,27 @@ function getDetailedAnalysisSubtitleForUI(analysisType, tabId) {
          }
      };
 
+     // 2. "総評" タブ用のサブタイトル
+     const getOverallText = (type) => {
+         // [修正] 'overall' の場合、analysisType (L, I_good, etc.) を見て分岐する
+         switch (type) {
+             case 'L': return 'NPS推奨理由の分析と強みを伸ばす提案を基にした、総評は以下のとおりです。';
+             case 'I_bad': return '「悪かった点」の分析と改善策を基にした、総評は以下のとおりです。';
+             case 'I_good': return '「良かった点」の分析と強みを伸ばす提案を基にした、総評は以下のとおりです。';
+             case 'J': return 'スタッフ評価コメントの分析と接遇改善策を基にした、総評は以下のとおりです。';
+             case 'M': return '患者から寄せられたお産に関するご意見の分析と改善策を基にした、総評は以下のとおりです。';
+             default: return '分析と改善策を基にした、総評は以下のとおりです。';
+         }
+     };
+
+     // 3. 実行
      if (tabId === 'overall') {
-         return base + '\n患者から寄せられたお産に関するご意見の分析と改善策を基にした、総評は以下のとおりです.';
+         return base + '\n' + getOverallText(analysisType); // [修正]
      }
-     return base + '\n' + getBodyText(analysisType);
+     // "analysis" または "suggestions" の場合
+     return base + '\n' + getBodyText(analysisType); // [修正]
 }
+// ▲▲▲ [バグ修正] 終わり ▲▲▲
 
 function getDetailedAnalysisTitleBase(analysisType) {
     switch (analysisType) {
