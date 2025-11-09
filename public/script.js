@@ -1424,7 +1424,9 @@ async function runDetailedAnalysisGeneration(analysisType) {
   }
 }
 
-// 表示
+// =================================================================
+// === ▼▼▼ [修正] AI分析 (表示) + フォントサイズ調整 ▼▼▼ ===
+// =================================================================
 function displayDetailedAnalysis(data, analysisType, isRawJson) {
   let analysisText, suggestionsText, overallText;
   if (isRawJson) {
@@ -1443,13 +1445,26 @@ function displayDetailedAnalysis(data, analysisType, isRawJson) {
     overallText = data.overall;
   }
     
-  document.getElementById('display-analysis').textContent = analysisText;
+  // 1. テキストを display と textarea の両方にセット
+  const displayAnalysis = document.getElementById('display-analysis');
+  const displaySuggestions = document.getElementById('display-suggestions');
+  const displayOverall = document.getElementById('display-overall');
+
+  displayAnalysis.textContent = analysisText;
   document.getElementById('textarea-analysis').value = analysisText;
-  document.getElementById('display-suggestions').textContent = suggestionsText;
+  
+  displaySuggestions.textContent = suggestionsText;
   document.getElementById('textarea-suggestions').value = suggestionsText;
-  document.getElementById('display-overall').textContent = overallText;
+  
+  displayOverall.textContent = overallText;
   document.getElementById('textarea-overall').value = overallText;
-    
+  
+  // 2. [新規] フォントサイズ調整を（全タブに対して）実行
+  adjustFontSize(displayAnalysis);
+  adjustFontSize(displaySuggestions);
+  adjustFontSize(displayOverall);
+
+  // 3. 編集用 Textarea の高さを調整 (編集モード切り替え時に備える)
   ['analysis', 'suggestions', 'overall'].forEach(tabId => {
     const textarea = document.getElementById(`textarea-${tabId}`);
     if (textarea) {
@@ -1468,22 +1483,71 @@ function clearDetailedAnalysisDisplay() {
   document.getElementById('textarea-overall').value = '';
 }
 
-function handleTabClick(event) { 
-  const btn = event.target.closest('.tab-button');
-  if (!btn) return;
-  const tabId = btn.dataset.tabId;
-  if (tabId) switchTab(tabId);
+// =================================================================
+// === ▼▼▼ [新規] フォントサイズ調整（スクロール禁止対応） ▼▼▼ ===
+// =================================================================
+/**
+ * 要素がはみ出しているかチェック
+ */
+function isOverflown(element) {
+    if (!element) return false;
+    // (CSSで overflow-y: hidden が設定されている前提)
+    return element.scrollHeight > element.clientHeight;
 }
+
+/**
+ * 指定された要素のフォントサイズを、枠内に収まるまで小さくする
+ * @param {HTMLElement} element - 対象の .ai-analysis-content 要素
+ */
+function adjustFontSize(element) {
+    if (!element) return;
+
+    const initialFontSizePt = 12; // style.css の初期値
+    const minFontSizePt = 7;      // 最小フォントサイズ
+    const step = 0.5;             // 1回に減らすpt
+    
+    let currentSize = initialFontSizePt;
+    element.style.fontSize = currentSize + 'pt';
+
+    // (念のため最大100回ループで無限ループを防ぐ)
+    for (let i = 0; i < 100; i++) {
+        if (!isOverflown(element)) {
+            // はみ出していなければ完了
+            return;
+        }
+        
+        // はみ出していたらフォントを小さくする
+        currentSize -= step;
+        element.style.fontSize = currentSize + 'pt';
+
+        if (currentSize <= minFontSizePt) {
+            // 最小サイズに達したら終了
+            console.warn(`Font size limit reached for element: ${element.id}`);
+            return;
+        }
+    }
+    console.error(`adjustFontSize loop limit reached for element: ${element.id}`);
+}
+// =================================================================
+// === ▲▲▲ 新規 ▲▲▲ ===
+// =================================================================
+
 
 // =================================================================
 // === ▼▼▼ [修正] 問題①②③ すべてを修正 ▼▼▼ ===
 // =================================================================
+function handleTabClick(event) { 
+  const btn = event.target.closest('.tab-button');
+  if (!btn) return;
+  const tabId = btn.dataset.tabId; // 'analysis', 'suggestions', 'overall'
+  if (tabId) switchTab(tabId);
+}
+
 function switchTab(tabId) { 
   // 1. 要素を取得
   const subtitleEl = document.getElementById('detailed-analysis-subtitle');
   
-  // 2. 表示するテキストを定義 (ハードコード)
-  // (currentDetailedAnalysisType は 'L', 'I_bad' などのグローバル変数)
+  // 2. [修正-P2] 表示するテキストをハードコードで定義 (ご要望)
   const baseSubtitle = '※コメントでいただいたフィードバックを元に分析しています\n';
 
   // 「分析と考察」と「改善提案」は同じサブタイトルを共有
@@ -1510,6 +1574,7 @@ function switchTab(tabId) {
   };
 
   // 3. [修正-P2] タブに応じてサブタイトルと五角形のテキストを決定
+  //    (currentDetailedAnalysisType は 'L', 'I_bad' などのグローバル変数)
   if (tabId === 'analysis') {
       textData.shape = '分析と考察';
       textData.subtitle = baseSubtitle + (bodySubtitleMap[currentDetailedAnalysisType] || bodySubtitleMap['L']);
@@ -1540,13 +1605,19 @@ function switchTab(tabId) {
   });
 
   if (activeContent) {
-    // アクティブなコンテナのみ表示
+    // アクティブなコンテナのみ表示 (問題①修正)
     activeContent.classList.remove('hidden');
     
     // [修正-P3] アクティブなコンテナ *内部の* 五角形(shape)を探してテキストを更新
     const shape = activeContent.querySelector('.ai-analysis-shape'); 
     if (shape) {
       shape.textContent = textData.shape;
+    }
+    
+    // [修正-P4] アクティブなコンテナ *内部の* 本文(display)を探してフォント調整
+    if (!isEditingDetailedAnalysis) {
+        const displayContent = activeContent.querySelector('.ai-analysis-content');
+        adjustFontSize(displayContent);
     }
   }
 
@@ -1559,9 +1630,6 @@ function switchTab(tabId) {
     }
   }
 }
-
-// [削除] この関数は switchTab に統合されたため不要
-// function updateAnalysisHeadingUI(tabId) { ... }
 // =================================================================
 // === ▲▲▲ 修正完了 ▲▲▲ ===
 // =================================================================
@@ -1578,9 +1646,6 @@ function getDetailedAnalysisTitleFull(analysisType) {
     default: return 'AI詳細分析レポート';
   }
 }
-
-// [削除] サブタイトル (P) - switchTab にロジックを移動したため不要
-// function getDetailedAnalysisSubtitleForUI(analysisType, tabId) { ... }
 
 // [変更なし] 
 function getDetailedAnalysisTitleBase(analysisType) {
@@ -1605,7 +1670,7 @@ function toggleEditDetailedAnalysis(isEdit) {
   const saveBtn = document.getElementById('save-detailed-analysis-btn');
   const cancelBtn = document.getElementById('cancel-edit-detailed-analysis-btn');
 
-  // [修正] 3つの表示/編集エリアを明示的に取得
+  // 3つの表示/編集エリアを明示的に取得
   const displayAreas = [
     document.getElementById('display-analysis'),
     document.getElementById('display-suggestions'),
@@ -1657,6 +1722,8 @@ function toggleEditDetailedAnalysis(isEdit) {
     const activeDisplayArea = document.getElementById(`display-${activeTab}`);
     if (activeDisplayArea) {
       activeDisplayArea.classList.remove('hidden');
+      // [修正-P4] フォントサイズを再調整
+      adjustFontSize(activeDisplayArea);
     }
   }
 }
