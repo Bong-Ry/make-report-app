@@ -53,7 +53,7 @@ function setupEventListeners() {
   
   // Screen 3 (Nav)
   document.getElementById('report-nav').addEventListener('click', handleReportNavClick);
-  document.getElementById('pdf-export-btn').addEventListener('click', generatePdf); 
+  // document.getElementById('pdf-export-btn').addEventListener('click', generatePdf); // [修正] PDF 削除
   document.getElementById('back-to-clinics').addEventListener('click', () => showScreen('screen2'));
   
   // Screen 3 (Header - コメントUI)
@@ -103,7 +103,7 @@ function setupEventListeners() {
 
   // Screen 5 (Nav)
   document.getElementById('report-nav-screen5').addEventListener('click', handleReportNavClick);
-  document.getElementById('pdf-export-btn-screen5').addEventListener('click', generatePdf);
+  // document.getElementById('pdf-export-btn-screen5').addEventListener('click', generatePdf); // [修正] PDF 削除
   document.getElementById('back-to-clinics-from-detailed-analysis').addEventListener('click', () => {
       toggleEditDetailedAnalysis(false); 
       showScreen('screen2');
@@ -980,6 +980,8 @@ async function prepareAndShowRecommendationReport() {
 
 
 // ▼▼▼ [修正] Word Cloud表示 (Screen 3) (背景色クラス削除, 2x2レイアウト) ▼▼▼
+// [INFO] ②-2 (青枠) 修正: subtitle の text-align を 'left' に設定
+// [INFO] ②-1 (赤枠), ②-3 (緑枠) 修正: drawAnalysisCharts 関数内部の修正（ファイルに反映済み）
 async function prepareAndShowAnalysis(columnType) {
   showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
   showScreen('screen3');
@@ -991,7 +993,7 @@ async function prepareAndShowAnalysis(columnType) {
   
   document.getElementById('report-title').textContent = getAnalysisTitle(columnType, 0); 
   document.getElementById('report-subtitle').textContent = '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。';
-  document.getElementById('report-subtitle').style.textAlign = 'left'; 
+  document.getElementById('report-subtitle').style.textAlign = 'left'; // [修正] ②-2 (青枠) 左揃え
   document.getElementById('report-separator').style.display='block';
   
   const subNav = document.getElementById('comment-sub-nav');
@@ -1078,6 +1080,9 @@ async function prepareAndShowAnalysis(columnType) {
 }
 
 // ▼▼▼ [修正] Word Cloud描画 (フォントサイズ 12pt, ソート順修正, WC描画バグ修正) ▼▼▼
+// [INFO] ②-1 (赤枠) 修正: barOpt の chartArea, vAxis.textStyle (反映済み)
+// [INFO] ②-1 (赤枠) 修正: drawSingleBarChart の .reverse() 削除 (反映済み)
+// [INFO] ②-3 (緑枠) 修正: WordCloud の 高DPI/weightFactor バグ修正 (反映済み)
 function drawAnalysisCharts(results) { 
     if(!results||results.length===0){
         console.log("No analysis results.");
@@ -1163,6 +1168,8 @@ function getColumnName(columnType) {
 
 
 // --- ▼▼▼ [修正] AI詳細分析 (Screen 5) 処理 (サブタイトル中央揃え対応) ▼▼▼
+// [INFO] ③-1 (タブ切替) 修正: switchTab 関数内部のセレクタ修正 (反映済み)
+// [INFO] ③-2 (編集機能) 修正: toggleEditDetailedAnalysis, saveDetailedAnalysisEdits (反映済み)
 async function prepareAndShowDetailedAnalysis(analysisType) {
   console.log(`Prepare detailed analysis: ${analysisType}`);
   const clinicName = currentClinicForModal;
@@ -1305,6 +1312,7 @@ function clearDetailedAnalysisDisplay() {
 }
 
 // (タブ切り替え - サブタイトル更新ロジックを反映)
+// [INFO] ③-1 (タブ切替) 修正: handleTabClick, switchTab (反映済み)
 function handleTabClick(event) { 
   const tabId = event.target.dataset.tabId; 
   if (tabId) { 
@@ -1336,6 +1344,7 @@ function switchTab(tabId) {
 }
 
 // (編集モード切り替え - 変更なし)
+// [INFO] ③-2 (編集機能) 修正: toggleEditDetailedAnalysis (反映済み)
 function toggleEditDetailedAnalysis(isEdit) {
     isEditingDetailedAnalysis = isEdit;
     const editBtn = document.getElementById('edit-detailed-analysis-btn');
@@ -1370,23 +1379,15 @@ function toggleEditDetailedAnalysis(isEdit) {
     }
 }
 
-// (AI詳細分析 (保存) - 変更なし)
+// (AI詳細分析 (保存) - [修正] 3項目すべてを送信)
+// [INFO] ③-2 (保存機能) 修正: saveDetailedAnalysisEdits (反映済み)
 async function saveDetailedAnalysisEdits() {
     showLoading(true, '変更を保存中...');
     const analysisContent = document.getElementById('textarea-analysis').value;
     const suggestionsContent = document.getElementById('textarea-suggestions').value;
     const overallContent = document.getElementById('textarea-overall').value;
-    const activeTabId = document.querySelector('#ai-tab-nav .tab-button.active').dataset.tabId;
-    
-    let contentToSave = '';
-    if (activeTabId === 'analysis') contentToSave = analysisContent;
-    else if (activeTabId === 'suggestions') contentToSave = suggestionsContent;
-    else if (activeTabId === 'overall') contentToSave = overallContent;
-    else {
-        alert('不明なタブが選択されています。保存を中止します。');
-        showLoading(false);
-        return;
-    }
+    // const activeTabId = ... (削除)
+    // let contentToSave = ... (削除)
 
     try {
         const response = await fetch('/api/updateDetailedAnalysis', {
@@ -1396,8 +1397,11 @@ async function saveDetailedAnalysisEdits() {
                 centralSheetId: currentCentralSheetId,
                 clinicName: currentClinicForModal,
                 columnType: currentDetailedAnalysisType, 
-                tabId: activeTabId, 
-                content: contentToSave 
+                // tabId: activeTabId, (削除)
+                // content: contentToSave (削除)
+                analysis: analysisContent, // [修正]
+                suggestions: suggestionsContent, // [修正]
+                overall: overallContent // [修正]
             })
         });
         
@@ -1482,35 +1486,12 @@ function updateNavActiveState(activeReportType, activeAnalysisType, activeDetail
 function showScreen(screenId){ document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));document.getElementById(screenId).classList.remove('hidden'); }
 function showLoading(isLoading, message=''){ const o=document.getElementById('loading-overlay'),m=document.getElementById('loading-message');if(isLoading){m.textContent=message;o.classList.remove('hidden');}else{o.classList.add('hidden');m.textContent='';} }
 
-// (PDF生成 - 変更なし)
+// [修正] PDF生成 (関数全体を削除)
+/*
 async function generatePdf(){
-  console.log('PDF export clicked.');
-  const cn=currentClinicForModal;
-  const pt = currentPeriodText; 
-  if(!cn || !pt || !currentCentralSheetId){
-      alert('PDF生成に必要なレポートデータ（クリニック名、期間、集計ID）がありません。');
-      return;
-  }
-  showLoading(true,'PDFを生成中...');
-  try{
-      const r=await fetch('/generate-pdf',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-              clinicName: cn,
-              periodText: pt,
-              centralSheetId: currentCentralSheetId 
-          })
-      });
-      if(!r.ok){let em=`サーバーエラー: ${r.status} ${r.statusText}`;try{const ed=await r.text();em+=`\n${ed}`;}catch(e){} throw new Error(em);}
-      const b=await r.blob();const u=window.URL.createObjectURL(b);const a=document.createElement('a');a.style.display='none';a.href=u;document.body.appendChild(a);a.click();window.URL.revokeObjectURL(u);a.remove();
-  } catch(error){
-      console.error('PDF gen error:',error);
-      alert('PDF生成失敗\n'+error.message);
-  } finally {
-      showLoading(false);
-  }
+  // ... (削除)
 }
+*/
 
 // ▼▼▼ [新規] フッター表示切替 ▼▼▼
 function showCopyrightFooter(show, screenId = 'screen3') {

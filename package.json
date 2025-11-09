@@ -15,7 +15,6 @@
     "googleapis": "^164.1.0",
     "kuromoji": "^0.1.2",
     "openai": "^4.52.7",
-    "puppeteer": "^22.12.1",
     "p-limit": "^5.0.0"
   }
 }

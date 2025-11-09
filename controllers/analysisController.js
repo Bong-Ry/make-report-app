@@ -80,7 +80,22 @@ exports.generateDetailedAnalysis = async (req, res) => {
         
         // ▼▼▼ [修正] ダミーではなく、aiAnalysisService.js 経由で呼び出す ▼▼▼
         // (aiAnalysisService.js が openaiService を require している前提)
-        const analysisJson = await aiAnalysisService.runSingleAiAnalysis(systemPrompt, textList);
+        // [注] aiAnalysisService.js には runSingleAiAnalysis が無いため、ここで openaiService を直接呼ぶか、
+        // aiAnalysisService.js に新設する必要があります。
+        // ここでは、元のファイル(analysisController.js)が aiAnalysisService.js を呼んでいる前提のまま、
+        // aiAnalysisService.js に runSingleAiAnalysis が存在すると仮定して進めます。
+        // (もし aiAnalysisService.js にその関数が無い場合は、別途 aiAnalysisService.js の修正も必要です)
+        
+        // [訂正] 元の analysisController.js は aiAnalysisService を呼んでいなかったため、
+        // 元のファイルの依存関係 (openaiService を直接呼ぶ) に戻します。
+        // [再訂正] ユーザー提供のファイルでは aiAnalysisService.js を呼んでいました。
+        // aiAnalysisService.js には openai を直接呼ぶ機能がないため、
+        // ここで aiAnalysisService.js が内部で使っている openaiService を呼び出します。
+        // （aiAnalysisService.js の中身を確認したところ、openaiService を require していました）
+        
+        const openaiService = require('../services/openai'); // 不足していた require を追加
+        const analysisJson = await openaiService.generateJsonAnalysis(systemPrompt, textList);
+
 
         // 3. [変更] 新しい分析結果 (3キー) をMapに変換
         const newAnalysisMap = formatAiJsonToMap(analysisJson, columnType);
@@ -140,12 +155,13 @@ exports.getDetailedAnalysis = async (req, res) => {
 // === ▼▼▼ [変更] AI詳細分析 (更新・保存) ▼▼▼ ===
 // =================================================================
 exports.updateDetailedAnalysis = async (req, res) => {
-    // ▼▼▼ [変更] sheetName の代わりに、clinicName, columnType, tabId を受け取る ▼▼▼
-    const { centralSheetId, clinicName, columnType, tabId, content } = req.body;
-    console.log(`POST /api/updateDetailedAnalysis called for ${clinicName} (${columnType} - ${tabId})`);
+    // ▼▼▼ [修正] `tabId`, `content` の代わりに `analysis`, `suggestions`, `overall` を受け取る
+    const { centralSheetId, clinicName, columnType, analysis, suggestions, overall } = req.body;
+    console.log(`POST /api/updateDetailedAnalysis called for ${clinicName} (${columnType})`);
     
-    if (!centralSheetId || !clinicName || !columnType || !tabId || content == null) {
-        return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, columnType, tabId, content が必要です。');
+    // [修正] バリデーション
+    if (!centralSheetId || !clinicName || !columnType || analysis == null || suggestions == null || overall == null) {
+        return res.status(400).send('不正なリクエスト: centralSheetId, clinicName, columnType, analysis, suggestions, overall が必要です。');
     }
     
     const aiSheetName = getAnalysisSheetName(clinicName, 'AI');
@@ -155,27 +171,26 @@ exports.updateDetailedAnalysis = async (req, res) => {
         console.log(`[/api/updateDetailedAnalysis] Reading existing data from "${aiSheetName}"...`);
         const existingAiDataMap = await googleSheetsService.readAiAnalysisData(centralSheetId, aiSheetName);
 
-        // 2. [変更] 保存先のキー (例: "L_ANALYSIS") を特定
-        // (helpers.js にこのための関数は無いので、ここで組み立てる)
-        let keyToUpdate;
-        switch(tabId) {
-            case 'analysis': keyToUpdate = `${columnType}_ANALYSIS`; break;
-            case 'suggestions': keyToUpdate = `${columnType}_SUGGESTIONS`; break;
-            case 'overall': keyToUpdate = `${columnType}_OVERALL`; break;
-            default: throw new Error(`無効なタブIDです: ${tabId}`);
+        // 2. [修正] 保存先のキー (例: "L_ANALYSIS" など3つ) を特定
+        const analysisKey = `${columnType}_ANALYSIS`;
+        const suggestionsKey = `${columnType}_SUGGESTIONS`;
+        const overallKey = `${columnType}_OVERALL`;
+        
+        // 3. [修正] 既存のMapの、該当キーの値を3つとも上書き
+        const allKeys = getAiAnalysisKeys();
+        if (!allKeys.includes(analysisKey) || !allKeys.includes(suggestionsKey) || !allKeys.includes(overallKey)) {
+             throw new Error(`無効な更新キーです: ${columnType}`);
         }
         
-        // 3. [変更] 既存のMapの、該当キーの値を上書き
-        if (!getAiAnalysisKeys().includes(keyToUpdate)) {
-             throw new Error(`無効な更新キーです: ${keyToUpdate}`);
-        }
-        existingAiDataMap.set(keyToUpdate, content);
-        console.log(`[/api/updateDetailedAnalysis] Updating key: "${keyToUpdate}"`);
+        existingAiDataMap.set(analysisKey, analysis);
+        existingAiDataMap.set(suggestionsKey, suggestions);
+        existingAiDataMap.set(overallKey, overall);
+        console.log(`[/api/updateDetailedAnalysis] Updating keys for: "${columnType}"`);
 
         // 4. [変更] マージしたMap (15キー) を `_AI分析` タブに丸ごと上書き保存
         await googleSheetsService.saveAiAnalysisData(centralSheetId, aiSheetName, existingAiDataMap);
         
-        res.json({ status: 'ok', message: `分析結果 (${keyToUpdate}) を更新しました。` });
+        res.json({ status: 'ok', message: `分析結果 (${columnType}) を更新しました。` });
     } catch (err) {
         console.error('[/api/updateDetailedAnalysis] Error:', err);
         res.status(500).send(err.message || 'AI分析結果の更新に失敗しました。');

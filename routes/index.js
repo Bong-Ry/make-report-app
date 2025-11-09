@@ -8,7 +8,7 @@ const router = express.Router();
 
 // --- API Routes (レポート・データ関連) ---
 router.get('/api/getClinicList', reportController.getClinicList);
-router.post('/generate-pdf', reportController.generatePdf); // PDF生成ルート
+// router.post('/generate-pdf', reportController.generatePdf); // [修正] PDF生成ルートを削除
 
 // =================================================================
 // === ▼▼▼ 新アーキテクチャ用ルート (変更なし) ▼▼▼ ===

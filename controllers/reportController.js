@@ -1,7 +1,7 @@
 // bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/controllers/reportController.js
 
 const googleSheetsService = require('../services/googleSheets');
-const pdfGeneratorService = require('../services/pdfGenerator');
+// const pdfGeneratorService = require('../services/pdfGenerator'); // [修正] 削除
 const aiAnalysisService = require('../aiAnalysisService');
 // ▼▼▼ [変更] googleSlidesService の require を削除
 // const googleSlidesService = require('../services/googleSlidesService');
@@ -288,35 +288,6 @@ exports.getChartData = async (req, res) => {
     } catch (err) {
         console.error('[/api/getChartData] Error:', err);
         res.status(500).send(err.message || '集計データ(グラフ用)の取得に失敗しました。');
-    }
-};
-
-// --- (変更なし) PDF生成 ---
-exports.generatePdf = async (req, res) => {
-    console.log("POST /generate-pdf called");
-    const { clinicName, periodText, centralSheetId } = req.body;
-    
-    if (!clinicName || !periodText || !centralSheetId) {
-        console.error('[/generate-pdf] Missing data:', { clinicName: !!clinicName, periodText: !!periodText, centralSheetId: !!centralSheetId });
-        return res.status(400).send('PDF生成に必要なデータ(clinicName, periodText, centralSheetId)が不足');
-    }
-
-    try {
-        console.log(`[/generate-pdf] Fetching data for PDF from sheet: "${clinicName}"`);
-        const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
-        reportData.centralSheetId = centralSheetId; 
-        
-        const pdfBuffer = await pdfGeneratorService.generatePdfFromData(clinicName, periodText, reportData);
-
-        res.contentType('application/pdf');
-        const fileName = `${clinicName}_${periodText.replace(/～/g, '-')}_レポート.pdf`;
-        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-        res.send(pdfBuffer);
-        console.log("[/generate-pdf] PDF sent successfully.");
-
-    } catch (error) {
-        console.error('[/generate-pdf] PDF generation failed:', error);
-        res.status(500).send(`PDF生成失敗: ${error.message}`);
     }
 };
 
