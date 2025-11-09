@@ -100,6 +100,8 @@ function setupEventListeners() {
 }
 
 // --- 画面1/2 処理 (変更なし) ---
+
+// ▼▼▼ [ここから変更] ▼▼▼
 function populateDateSelectors() {
   const now = new Date();
   const cy = now.getFullYear();
@@ -131,10 +133,15 @@ function populateDateSelectors() {
     em.add(new Option(`${i}月`, m));
   }
   
-  em.value = String(now.getMonth() + 1).padStart(2, '0');
-  sy.value = String(cy); 
-  sm.value = String(now.getMonth() + 1).padStart(2, '0');
+  // デフォルト値を設定
+  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+  
+  sy.value = String(cy); // 開始年 = 現在の年
+  sm.value = currentMonth; // 開始月 = 現在の月
+  ey.value = String(cy); // [修正] 終了年 = 現在の年
+  em.value = currentMonth; // 終了月 = 現在の月
 }
+// ▲▲▲ [変更ここまで] ▲▲▲
 
 async function handleNextToClinics() {
   const sy = document.getElementById('start-year').value;
@@ -1403,8 +1410,17 @@ async function runDetailedAnalysisGeneration(analysisType) {
     // ▼ [修正] 生JSON (isRawJson=true) ではなく、B2:B16形式にマッピングされたデータを渡す
     //    (APIが返すのが生JSONなので、ここでマッピングする)
     const mappedData = formatAiJsonToMappedObject(analysisJson, analysisType);
-    displayDetailedAnalysis(mappedData); 
-    switchTab('analysis');
+    
+    // [修正] データを表示エリア/Textareaにセットする (displayDetailedAnalysis は古いので使わない)
+    document.getElementById('display-analysis').textContent = mappedData.analysis;
+    document.getElementById('textarea-analysis').value = mappedData.analysis;
+    document.getElementById('display-suggestions').textContent = mappedData.suggestions;
+    document.getElementById('textarea-suggestions').value = mappedData.suggestions;
+    document.getElementById('display-overall').textContent = mappedData.overall;
+    document.getElementById('textarea-overall').value = mappedData.overall;
+
+    // [変更] 再実行後、デフォルトの 'analysis' タブをトリガーして表示を更新
+    await switchTab('analysis');
     
   } catch (err) {
     console.error('!!! AI Generation failed:', err);
@@ -1444,7 +1460,8 @@ function formatAiJsonToMappedObject(analysisJson, columnType) {
 
 /**
  * [修正] AI分析データを表示し、フォントサイズを調整する
- * @param {object} data - { analysis: "...", suggestions: "...", overall: "..." }
+ * (この関数は古いロジック (prepareAndShowDetailedAnalysis) からのみ呼ばれる)
+ * (新しいロジック (runDetailedAnalysisGeneration) は、この関数を呼ばずに直接DOMをセットする)
  */
 function displayDetailedAnalysis(data) {
   
@@ -1650,7 +1667,7 @@ function getDetailedAnalysisTitleFull(analysisType) {
   switch (analysisType) {
     case 'L': return '知人に病院を紹介したいと思う理由の分析';
     case 'I_bad': return '「悪かった点」の分析と改善策';
-    case: 'I_good': return '「良かった点」の分析と改善策';
+    case 'I_good': return '「良かった点」の分析と改善策';
     case 'J': return '印象に残ったスタッフへのコメント分析とスタッフ評価';
     case 'M': return 'お産に関わるご意見の分析と改善策の提案';
     default: return 'AI詳細分析レポート';
