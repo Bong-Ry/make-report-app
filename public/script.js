@@ -1337,10 +1337,13 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
   errorDiv.classList.add('hidden');
   errorDiv.textContent = '';
   
-  // ▼ [修正] メインタイトルはここで設定
+  // ▼ [修正] メインタイトルを設定
   document.getElementById('detailed-analysis-title').textContent = getDetailedAnalysisTitleFull(analysisType);
   
-  // ▼ [修正] サブタイトルと五角形は switchTab('analysis') で設定
+  // ▼ [修正-P2] サブタイトルを「項目」(analysisType) だけで設定
+  document.getElementById('detailed-analysis-subtitle').textContent = getSubtitleForItem(analysisType);
+  
+  // ▼ [修正] 最初のタブを 'analysis' に設定
   switchTab('analysis'); 
   
   try {
@@ -1351,7 +1354,7 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
       body: JSON.stringify({
         centralSheetId: currentCentralSheetId,
         clinicName: clinicName,
-        columnType: analysisType
+        columnType: analysisType // (L, I_bad, I_good, J, M)
       })
     });
 
@@ -1359,11 +1362,12 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
       throw new Error(`分析結果の読み込み失敗 (${response.status}): ${await response.text()}`);
     }
       
+    // savedData = { analysis: "...", suggestions: "...", overall: "..." }
     const savedData = await response.json(); 
       
     if (savedData.analysis && !savedData.analysis.includes('（データがありません）')) {
       console.log(`[AI] Found saved data in Sheet.`);
-      displayDetailedAnalysis(savedData, analysisType, false); 
+      displayDetailedAnalysis(savedData); 
       showLoading(false);
     } else {
       console.log(`[AI] No saved data found. Running initial analysis...`);
@@ -1411,9 +1415,15 @@ async function runDetailedAnalysisGeneration(analysisType) {
       }
       throw new Error(`AI分析APIエラー (${response.status}): ${errorText}`);
     }
+    // analysisJson = { analysis: { themes: [...] }, suggestions: { ... }, ... }
     const analysisJson = await response.json(); 
-    displayDetailedAnalysis(analysisJson, analysisType, true); 
+    
+    // ▼ [修正] 生JSON (isRawJson=true) ではなく、B2:B16形式にマッピングされたデータを渡す
+    //    (APIが返すのが生JSONなので、ここでマッピングする)
+    const mappedData = formatAiJsonToMappedObject(analysisJson, analysisType);
+    displayDetailedAnalysis(mappedData); 
     switchTab('analysis');
+    
   } catch (err) {
     console.error('!!! AI Generation failed:', err);
     errorDiv.textContent = `AI分析実行エラー: ${err.message}`;
@@ -1427,28 +1437,42 @@ async function runDetailedAnalysisGeneration(analysisType) {
 // =================================================================
 // === ▼▼▼ [修正] AI分析 (表示) + フォントサイズ調整 ▼▼▼ ===
 // =================================================================
-function displayDetailedAnalysis(data, analysisType, isRawJson) {
-  let analysisText, suggestionsText, overallText;
-  if (isRawJson) {
-    analysisText = (data.analysis && data.analysis.themes)
-      ? data.analysis.themes.map(t => `【${t.title}】\n${t.summary}`).join('\n\n---\n\n')
+
+// [新規] (helpers.js の formatAiJsonToMap とほぼ同じだが、MapではなくObjectを返す)
+function formatAiJsonToMappedObject(analysisJson, columnType) {
+    const analysisText = (analysisJson.analysis && analysisJson.analysis.themes)
+      ? analysisJson.analysis.themes.map(t => `【${t.title}】\n${t.summary}`).join('\n\n---\n\n')
       : '（分析データがありません）';
-    suggestionsText = (data.suggestions && data.suggestions.items)
-      ? data.suggestions.items.map(i => `【${i.themeTitle}】\n${i.suggestion}`).join('\n\n---\n\n')
+    const suggestionsText = (analysisJson.suggestions && analysisJson.suggestions.items)
+      ? analysisJson.suggestions.items.map(i => `【${i.themeTitle}】\n${i.suggestion}`).join('\n\n---\n\n')
       : '（改善提案データがありません）';
-    overallText = (data.overall && data.overall.summary)
+    const overallText = (analysisJson.overall && analysisJson.overall.summary)
       ? data.overall.summary
       : '（総評データがありません）';
-  } else {
-    analysisText = data.analysis;
-    suggestionsText = data.suggestions;
-    overallText = data.overall;
-  }
-    
+      
+    // API(/api/getDetailedAnalysis)が返す形式 { analysis: "...", suggestions: "...", overall: "..." } に合わせる
+    return {
+        analysis: analysisText,
+        suggestions: suggestionsText,
+        overall: overallText
+    };
+}
+
+
+/**
+ * [修正] AI分析データを表示し、フォントサイズを調整する
+ * @param {object} data - { analysis: "...", suggestions: "...", overall: "..." }
+ */
+function displayDetailedAnalysis(data) {
+  
   // 1. テキストを display と textarea の両方にセット
   const displayAnalysis = document.getElementById('display-analysis');
   const displaySuggestions = document.getElementById('display-suggestions');
   const displayOverall = document.getElementById('display-overall');
+
+  const analysisText = data.analysis || '（データがありません）';
+  const suggestionsText = data.suggestions || '（データがありません）';
+  const overallText = data.overall || '（データがありません）';
 
   displayAnalysis.textContent = analysisText;
   document.getElementById('textarea-analysis').value = analysisText;
@@ -1460,6 +1484,7 @@ function displayDetailedAnalysis(data, analysisType, isRawJson) {
   document.getElementById('textarea-overall').value = overallText;
   
   // 2. [新規] フォントサイズ調整を（全タブに対して）実行
+  //    (CSSで overflow-y: hidden が設定されていることが前提)
   adjustFontSize(displayAnalysis);
   adjustFontSize(displaySuggestions);
   adjustFontSize(displayOverall);
@@ -1492,6 +1517,7 @@ function clearDetailedAnalysisDisplay() {
 function isOverflown(element) {
     if (!element) return false;
     // (CSSで overflow-y: hidden が設定されている前提)
+    // scrollHeight (内容全体の高さ) > clientHeight (表示領域の高さ)
     return element.scrollHeight > element.clientHeight;
 }
 
@@ -1522,11 +1548,9 @@ function adjustFontSize(element) {
 
         if (currentSize <= minFontSizePt) {
             // 最小サイズに達したら終了
-            console.warn(`Font size limit reached for element: ${element.id}`);
             return;
         }
     }
-    console.error(`adjustFontSize loop limit reached for element: ${element.id}`);
 }
 // =================================================================
 // === ▲▲▲ 新規 ▲▲▲ ===
@@ -1535,6 +1559,7 @@ function adjustFontSize(element) {
 
 // =================================================================
 // === ▼▼▼ [修正] 問題①②③ すべてを修正 ▼▼▼ ===
+// (タブ切り替え、サブタイトル、五角形)
 // =================================================================
 function handleTabClick(event) { 
   const btn = event.target.closest('.tab-button');
@@ -1544,63 +1569,22 @@ function handleTabClick(event) {
 }
 
 function switchTab(tabId) { 
-  // 1. 要素を取得
-  const subtitleEl = document.getElementById('detailed-analysis-subtitle');
-  
-  // 2. [修正-P2] 表示するテキストをハードコードで定義 (ご要望)
-  const baseSubtitle = '※コメントでいただいたフィードバックを元に分析しています\n';
+  // 1. [修正-P2] サブタイトルはここでは変更しない (項目クリック時のみ変更)
+  // document.getElementById('detailed-analysis-subtitle').textContent = ... (削除)
 
-  // 「分析と考察」と「改善提案」は同じサブタイトルを共有
-  const bodySubtitleMap = {
-      'L': '知人への推奨理由を分析すると、以下の主要なテーマが浮かび上がります。',
-      'I_bad': 'フィードバックの中で挙げられた「悪かった点」を分析すると、\n患者にとって以下の要素が特に課題として感じられていることが分かります。',
-      'I_good': 'フィードバックの中で挙げられた「良かった点」を分析すると、\n以下の要素が患者にとって特に高く評価されていることが分かります。',
-      'J': '印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。',
-      'M': '患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。'
-  };
-
-  // 「総評」のみ別のサブタイトル
-  const overallSubtitleMap = {
-      'L': 'NPS推奨理由の分析と強みを伸ばす提案を基にした、総評は以下のとおりです。',
-      'I_bad': '「悪かった点」の分析と改善策を基にした、総評は以下のとおりです。',
-      'I_good': '「良かった点」の分析と強みを伸ばす提案を基にした、総評は以下のとおりです。',
-      'J': 'スタッフ評価コメントの分析と接遇改善策を基にした、総評は以下のとおりです。',
-      'M': '患者から寄せられたお産に関するご意見の分析と改善策を基にした、総評は以下のとおりです。'
-  };
-
-  const textData = {
-      shape: '分析と考察', // デフォルト
-      subtitle: ''
-  };
-
-  // 3. [修正-P2] タブに応じてサブタイトルと五角形のテキストを決定
-  //    (currentDetailedAnalysisType は 'L', 'I_bad' などのグローバル変数)
-  if (tabId === 'analysis') {
-      textData.shape = '分析と考察';
-      textData.subtitle = baseSubtitle + (bodySubtitleMap[currentDetailedAnalysisType] || bodySubtitleMap['L']);
-  } else if (tabId === 'suggestions') {
-      textData.shape = '改善提案';
-      textData.subtitle = baseSubtitle + (bodySubtitleMap[currentDetailedAnalysisType] || bodySubtitleMap['L']); // 改善提案も「分析」と同じサブタイトル
-  } else if (tabId === 'overall') {
-      textData.shape = '総評';
-      textData.subtitle = baseSubtitle + (overallSubtitleMap[currentDetailedAnalysisType] || overallSubtitleMap['L']);
-  }
-
-  // 4. サブタイトルを更新
-  if (subtitleEl) subtitleEl.textContent = textData.subtitle;
-
-  // 5. タブの active 表示を更新
+  // 2. タブの active 表示を更新 (変更なし)
   document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => {
     const isActive = button.dataset.tabId === tabId;
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
 
-  // 6. [修正-P1, P3] コンテンツの表示切替と、五角形テキストの更新
+  // 3. [修正-P1] コンテナの表示切替 (昔のコードのロジック)
+  const allContainers = document.querySelectorAll('#detailed-analysis-content-area .ai-analysis-container');
   const activeContent = document.getElementById(`content-${tabId}`);
   
-  // まず全てのコンテナを非表示に
-  document.querySelectorAll('#detailed-analysis-content-area .ai-analysis-container').forEach(content => { 
+  // まず全てのコンテナを非表示に (真っ白になるバグの修正)
+  allContainers.forEach(content => { 
     content.classList.add('hidden');
   });
 
@@ -1608,20 +1592,22 @@ function switchTab(tabId) {
     // アクティブなコンテナのみ表示 (問題①修正)
     activeContent.classList.remove('hidden');
     
-    // [修正-P3] アクティブなコンテナ *内部の* 五角形(shape)を探してテキストを更新
+    // 4. [修正-P3] アクティブなコンテナ *内部の* 五角形(shape)を探してテキストを更新
     const shape = activeContent.querySelector('.ai-analysis-shape'); 
     if (shape) {
-      shape.textContent = textData.shape;
+        if (tabId === 'analysis') shape.textContent = '分析と考察';
+        else if (tabId === 'suggestions') shape.textContent = '改善提案';
+        else if (tabId === 'overall') shape.textContent = '総評';
     }
     
-    // [修正-P4] アクティブなコンテナ *内部の* 本文(display)を探してフォント調整
+    // 5. [修正-P4] アクティブなコンテナ *内部の* 本文(display)を探してフォント調整
     if (!isEditingDetailedAnalysis) {
         const displayContent = activeContent.querySelector('.ai-analysis-content');
         adjustFontSize(displayContent);
     }
   }
 
-  // 7. 編集中なら textarea の高さ調整
+  // 6. 編集中なら textarea の高さ調整 (変更なし)
   if (isEditingDetailedAnalysis) {
     const activeTextarea = document.getElementById(`textarea-${tabId}`);
     if (activeTextarea) {
@@ -1647,6 +1633,25 @@ function getDetailedAnalysisTitleFull(analysisType) {
   }
 }
 
+// =================================================================
+// === ▼▼▼ [新規] サブタイトル（P）を項目(Item)だけで定義 ▼▼▼ ===
+// (ご要望：タブがなんであろうと項目によってサブタイトルは切り替わる)
+// =================================================================
+function getSubtitleForItem(analysisType) {
+    const base = '※コメントでいただいたフィードバックを元に分析しています\n';
+    
+    // ご要望に基づき、項目(analysisType)だけでサブタイトルをハードコード
+    const subtitleMap = {
+      'L': '知人への推奨理由を分析すると、以下の主要なテーマが浮かび上がります。',
+      'I_bad': 'フィードバックの中で挙げられた「悪かった点」を分析すると、\n患者にとって以下の要素が特に課題として感じられていることが分かります。',
+      'I_good': 'フィードバックの中で挙げられた「良かった点」を分析すると、\n以下の要素が患者にとって特に高く評価されていることが分かります。',
+      'J': '印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。',
+      'M': '患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。'
+    };
+    
+    return base + (subtitleMap[analysisType] || subtitleMap['L']);
+}
+
 // [変更なし] 
 function getDetailedAnalysisTitleBase(analysisType) {
   switch (analysisType) {
@@ -1659,7 +1664,6 @@ function getDetailedAnalysisTitleBase(analysisType) {
   }
 }
 
-
 // =================================================================
 // === ▼▼▼ [修正] 編集モード切替のバグを修正 ▼▼▼ ===
 // =================================================================
@@ -1670,7 +1674,7 @@ function toggleEditDetailedAnalysis(isEdit) {
   const saveBtn = document.getElementById('save-detailed-analysis-btn');
   const cancelBtn = document.getElementById('cancel-edit-detailed-analysis-btn');
 
-  // 3つの表示/編集エリアを明示的に取得
+  // [修正] 3つの表示/編集エリアを明示的に取得
   const displayAreas = [
     document.getElementById('display-analysis'),
     document.getElementById('display-suggestions'),
@@ -1690,6 +1694,7 @@ function toggleEditDetailedAnalysis(isEdit) {
     cancelBtn.classList.remove('hidden');
     
     // すべての表示エリア(display)を隠し、すべての編集エリア(edit)を表示
+    // (コンテナ .ai-analysis-container はいじらない)
     displayAreas.forEach(el => el.classList.add('hidden'));
     editAreas.forEach(el => el.classList.remove('hidden'));
         
@@ -1712,17 +1717,14 @@ function toggleEditDetailedAnalysis(isEdit) {
     // 1. まず、すべての編集エリア(Textarea)を隠す
     editAreas.forEach(el => el.classList.add('hidden'));
     
-    // 2. [修正] すべての表示エリアを一度隠す (リセット)
-    displayAreas.forEach(el => el.classList.add('hidden'));
-    
-    // 3. [修正] 現在アクティブなタブのIDを取得
+    // 2. すべての表示エリア(display)を表示する
+    // (コンテナ .ai-analysis-container はいじらない)
+    displayAreas.forEach(el => el.classList.remove('hidden'));
+
+    // 3. [修正-P4] 現在アクティブなタブのIDを取得し、フォントを再調整
     const activeTab = document.querySelector('#ai-tab-nav .tab-button.active')?.dataset.tabId || 'analysis';
-    
-    // 4. [修正] アクティブなタブの表示エリア「だけ」を表示する
     const activeDisplayArea = document.getElementById(`display-${activeTab}`);
     if (activeDisplayArea) {
-      activeDisplayArea.classList.remove('hidden');
-      // [修正-P4] フォントサイズを再調整
       adjustFontSize(activeDisplayArea);
     }
   }
@@ -1747,6 +1749,7 @@ async function saveDetailedAnalysisEdits() {
         centralSheetId: currentCentralSheetId,
         clinicName: currentClinicForModal,
         columnType: currentDetailedAnalysisType, 
+        // [修正] 3つの内容をすべて送る
         analysis: analysisContent,
         suggestions: suggestionsContent,
         overall: overallContent
@@ -1762,7 +1765,7 @@ async function saveDetailedAnalysisEdits() {
     document.getElementById('display-suggestions').textContent = suggestionsContent;
     document.getElementById('display-overall').textContent = overallContent;
         
-    toggleEditDetailedAnalysis(false);
+    toggleEditDetailedAnalysis(false); // この関数内でフォント再調整が実行される
     alert('保存しました。');
   } catch (e) {
     console.error("Failed to save edits:", e);
