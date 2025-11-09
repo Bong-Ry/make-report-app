@@ -11,7 +11,8 @@ const {
     getSystemPromptForRecommendationAnalysis,
     getAnalysisSheetName, // (タブ名取得用)
     formatAiJsonToMap,     // (AI結果をMapに変換用)
-    getAiAnalysisKeys    // (AI分析のキー一覧取得用)
+    getAiAnalysisKeys,    // (AI分析のキー一覧取得用)
+    getAiAnalysisCellAndTitle // [変更] 新しいヘルパーを追加
 } = require('../utils/helpers');
 // ▲▲▲
 
@@ -84,7 +85,6 @@ exports.generateDetailedAnalysis = async (req, res) => {
         // aiAnalysisService.js に新設する必要があります。
         // ここでは、元のファイル(analysisController.js)が aiAnalysisService.js を呼んでいる前提のまま、
         // aiAnalysisService.js に runSingleAiAnalysis が存在すると仮定して進めます。
-        // (もし aiAnalysisService.js にその関数が無い場合は、別途 aiAnalysisService.js の修正も必要です)
         
         // [訂正] 元の analysisController.js は aiAnalysisService を呼んでいなかったため、
         // 元のファイルの依存関係 (openaiService を直接呼ぶ) に戻します。
@@ -389,3 +389,43 @@ exports.updateCommentData = async (req, res) => {
         res.status(500).send(`コメントシートの更新中にエラーが発生しました: ${error.message}`);
     }
 };
+
+// ▼▼▼ [ここから変更] ▼▼▼
+/**
+ * [新規] AI分析タブの単一セルを取得するAPI
+ */
+exports.getSingleAnalysisCell = async (req, res) => {
+    const { centralSheetId, clinicName, columnType, tabId } = req.body;
+    // (columnType = 'L', tabId = 'suggestions' など)
+    
+    console.log(`POST /api/getSingleAnalysisCell called for ${clinicName}, Type: ${columnType}, Tab: ${tabId}`);
+
+    if (!centralSheetId || !clinicName || !columnType || !tabId) {
+        return res.status(400).send('不正なリクエスト: 必要なパラメータが不足しています。');
+    }
+
+    try {
+        // 1. (例: "クリニックA_AI分析")
+        const aiSheetName = getAnalysisSheetName(clinicName, 'AI'); 
+        
+        // 2. (例: { cell: "B3", pentagonText: "改善提案" })
+        const { cell, pentagonText } = getAiAnalysisCellAndTitle(columnType, tabId);
+        
+        if (!cell) {
+             throw new Error(`無効なキー(${columnType}, ${tabId})のためセルを特定できませんでした。`);
+        }
+
+        // 3. (例: "B3" の値を読み込む)
+        const content = await googleSheetsService.readSingleCell(centralSheetId, aiSheetName, cell);
+        
+        res.json({
+            content: content || '（データがありません）',
+            pentagonText: pentagonText // (五角形用のテキストも返す)
+        });
+
+    } catch (error) {
+        console.error('[/api/getSingleAnalysisCell] Error:', error);
+        res.status(500).send(error.message || '分析データの単一セル読み込みに失敗しました。');
+    }
+};
+// ▲▲▲ [変更ここまで] ▲▲▲

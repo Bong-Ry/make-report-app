@@ -215,3 +215,53 @@ ${jsonFormatString}
 
     return systemInstruction;
 };
+
+// ▼▼▼ [ここから変更] ▼▼▼
+/**
+ * [新規] AI分析の項目タイプとタブIDから、
+ * 参照すべきセル名と五角形のタイトルを返す
+ * @param {string} columnType (例: "L", "I_bad")
+ * @param {string} tabId (例: "analysis", "suggestions", "overall")
+ * @returns {{cell: string|null, pentagonText: string}}
+ */
+exports.getAiAnalysisCellAndTitle = (columnType, tabId) => {
+    // 内部キー名 (例: "_ANALYSIS") へのマッピング
+    const tabKeyMap = {
+        'analysis': '_ANALYSIS',
+        'suggestions': '_SUGGESTIONS',
+        'overall': '_OVERALL'
+    };
+    
+    // 五角形のテキスト (ご要望)
+    const pentagonTitleMap = {
+        'analysis': '分析と考察',
+        'suggestions': '改善提案',
+        'overall': '総評'
+    };
+
+    // 1. 探したいキー名を生成 (例: "L_SUGGESTIONS")
+    const keyToFind = `${columnType}${tabKeyMap[tabId]}`;
+    
+    // 2. 五角形のテキストを取得
+    const pentagonText = pentagonTitleMap[tabId] || '...';
+
+    // 3. AI_ANALYSIS_KEYS (B2から始まるリスト) の中で、そのキーが何番目か検索
+    // (getAiAnalysisKeys() はこのファイルの上部で定義されている前提)
+    const index = AI_ANALYSIS_KEYS.indexOf(keyToFind);
+
+    if (index === -1) {
+        // 万が一キーが見つからない場合
+        console.error(`[helpers] getAiAnalysisCell: Key not found: ${keyToFind}`);
+        return { cell: null, pentagonText: 'エラー' };
+    }
+
+    // 4. セル名を計算
+    // index 0 = B2
+    // index 1 = B3
+    // index 2 = B4
+    const cellRow = index + 2; 
+    const cell = `B${cellRow}`; // 例: "B3"
+    
+    return { cell, pentagonText };
+};
+// ▲▲▲ [変更ここまで] ▲▲▲

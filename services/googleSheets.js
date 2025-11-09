@@ -682,6 +682,44 @@ exports.readCompletionStatusMap = async (centralSheetId) => {
 };
 // --- (変更なし) 管理マーカーI/O 終わり ---
 
+
+// ▼▼▼ [ここから変更] ▼▼▼
+/**
+ * [新規] 指定された単一セルの値を読み込む
+ * @param {string} centralSheetId
+ * @param {string} sheetName (例: "クリニックA_AI分析")
+ * @param {string} cell (例: "B3")
+ * @returns {Promise<string|null>} セルの値、または空
+ */
+exports.readSingleCell = async (centralSheetId, sheetName, cell) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    
+    const range = `'${sheetName}'!${cell}`;
+    console.log(`[googleSheetsService] Reading single cell: "${range}"`);
+    
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: range,
+            valueRenderOption: 'FORMATTED_VALUE'
+        });
+        
+        // 値が存在すれば [0][0] に入っている
+        const value = response.data.values?.[0]?.[0];
+        return value || null; // セルが空か存在しない場合は null を返す
+        
+    } catch (e) {
+        if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
+            console.warn(`[readSingleCell] Sheet or cell not found: "${range}". Returning null.`);
+            return null; // シートやセルが見つからない
+        }
+        console.error(`[readSingleCell] Error reading cell "${range}": ${e.message}`, e);
+        throw new Error(`セル(${range})の読み込みに失敗しました: ${e.message}`);
+    }
+};
+// ▲▲▲ [変更ここまで] ▲▲▲
+
+
 // --- (変更なし) ヘルパー関数群 (addSheet, getSheetId, findOrCreateSheet, clearSheet, writeData) ---
 async function addSheet(spreadsheetId, title) {
     try {

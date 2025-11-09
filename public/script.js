@@ -1322,66 +1322,48 @@ function getColumnName(columnType) {
 }
 
 // --- ▼▼▼ AI詳細分析 (Screen 5) ▼▼▼
+
+// =================================================================
+// === ▼▼▼ [置き換え 1/2] prepareAndShowDetailedAnalysis ▼▼▼ ===
+// (古いAPI呼び出しを削除し、デフォルトタブの読み込みをトリガーする)
+// =================================================================
 async function prepareAndShowDetailedAnalysis(analysisType) {
   console.log(`Prepare detailed analysis: ${analysisType}`);
   const clinicName = currentClinicForModal;
   
-  showLoading(true, `AI分析結果を読み込み中...\n(${getDetailedAnalysisTitleBase(analysisType)})`);
+  // 1. 画面表示 (ローディングは switchTab が行う)
   showScreen('screen5');
   updateNavActiveState(null, null, analysisType);
   toggleEditDetailedAnalysis(false); 
-  
   showCopyrightFooter(true, 'screen5'); 
   
+  // 2. エラー表示をリセット
   const errorDiv = document.getElementById('detailed-analysis-error');
   errorDiv.classList.add('hidden');
   errorDiv.textContent = '';
   
-  // ▼ [修正] メインタイトルを設定
+  // 3. メインタイトル・サブタイトルを設定 (変更なし)
   document.getElementById('detailed-analysis-title').textContent = getDetailedAnalysisTitleFull(analysisType);
-  
-  // ▼ [修正-P2] サブタイトルを「項目」(analysisType) だけで設定
   document.getElementById('detailed-analysis-subtitle').textContent = getSubtitleForItem(analysisType);
   
-  // ▼ [修正] 最初のタブを 'analysis' に設定
-  switchTab('analysis'); 
+  // 4. 表示エリアをクリア
+  clearDetailedAnalysisDisplay();
   
-  try {
-    console.log(`[AI] Fetching saved analysis from Sheet...`);
-    const response = await fetch('/api/getDetailedAnalysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        centralSheetId: currentCentralSheetId,
-        clinicName: clinicName,
-        columnType: analysisType // (L, I_bad, I_good, J, M)
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`分析結果の読み込み失敗 (${response.status}): ${await response.text()}`);
-    }
-      
-    // savedData = { analysis: "...", suggestions: "...", overall: "..." }
-    const savedData = await response.json(); 
-      
-    if (savedData.analysis && !savedData.analysis.includes('（データがありません）')) {
-      console.log(`[AI] Found saved data in Sheet.`);
-      displayDetailedAnalysis(savedData); 
-      showLoading(false);
-    } else {
-      console.log(`[AI] No saved data found. Running initial analysis...`);
-      showLoading(true, `初回AI分析を実行中...\n(${getDetailedAnalysisTitleBase(analysisType)})`);
-      await runDetailedAnalysisGeneration(analysisType);
-    }
-  } catch (err) {
-    console.error('!!! Detailed analysis failed:', err);
-    errorDiv.textContent = `分析失敗: ${err.message}`;
-    errorDiv.classList.remove('hidden');
-    clearDetailedAnalysisDisplay();
-    showLoading(false);
-  }
+  // 5. [変更] "analysis" (分析と考察) タブをデフォルトとしてアクティブに設定
+  document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => {
+    const isActive = button.dataset.tabId === 'analysis';
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+  
+  // 6. [変更] デフォルトタブ('analysis')のAPI通信をトリガー
+  // (古い getDetailedAnalysis API呼び出しは削除)
+  await switchTab('analysis'); 
 }
+// =================================================================
+// === ▲▲▲ [置き換え 1/2] 完了 ▲▲▲ ===
+// =================================================================
+
 
 // 再実行
 async function handleRegenerateDetailedAnalysis() {
@@ -1446,8 +1428,9 @@ function formatAiJsonToMappedObject(analysisJson, columnType) {
     const suggestionsText = (analysisJson.suggestions && analysisJson.suggestions.items)
       ? analysisJson.suggestions.items.map(i => `【${i.themeTitle}】\n${i.suggestion}`).join('\n\n---\n\n')
       : '（改善提案データがありません）';
+    // [バグ修正] data.overall.summary ではなく analysisJson.overall.summary を参照
     const overallText = (analysisJson.overall && analysisJson.overall.summary)
-      ? data.overall.summary
+      ? analysisJson.overall.summary
       : '（総評データがありません）';
       
     // API(/api/getDetailedAnalysis)が返す形式 { analysis: "...", suggestions: "...", overall: "..." } に合わせる
@@ -1568,56 +1551,97 @@ function handleTabClick(event) {
   if (tabId) switchTab(tabId);
 }
 
-function switchTab(tabId) { 
-  // 1. [修正-P2] サブタイトルはここでは変更しない (項目クリック時のみ変更)
-  // document.getElementById('detailed-analysis-subtitle').textContent = ... (削除)
+// =================================================================
+// === ▼▼▼ [置き換え 2/2] switchTab ▼▼▼ ===
+// (ご要望: タブ切り替えのたびにAPI通信、五角形テキスト設定、本文設定を行う)
+// =================================================================
+async function switchTab(tabId) { 
+  console.log(`Switching tab to: ${tabId}`);
+  
+  // 1. [新規] APIを呼び出して、該当セルの内容を取得
+  showLoading(true, '分析データを読み込み中...');
+  const errorDiv = document.getElementById('detailed-analysis-error');
+  errorDiv.classList.add('hidden');
+  
+  let content = '（データがありません）';
+  let pentagonText = '...';
 
-  // 2. タブの active 表示を更新 (変更なし)
+  try {
+    const response = await fetch('/api/getSingleAnalysisCell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        centralSheetId: currentCentralSheetId,
+        clinicName: currentClinicForModal,
+        columnType: currentDetailedAnalysisType, // (例: 'L')
+        tabId: tabId // (例: 'suggestions')
+      })
+    });
+        
+    if (!response.ok) {
+      throw new Error(`APIエラー (${response.status}): ${await response.text()}`);
+    }
+        
+    const data = await response.json();
+    content = data.content;
+    pentagonText = data.pentagonText; // (ご要望: 五角形用のテキストも返す)
+
+  } catch (err) {
+    console.error('Failed to fetch single analysis cell:', err);
+    errorDiv.textContent = `データ読み込み失敗: ${err.message}`;
+    errorDiv.classList.remove('hidden');
+    
+  } finally {
+    showLoading(false);
+  }
+  
+  // 2. [変更] タブの active 表示を更新 (※switchTab の外 (handleTabClick) に移動してもOK)
   document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => {
     const isActive = button.dataset.tabId === tabId;
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
 
-  // 3. [修正-P1] コンテナの表示切替 (昔のコードのロジック)
+  // 3. [変更] コンテナの表示切替
   const allContainers = document.querySelectorAll('#detailed-analysis-content-area .ai-analysis-container');
   const activeContent = document.getElementById(`content-${tabId}`);
   
-  // まず全てのコンテナを非表示に (真っ白になるバグの修正)
-  allContainers.forEach(content => { 
-    content.classList.add('hidden');
+  // まず全てのコンテナを非表示に
+  allContainers.forEach(c => { 
+    c.classList.add('hidden');
   });
 
   if (activeContent) {
-    // アクティブなコンテナのみ表示 (問題①修正)
+    // アクティブなコンテナのみ表示
     activeContent.classList.remove('hidden');
     
-    // 4. [修正-P3] アクティブなコンテナ *内部の* 五角形(shape)を探してテキストを更新
+    // 4. [ご要望] アクティブなコンテナ *内部の* 五角形(shape)を探してテキストを更新
     const shape = activeContent.querySelector('.ai-analysis-shape'); 
     if (shape) {
-        if (tabId === 'analysis') shape.textContent = '分析と考察';
-        else if (tabId === 'suggestions') shape.textContent = '改善提案';
-        else if (tabId === 'overall') shape.textContent = '総評';
+        shape.textContent = pentagonText; // (APIから取得したテキスト)
     }
     
-    // 5. [修正-P4] アクティブなコンテナ *内部の* 本文(display)を探してフォント調整
-    if (!isEditingDetailedAnalysis) {
-        const displayContent = activeContent.querySelector('.ai-analysis-content');
-        adjustFontSize(displayContent);
+    // 5. [ご要望] アクティブなコンテナ *内部の* 本文(display)を探して内容を更新
+    const displayContent = activeContent.querySelector('.ai-analysis-content');
+    if (displayContent) {
+        displayContent.textContent = content;
+        
+        // 6. フォント調整を実行
+        if (!isEditingDetailedAnalysis) {
+            adjustFontSize(displayContent);
+        }
     }
-  }
-
-  // 6. 編集中なら textarea の高さ調整 (変更なし)
-  if (isEditingDetailedAnalysis) {
-    const activeTextarea = document.getElementById(`textarea-${tabId}`);
-    if (activeTextarea) {
-      activeTextarea.style.height = 'auto';
-      activeTextarea.style.height = (activeTextarea.scrollHeight + 5) + 'px';
+    
+    // 7. [ご要望] 対応する編集用 Textarea の内容も更新 (保存・編集に備える)
+    const textarea = activeContent.querySelector('.edit-textarea');
+    if (textarea) {
+        textarea.value = content;
+        // (高さ調整は編集モード切替時に行う)
     }
   }
 }
 // =================================================================
-// === ▲▲▲ 修正完了 ▲▲▲ ===
+// === ▲▲▲ [置き換え 2/2] 完了 ▲▲▲ ===
 // =================================================================
 
 
@@ -1626,7 +1650,7 @@ function getDetailedAnalysisTitleFull(analysisType) {
   switch (analysisType) {
     case 'L': return '知人に病院を紹介したいと思う理由の分析';
     case 'I_bad': return '「悪かった点」の分析と改善策';
-    case 'I_good': return '「良かった点」の分析と改善策';
+    case: 'I_good': return '「良かった点」の分析と改善策';
     case 'J': return '印象に残ったスタッフへのコメント分析とスタッフ評価';
     case 'M': return 'お産に関わるご意見の分析と改善策の提案';
     default: return 'AI詳細分析レポート';

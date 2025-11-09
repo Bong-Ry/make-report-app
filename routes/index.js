@@ -49,6 +49,11 @@ router.post('/api/getDetailedAnalysis', analysisController.getDetailedAnalysis);
 // AI詳細分析 (編集・保存) (変更なし: 中身が単一シート参照に変更されたがURLは同じ)
 router.post('/api/updateDetailedAnalysis', analysisController.updateDetailedAnalysis);
 
+// ▼▼▼ [ここから変更] ▼▼▼
+// (タブ切り替え時の単一セル取得API)
+router.post('/api/getSingleAnalysisCell', analysisController.getSingleAnalysisCell);
+// ▲▲▲ [変更ここまで] ▲▲▲
+
 // =================================================================
 // === ▼▼▼ [変更なし] コメント編集用APIルート ▼▼▼ ===
 // =================================================================
