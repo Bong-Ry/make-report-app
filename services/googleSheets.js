@@ -127,6 +127,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
         console.log(`[googleSheetsService-ETL] Processing ${clinicName} (Source ID: ${sourceSheetId})`);
 
         try {
+            // [メモ] ユーザー設定により "フォームの回答 1" が参照されます
             const range = "'フォームの回答 1'!A:R"; 
             const clinicDataResponse = await sheets.spreadsheets.values.get({
                 spreadsheetId: sourceSheetId, 
@@ -189,7 +190,6 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
 
 // --- (変更なし) データ集計 (getReportDataForCharts) ---
 exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
-    // (既存のコードのまま - 変更なし)
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     console.log(`[googleSheetsService-AGG] Aggregating data from Sheet ID: ${centralSheetId}, Tab: "${sheetName}"`);
     const satisfactionKeys = ['非常に満足', '満足', 'ふつう', '不満', '非常に不満'];
@@ -286,7 +286,6 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
 
 // --- (変更なし) データ構築 (buildReportDataObject) ---
 function buildReportDataObject(data) {
-    // (既存のコードのまま - 変更なし)
     if (!data) {
         const emptyChart = [['カテゴリ', '件数']];
         return {
@@ -328,24 +327,14 @@ function buildReportDataObject(data) {
 // --- (変更なし) データ構築 終わり ---
 
 
-// =================================================================
-// === ▼▼▼ [新規] コメントシート名 取得ヘルパー (ローカル) ▼▼▼ ===
-// =================================================================
-/**
- * [新規] 保存先のコメントシート名を取得する (ローカル関数)
- * @param {string} clinicName (例: "クリニックA")
- * @param {string} type (例: "L_10", "L_9", "L_8", "L_7", "L_6_under", "I", "J", "M")
- * @returns {string} (例: "クリニックA_NPS10")
- */
+// --- (変更なし) コメントシート名 取得ヘルパー (ローカル) ---
 function getCommentSheetName(clinicName, type) {
     switch(type) {
-        // NPS
         case 'L_10': return `${clinicName}_NPS10`;
         case 'L_9': return `${clinicName}_NPS9`;
         case 'L_8': return `${clinicName}_NPS8`;
         case 'L_7': return `${clinicName}_NPS7`;
         case 'L_6_under': return `${clinicName}_NPS6以下`;
-        // Feedback
         case 'I': return `${clinicName}_よかった点悪かった点`;
         case 'J': return `${clinicName}_印象スタッフ`;
         case 'M': return `${clinicName}_お産意見`;
@@ -353,33 +342,20 @@ function getCommentSheetName(clinicName, type) {
             throw new Error(`[helpers] 無効なコメントシートタイプです: ${type}`);
     }
 };
-exports.getCommentSheetName = getCommentSheetName; // (コントローラーからも参照するためエクスポート)
+exports.getCommentSheetName = getCommentSheetName;
+// --- (変更なし) コメントシート名 取得ヘルパー 終わり ---
 
-// =================================================================
-// === ▼▼▼ [新規] コメントデータ保存・読み込み・更新 (5/X) ▼▼▼ ===
-// =================================================================
-
+// --- (変更なし) コメントデータ保存・読み込み・更新 (3関数) ---
 const ROWS_PER_COLUMN = 20;
 
-/**
- * [新規ヘルパー] 1D配列を20行ずつの列(2D配列)に変換
- * @param {string[]} comments (例: ['c1', 'c2', ... 'c21'])
- * @returns {string[][]} (例: [ ['c1', ... 'c20'], ['c21'] ])
- */
 function formatCommentsToColumns(comments) {
     const columns = [];
     for (let i = 0; i < comments.length; i += ROWS_PER_COLUMN) {
         columns.push(comments.slice(i, i + ROWS_PER_COLUMN));
     }
-    // (A列が20行、B列が1行になる)
     return columns;
 }
 
-/**
- * [新規ヘルパー] 2D配列(列)をAPI書き込み用の2D配列(行)に転置
- * @param {string[][]} columns (例: [ ['A1', 'A2'], ['B1'] ])
- * @returns {string[][]} (例: [ ['A1', 'B1'], ['A2', ''] ])
- */
 function transpose(columns) {
     if (!columns || columns.length === 0) return [];
     const maxRows = Math.max(...columns.map(col => col.length));
@@ -387,25 +363,18 @@ function transpose(columns) {
     for (let i = 0; i < maxRows; i++) {
         const row = [];
         for (let j = 0; j < columns.length; j++) {
-            row.push(columns[j][i] || ''); // 足りないセルは空文字で埋める
+            row.push(columns[j][i] || '');
         }
         rows.push(row);
     }
     return rows;
 }
 
-/**
- * [新規] コメントを指定のシートに 20行/列 で書き込む
- * @param {string} centralSheetId
- * @param {string} sheetName (例: "クリニックA_NPS10")
- * @param {string[]} comments (1D配列)
- */
 exports.saveCommentsToSheet = async (centralSheetId, sheetName, comments) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     
     if (!comments || comments.length === 0) {
         console.log(`[googleSheetsService-Comments] No comments to save for "${sheetName}". Skipping.`);
-        // (データ0件の場合はシート自体作成しない、またはクリアする)
         try {
             await findOrCreateSheet(centralSheetId, sheetName);
             await clearSheet(centralSheetId, sheetName);
@@ -415,10 +384,7 @@ exports.saveCommentsToSheet = async (centralSheetId, sheetName, comments) => {
 
     console.log(`[googleSheetsService-Comments] Saving ${comments.length} comments to "${sheetName}"...`);
     
-    // 1. 20行ずつの列データに変換
     const columnsData = formatCommentsToColumns(comments);
-    
-    // 2. API書き込み用に転置 (行データに変換)
     const rowsData = transpose(columnsData);
 
     try {
@@ -428,20 +394,13 @@ exports.saveCommentsToSheet = async (centralSheetId, sheetName, comments) => {
         console.log(`[googleSheetsService-Comments] Saved comments to "${sheetName}".`);
     } catch (e) {
         console.error(`[googleSheetsService-Comments] Failed to save comments to "${sheetName}": ${e.message}`, e);
-        throw e; // エラーを上に投げてBGタスク側で処理
+        throw e;
     }
 };
 
-/**
- * [新規] HTML側がコメントシートからデータを列（ページ）ごとに読み込む
- * @param {string} centralSheetId
- * @param {string} sheetName (例: "クリニックA_NPS10")
- * @returns {Promise<string[][]>} (例: [ ['A1', 'A2', ...], ['B1', 'B2', ...] ])
- */
 exports.readCommentsBySheet = async (centralSheetId, sheetName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     
-    // Z列まで読み込む (最大26ページ)
     const range = `'${sheetName}'!A:Z`;
     console.log(`[googleSheetsService-Comments] Reading comments from "${sheetName}" (Range: ${range})`);
 
@@ -450,35 +409,28 @@ exports.readCommentsBySheet = async (centralSheetId, sheetName) => {
             spreadsheetId: centralSheetId,
             range: range,
             valueRenderOption: 'FORMATTED_VALUE',
-            majorDimension: 'COLUMNS' // ★★★ [重要] 列ごとに行をグループ化
+            majorDimension: 'COLUMNS'
         });
 
         const columns = response.data.values;
 
         if (!columns || columns.length === 0) { 
             console.log(`[googleSheetsService-Comments] No data found in "${sheetName}".`);
-            return []; // 空の配列
+            return [];
         }
 
-        return columns; // (データは既に [ ['A列'], ['B列'] ] 形式)
+        return columns;
 
     } catch (e) {
         if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
             console.warn(`[googleSheetsService-Comments] Sheet "${sheetName}" not found. Returning empty data.`);
-            return []; // シートが存在しない
+            return [];
         }
         console.error(`[googleSheetsService-Comments] Error reading comment data: ${e.message}`, e);
         throw new Error(`コメントシート(${sheetName})の読み込みに失敗しました: ${e.message}`);
     }
 };
 
-/**
- * [修正] HTML側が編集したコメントをシートの特定のセルに書き戻す
- * @param {string} centralSheetId
- * @param {string} sheetName (例: "クリニックA_NPS10")
- * @param {string} cell (例: "B5")
- * @param {string} value
- */
 exports.updateCommentSheetCell = async (centralSheetId, sheetName, cell, value) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     
@@ -487,14 +439,14 @@ exports.updateCommentSheetCell = async (centralSheetId, sheetName, cell, value) 
     console.log(`[googleSheetsService-Comments] Updating cell "${range}" with new value...`);
     
     try {
-        await writeData(centralSheetId, range, [[value]], false); // append = false
+        await writeData(centralSheetId, range, [[value]], false);
         console.log(`[googleSheetsService-Comments] Cell update successful.`);
     } catch (e) {
         console.error(`[googleSheetsService-Comments] Error updating cell "${range}": ${e.message}`, e);
         throw new Error(`コメントシート(${sheetName})のセル(${range})更新に失敗しました: ${e.message}`);
     }
 };
-// --- (コメントI/O 終わり) ---
+// --- (変更なし) コメントI/O 終わり ---
 
 
 // --- (変更なし) シート名一覧取得 (getSheetTitles) ---
@@ -517,7 +469,7 @@ exports.getSheetTitles = async (spreadsheetId) => {
 };
 // --- (変更なし) シート名一覧取得 終わり ---
 
-// --- (変更なし) 分析タブI/O (3関数) ---
+// --- (変更なし) 分析タブI/O (saveTableToSheet) ---
 exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     console.log(`[googleSheetsService] Saving Table to Sheet: "${sheetName}"`);
@@ -547,6 +499,8 @@ exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
     }
 };
 
+// --- (変更なし) 分析タブI/O (saveAiAnalysisData) ---
+// (A1:B1にヘッダー、A2:B16にキーと値を書き込む)
 exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     console.log(`[googleSheetsService] Saving AI Key-Value Data to Sheet: "${sheetName}"`);
@@ -564,6 +518,7 @@ exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
         const header = ['項目キー', '分析文章データ'];
         const finalData = [header, ...dataRows];
 
+        // A1から書き込む (A1:B1, A2:B2, ..., A16:B16)
         await writeData(centralSheetId, `'${sheetName}'!A1`, finalData);
         
         const sheetId = await getSheetId(centralSheetId, sheetName);
@@ -591,53 +546,59 @@ exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
     }
 };
 
+// =================================================================
+// === ▼▼▼ [修正] AI詳細分析 (読み出し) B2:B16固定参照 ▼▼▼ ===
+// =================================================================
 exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    console.log(`[googleSheetsService] Reading AI Key-Value Data from Sheet: "${sheetName}"`);
     
+    // 1. 15個のキーを定義順に取得
+    const allKeys = getAiAnalysisKeys();
     const aiDataMap = new Map();
-    getAiAnalysisKeys().forEach(key => {
-        aiDataMap.set(key, '（データがありません）');
-    });
+
+    console.log(`[googleSheetsService] Reading AI Fixed-Cell Data from Sheet: "${sheetName}" (Range: B2:B16)`);
 
     try {
-        const range = `'${sheetName}'!A:B`;
+        // 2. B2:B16 の範囲を固定で読み込む
+        const range = `'${sheetName}'!B2:B16`;
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: centralSheetId,
             range: range,
             valueRenderOption: 'FORMATTED_VALUE'
         });
 
-        const rows = response.data.values;
+        const rows = response.data.values; // 例: [['B2の値'], ['B3の値'], ..., ['B16の値']]
 
-        if (!rows || rows.length < 2) { 
-            console.log(`[googleSheetsService] No data found in "${sheetName}".`);
-            return aiDataMap; 
-        }
-
-        rows.shift(); // ヘッダーを捨てる
-
-        rows.forEach(row => {
-            const key = row[0];
-            const value = row[1];
-            if (key && value != null) {
-                aiDataMap.set(key, value);
-            }
+        // 3. 取得した値(最大15行)を、15個のキーに順番にマッピング
+        allKeys.forEach((key, index) => {
+            // rows[index] が存在し、かつ rows[index][0] (B列の値) が存在する場合
+            const value = (rows && rows[index] && rows[index][0] != null)
+                ? rows[index][0]
+                : '（データがありません）'; // 該当セルが空か、範囲外の場合
+                
+            aiDataMap.set(key, value);
         });
         
-        console.log(`[googleSheetsService] Successfully read ${aiDataMap.size} AI Key-Value pairs.`);
+        console.log(`[googleSheetsService] Successfully read ${allKeys.length} AI values from fixed cells.`);
         return aiDataMap;
 
     } catch (e) {
+        // (シートが存在しない場合など)
         if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
-            console.warn(`[googleSheetsService] Sheet "${sheetName}" not found. Returning empty map.`);
-            return aiDataMap; // シートが存在しない
+            console.warn(`[googleSheetsService] Sheet "${sheetName}" not found. Returning empty map with defaults.`);
+            // キー検索をしないため、全キーにデフォルト値を設定して返す
+            allKeys.forEach(key => {
+                aiDataMap.set(key, '（データがありません）');
+            });
+            return aiDataMap;
         }
         console.error(`[googleSheetsService] Error reading AI Key-Value data: ${e.message}`, e);
         throw new Error(`AI分析(Key-Value)のシート読み込みに失敗しました: ${e.message}`);
     }
 };
-// --- (変更なし) 分析タブI/O 終わり ---
+// =================================================================
+// === ▲▲▲ 修正完了 ▲▲▲ ===
+// =================================================================
 
 // --- (変更なし) 管理マーカーI/O (3関数) ---
 const MANAGEMENT_SHEET_NAME = '管理'; 
@@ -701,7 +662,7 @@ exports.readCompletionStatusMap = async (centralSheetId) => {
 
         const rows = response.data.values;
         if (!rows || rows.length === 0) {
-            return statusMap; // 空のMap
+            return statusMap;
         }
         
         rows.forEach(row => {
@@ -716,7 +677,7 @@ exports.readCompletionStatusMap = async (centralSheetId) => {
 
     } catch (e) {
         console.error(`[googleSheetsService-Marker] Error reading status map: ${e.message}`, e);
-        return statusMap; // 空のMap
+        return statusMap;
     }
 };
 // --- (変更なし) 管理マーカーI/O 終わり ---
@@ -780,7 +741,7 @@ async function clearSheet(spreadsheetId, range) {
     try {
         await sheets.spreadsheets.values.clear({
             spreadsheetId: spreadsheetId,
-            range: range, // シート名全体
+            range: range,
         });
     } catch (e) {
         console.error(`[Helper] Error clearing sheet "${range}": ${e.message}`);

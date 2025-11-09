@@ -3,8 +3,6 @@
 // --- グローバル変数 ---
 let selectedPeriod = {}; 
 let currentClinicForModal = '';
-// let slidesData = []; (廃止)
-// let currentPage = 1; (廃止)
 let currentAnalysisTarget = 'L'; 
 let currentDetailedAnalysisType = 'L'; 
 let isEditingDetailedAnalysis = false; 
@@ -14,7 +12,6 @@ let currentAiCompletionStatus = {};
 let overallDataCache = null; 
 let clinicDataCache = null; 
 
-// ▼▼▼ [新規] コメントページ用グローバル変数 ▼▼▼
 /** @type {string | null} 'nps' | 'feedback_i' | 'feedback_j' | 'feedback_m' */
 let currentCommentType = null;
 /** @type {string | null} 例: "クリニックA_NPS10" */
@@ -25,13 +22,13 @@ let currentCommentData = null;
 let currentCommentPageIndex = 0; 
 // --- ▲▲▲ ---
 
-// --- Google Charts ロード (変更なし) ---
+// --- Google Charts ロード ---
 const googleChartsLoaded = new Promise(resolve => {
   google.charts.load('current', { packages: ['corechart', 'bar'] });
   google.charts.setOnLoadCallback(resolve);
 });
 
-// --- ▼▼▼ [修正] イベントリスナー設定 (新UI対応) ▼▼▼ ---
+// --- イベントリスナー設定 ---
 function setupEventListeners() {
   // Screen 1/2
   document.getElementById('next-to-clinics').addEventListener('click', handleNextToClinics); 
@@ -102,7 +99,7 @@ function setupEventListeners() {
   });
 }
 
-// --- 画面1/2 処理 (変更なし) ---
+// --- 画面1/2 処理 ---
 function populateDateSelectors() {
   const now = new Date();
   const cy = now.getFullYear();
@@ -340,7 +337,6 @@ function handleReportNavClick(e) {
   const analysisType = targetButton.dataset.analysisType;
   const detailedAnalysisType = targetButton.dataset.detailedAnalysisType;
   
-  // コメント系の種別保持
   const commentTypeMap = { 'nps': 'nps', 'feedback_i': 'feedback_i', 'feedback_j': 'feedback_j', 'feedback_m': 'feedback_m' };
   currentCommentType = commentTypeMap[reportType] || null;
 
@@ -348,18 +344,17 @@ function handleReportNavClick(e) {
     showScreen('screen3');
     prepareAndShowReport(reportType);
   } else if (analysisType) {
-    currentCommentType = null; // WCはコメント系ではない
+    currentCommentType = null; 
     currentAnalysisTarget = analysisType;
     showScreen('screen3');
     prepareAndShowAnalysis(analysisType); 
   } else if (detailedAnalysisType) {
-    currentCommentType = null; // AI分析もコメント系ではない
+    currentCommentType = null; 
     currentDetailedAnalysisType = detailedAnalysisType;
     prepareAndShowDetailedAnalysis(detailedAnalysisType); 
   }
 }
 
-// 共通データ取得関数 (キャッシュ対応)
 async function getReportDataForCurrentClinic(sheetName) {
   const isOverall = sheetName === "全体";
   const cache = isOverall ? overallDataCache : clinicDataCache;
@@ -392,7 +387,6 @@ async function prepareAndShowReport(reportType) {
   showScreen('screen3');
   updateNavActiveState(reportType, null, null);
   
-  // UI初期化
   document.getElementById('report-title').textContent = '';
   document.getElementById('report-subtitle').textContent = '';
   document.getElementById('report-title').style.textAlign = 'left';
@@ -523,7 +517,6 @@ async function prepareAndShowReport(reportType) {
   } 
 }
 
-// (変更なし) 例外構成（表紙・目次・概要）の表示
 async function prepareAndShowIntroPages(reportType) {
   document.getElementById('report-separator').style.display = 'none'; 
   document.getElementById('report-subtitle').style.textAlign = 'center'; 
@@ -591,7 +584,6 @@ async function prepareAndShowIntroPages(reportType) {
   }
 }
 
-// ▼▼▼ グラフ描画用シェル設定 ▼▼▼
 function prepareChartPage(title, subtitle, type, isBar = false) { 
   document.getElementById('report-title').textContent = title;
   document.getElementById('report-subtitle').textContent = subtitle;
@@ -855,7 +847,7 @@ async function fetchAndRenderCommentPage(commentKey) {
       throw new Error(`コメント取得APIエラー (${response.status}): ${await response.text()}`);
     }
         
-    const data = await response.json(); // 例: [ ['A列c1', 'A列c2'], ['B列c1'] ]
+    const data = await response.json(); 
         
     if (!data || data.length === 0 || (data.length > 0 && data[0].length === 0)) {
       currentCommentData = [];
@@ -863,7 +855,7 @@ async function fetchAndRenderCommentPage(commentKey) {
       renderCommentControls(); 
     } else {
       currentCommentData = data;
-      renderCommentPage(0); // 最初のページ (A列) を描画
+      renderCommentPage(0); 
     }
         
   } catch (e) {
@@ -1343,7 +1335,6 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
   document.getElementById('detailed-analysis-title').textContent = getDetailedAnalysisTitleFull(analysisType);
   document.getElementById('detailed-analysis-subtitle').textContent = getDetailedAnalysisSubtitleForUI(analysisType, 'analysis'); 
   
-  // 初期は「分析と考察」タブを表示
   switchTab('analysis'); 
   
   try {
@@ -1382,7 +1373,6 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
   }
 }
 
-// 再実行
 async function handleRegenerateDetailedAnalysis() {
   const typeName = getDetailedAnalysisTitleBase(currentDetailedAnalysisType);
   if (!confirm(`「${typeName}」のAI分析を再実行しますか？\n\n・現在の分析内容は破棄されます。\n・編集中の内容は保存されません。`)) {
@@ -1393,7 +1383,6 @@ async function handleRegenerateDetailedAnalysis() {
   await runDetailedAnalysisGeneration(currentDetailedAnalysisType);
 }
 
-// AI実行
 async function runDetailedAnalysisGeneration(analysisType) {
   const errorDiv = document.getElementById('detailed-analysis-error');
   errorDiv.classList.add('hidden');
@@ -1427,7 +1416,6 @@ async function runDetailedAnalysisGeneration(analysisType) {
   }
 }
 
-// 表示
 function displayDetailedAnalysis(data, analysisType, isRawJson) {
   let analysisText, suggestionsText, overallText;
   if (isRawJson) {
@@ -1471,36 +1459,27 @@ function clearDetailedAnalysisDisplay() {
   document.getElementById('textarea-overall').value = '';
 }
 
-// ▼▼▼ 修正：堅牢なタブクリック処理 ▼▼▼
 function handleTabClick(event) { 
-  const btn = event.target.closest('.tab-button'); // 子要素クリックにも対応
+  const btn = event.target.closest('.tab-button');
   if (!btn) return;
-  const tabId = btn.dataset.tabId;                 // 'analysis' | 'suggestions' | 'overall'
+  const tabId = btn.dataset.tabId;
   if (tabId) switchTab(tabId);
 }
 
-// ▼▼▼ 修正：表示切替セレクタ緩和 + サブタイトル更新 + “②”表示同期 ▼▼▼
 function switchTab(tabId) { 
-  // サブタイトル更新
   document.getElementById('detailed-analysis-subtitle').textContent =
     getDetailedAnalysisSubtitleForUI(currentDetailedAnalysisType, tabId);
 
-  // タブの active 表示 & aria-selected 同期
   document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => {
     const isActive = button.dataset.tabId === tabId;
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
 
-  // 子孫セレクタに変更（中間ラッパーがあっても機能）
   document.querySelectorAll('#detailed-analysis-content-area .ai-analysis-container').forEach(content => { 
     content.classList.toggle('hidden', content.id !== `content-${tabId}`);
   });
 
-  // “②”の中のラベルや周辺見出しの同期
-  updateAnalysisHeadingUI(tabId);
-
-  // 編集中なら textarea の高さ調整
   if (isEditingDetailedAnalysis) {
     const activeTextarea = document.getElementById(`textarea-${tabId}`);
     if (activeTextarea) {
@@ -1510,21 +1489,6 @@ function switchTab(tabId) {
   }
 }
 
-// ▼▼▼ 追加：“②のところ(.ai-analysis-shape等)”の文言同期 ▼▼▼
-function updateAnalysisHeadingUI(tabId) {
-  const shape = document.querySelector('.ai-analysis-shape'); // ②の内部テキストを持つ要素
-  const label = document.querySelector('.ai-analysis-label'); // ②の横ラベルがあれば
-  const byTab = {
-    analysis: '分析と考察',
-    suggestions: '改善提案',
-    overall: '総評'
-  };
-  const text = byTab[tabId] || '分析と考察';
-  if (shape) shape.textContent = text;
-  if (label) label.textContent = text;
-}
-
-// タイトル・サブタイトル
 function getDetailedAnalysisTitleFull(analysisType) {
   switch (analysisType) {
     case 'L': return '知人に病院を紹介したいと思う理由の分析';
@@ -1536,7 +1500,6 @@ function getDetailedAnalysisTitleFull(analysisType) {
   }
 }
 
-// ▼▼▼ サブタイトル分岐（修正済み） ▼▼▼
 function getDetailedAnalysisSubtitleForUI(analysisType, tabId) {
   const base = '※コメントでいただいたフィードバックを元に分析しています';
   const getBodyText = (type) => {
@@ -1574,21 +1537,30 @@ function getDetailedAnalysisTitleBase(analysisType) {
   }
 }
 
-// 編集モード
 function toggleEditDetailedAnalysis(isEdit) {
   isEditingDetailedAnalysis = isEdit;
   const editBtn = document.getElementById('edit-detailed-analysis-btn');
   const regenBtn = document.getElementById('regenerate-detailed-analysis-btn');
   const saveBtn = document.getElementById('save-detailed-analysis-btn');
   const cancelBtn = document.getElementById('cancel-edit-detailed-analysis-btn');
-  const displayAreas = document.querySelectorAll('.ai-analysis-content');
-  const editAreas = document.querySelectorAll('[id^="edit-"]');
+
+  const displayAreas = [
+    document.getElementById('display-analysis'),
+    document.getElementById('display-suggestions'),
+    document.getElementById('display-overall')
+  ];
+  const editAreas = [
+    document.getElementById('edit-analysis'),
+    document.getElementById('edit-suggestions'),
+    document.getElementById('edit-overall')
+  ];
 
   if (isEditingDetailedAnalysis) {
     editBtn.classList.add('hidden');
     regenBtn.classList.add('hidden');
     saveBtn.classList.remove('hidden');
     cancelBtn.classList.remove('hidden');
+    
     displayAreas.forEach(el => el.classList.add('hidden'));
     editAreas.forEach(el => el.classList.remove('hidden'));
         
@@ -1598,17 +1570,26 @@ function toggleEditDetailedAnalysis(isEdit) {
       activeTextarea.style.height = 'auto';
       activeTextarea.style.height = (activeTextarea.scrollHeight + 5) + 'px';
     }
+    
   } else {
     editBtn.classList.remove('hidden');
     regenBtn.classList.remove('hidden');
     saveBtn.classList.add('hidden');
     cancelBtn.classList.add('hidden');
-    displayAreas.forEach(el => el.classList.remove('hidden'));
+    
     editAreas.forEach(el => el.classList.add('hidden'));
+    
+    displayAreas.forEach(el => el.classList.add('hidden'));
+    
+    const activeTab = document.querySelector('#ai-tab-nav .tab-button.active')?.dataset.tabId || 'analysis';
+    
+    const activeDisplayArea = document.getElementById(`display-${activeTab}`);
+    if (activeDisplayArea) {
+      activeDisplayArea.classList.remove('hidden');
+    }
   }
 }
 
-// 保存
 async function saveDetailedAnalysisEdits() {
   showLoading(true, '変更を保存中...');
   const analysisContent = document.getElementById('textarea-analysis').value;
@@ -1638,7 +1619,7 @@ async function saveDetailedAnalysisEdits() {
     document.getElementById('display-overall').textContent = overallContent;
         
     toggleEditDetailedAnalysis(false);
-    alert('変更を保存しました。');
+    alert('保存しました。');
   } catch (e) {
     console.error("Failed to save edits:", e);
     alert(`保存中にエラーが発生しました。\n${e.message}`);
@@ -1681,7 +1662,6 @@ function showLoading(isLoading, message = '') {
   }
 }
 
-// ▼▼▼ フッター表示切替 ▼▼▼
 function showCopyrightFooter(show, screenId = 'screen3') {
   let footer;
   if (screenId === 'screen3') {
@@ -1705,4 +1685,4 @@ function showCopyrightFooter(show, screenId = 'screen3') {
   }
   setupEventListeners();
   console.log('Listeners setup.');
-})(); // 即時実行関数で全体をラップ
+})();
