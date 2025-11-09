@@ -29,39 +29,12 @@ let currentCommentPageIndex = 0;
 const googleChartsLoaded = new Promise(resolve => { google.charts.load('current', {'packages':['corechart', 'bar']}); google.charts.setOnLoadCallback(resolve); });
 
 
-// --- ▼▼▼ [新規] フォントサイズ自動調整 (ルール ⑥, ④) ▼▼▼ ---
-/**
- * [新規] コンテナの高さにテキストが収まるようフォントサイズを調整する (ルール ⑥, ④)
- * @param {HTMLElement} container - .ai-analysis-content または #slide-body (コメント時)
- * @param {number} initialSize - ルール ⑦ (基本 12pt, コメント 9pt)
- */
+// --- ▼▼▼ [修正] (削除) adjustFontSize 関数を削除 (ルール ⑥ 12pt固定, ルール ④ A4固定 を優先) ▼▼▼
+/*
 function adjustFontSize(container, initialSize = 12) {
-    if (!container) return;
-    
-    // (ルール ⑦) 基本フォントサイズを設定
-    container.style.fontSize = `${initialSize}pt`;
-    container.style.lineHeight = initialSize <= 9 ? '1.4' : '1.5';
-    
-    // スクロールNG (ルール ④) のため、はみ出ていたらフォントを小さくする
-    let currentSize = initialSize;
-    
-    // HACK: わずかな時間待機してレンダリング後の高さを取得
-    setTimeout(() => {
-         // (20回まで試行)
-        for (let i = 0; i < 20; i++) {
-            // (clientHeight よりも scrollHeight が大きい ＝ はみ出ている)
-            const isOverflowing = container.scrollHeight > container.clientHeight;
-            
-            if (isOverflowing && currentSize > 6) { // 6pt未満にはしない
-                currentSize -= 0.5; // 0.5pt ずつ小さくする
-                container.style.fontSize = `${currentSize}pt`;
-                container.style.lineHeight = '1.4'; // 少し詰める
-            } else {
-                break; // 収まったか、最小サイズになった
-            }
-        }
-    }, 50); // 50ms待ってから高さをチェック
+    // ... (この関数は削除されました) ...
 }
+*/
 // --- ▲▲▲ ---
 
 
@@ -117,8 +90,7 @@ function setupEventListeners() {
           return;
       }
 
-      // (ヘッダー内 保存ボタン)
-      // ▼▼▼ [修正] 保存ボタンのリスナーを削除 ▼▼▼
+      // ▼▼▼ [修正] (Req ⑤) 保存ボタンのリスナーを削除 ▼▼▼
       /*
       const saveBtn = e.target.closest('#comment-save-btn');
       if (saveBtn) {
@@ -449,12 +421,7 @@ async function prepareAndShowReport(reportType){
   document.getElementById('report-title').textContent = '';
   document.getElementById('report-subtitle').textContent = '';
   document.getElementById('report-title').style.textAlign = 'left';
-  // ▼▼▼ [修正] サブタイトルのtextAlign指定を削除 (CSS側で left !important に任せる) ▼▼▼
-  // document.getElementById('report-subtitle').style.textAlign = 'left'; 
-  
-  // ▼▼▼ [修正] (Req ⑤) グラフ・AI以外のセパレーターマージンをリセット ▼▼▼
   document.getElementById('report-separator').style.display = 'block'; 
-  document.getElementById('report-separator').style.marginBottom = '16px';
   
   // ▼▼▼ [修正] slide-header の中身(innerHTML)を直接クリアするのをやめ、子要素を個別にクリアする ▼▼▼
   const subNav = document.getElementById('comment-sub-nav');
@@ -523,18 +490,18 @@ async function prepareAndShowReport(reportType){
       return;
   }
   
-  // ▼▼▼ [修正] ページタイトル設定とグラフ描画準備 (サブタイトルを空文字('')またはNPS専用サブタイトルに) ▼▼▼
-  if (reportType === 'nps_score'){ prepareChartPage('アンケート結果S(ネットプロモータースコア)＝推奨度ー', 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない', 'nps_score'); isChart=true; }
-  else if (reportType === 'satisfaction_b'){ prepareChartPage('アンケート結果　ー満足度ー','', 'satisfaction_b'); isChart=true; }
-  else if (reportType === 'satisfaction_c'){ prepareChartPage('アンケート結果　ー施設の充実度・快適さー','', 'satisfaction_c'); isChart=true; }
-  else if (reportType === 'satisfaction_d'){ prepareChartPage('アンケート結果　ーアクセスの良さー','', 'satisfaction_d'); isChart=true; }
-  else if (reportType === 'satisfaction_e'){ prepareChartPage('アンケート結果　ー費用ー','', 'satisfaction_e'); isChart=true; }
-  else if (reportType === 'satisfaction_f'){ prepareChartPage('アンケート結果　ー病院の雰囲気ー','', 'satisfaction_f'); isChart=true; }
-  else if (reportType === 'satisfaction_g'){ prepareChartPage('アンケート結果　ースタッフの対応ー','', 'satisfaction_g'); isChart=true; }
-  else if (reportType === 'satisfaction_h'){ prepareChartPage('アンケート結果　ー先生の診断・説明ー','', 'satisfaction_h'); isChart=true; }
-  else if (reportType === 'age'){ prepareChartPage('アンケート結果　ーご回答者さまの年代ー','', 'age'); isChart=true; }
-  else if (reportType === 'children'){ prepareChartPage('アンケート結果　ーご回答者さまのお子様の人数ー','', 'children'); isChart=true; }
-  else if (reportType === 'income'){ prepareChartPage('アンケート結果　ーご回答者さまの世帯年収ー','', 'income', true); isChart=true; }
+  // ページタイトル設定とグラフ描画準備
+  if (reportType === 'nps_score'){ prepareChartPage('アンケート結果　ーNPS(ネットプロモータースコア)＝推奨度ー', 'これから初めてお産を迎える友人知人がいた場合、\nご出産された産婦人科医院をどのくらいお勧めしたいですか。\n友人知人への推奨度を教えてください。＜推奨度＞ 10:強くお勧めする〜 0:全くお勧めしない', 'nps_score'); isChart=true; }
+  else if (reportType === 'satisfaction_b'){ prepareChartPage('アンケート結果　ー満足度ー','ご出産された産婦人科医院への満足度について、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_b'); isChart=true; }
+  else if (reportType === 'satisfaction_c'){ prepareChartPage('アンケート結果　ー施設の充実度・快適さー','ご出産された産婦人科医院への施設の充実度・快適さについて、教えてください\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_c'); isChart=true; }
+  else if (reportType === 'satisfaction_d'){ prepareChartPage('アンケート結果　ーアクセスの良さー','ご出産された産婦人科医院へのアクセスの良さについて、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_d'); isChart=true; }
+  else if (reportType === 'satisfaction_e'){ prepareChartPage('アンケート結果　ー費用ー','ご出産された産婦人科医院への費用について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_e'); isChart=true; }
+  else if (reportType === 'satisfaction_f'){ prepareChartPage('アンケート結果_ー病院の雰囲気ー','ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_f'); isChart=true; }
+  else if (reportType === 'satisfaction_g'){ prepareChartPage('アンケート結果　ースタッフの対応ー','ご出産された産婦人科医院へのスタッフの対応について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_g'); isChart=true; }
+  else if (reportType === 'satisfaction_h'){ prepareChartPage('アンケート結果　ー先生の診断・説明ー','ご出産された産婦人科医院への先生の診断・説明について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満', 'satisfaction_h'); isChart=true; }
+  else if (reportType === 'age'){ prepareChartPage('アンケート結果　ーご回答者さまの年代ー','ご出産された方の年代について教えてください。', 'age'); isChart=true; }
+  else if (reportType === 'children'){ prepareChartPage('アンケート結果　ーご回答者さまのお子様の人数ー','ご出産された方のお子様の人数について教えてください。', 'children'); isChart=true; }
+  else if (reportType === 'income'){ prepareChartPage('アンケート結果　ーご回答者さまの世帯年収ー','ご出産された方の世帯年収について教えてください。', 'income', true); isChart=true; }
 
   
   if (isChart) { 
@@ -571,8 +538,7 @@ async function prepareAndShowReport(reportType){
 // (変更なし) 例外構成（表紙・目次・概要）の表示
 async function prepareAndShowIntroPages(reportType) {
   document.getElementById('report-separator').style.display='none'; 
-  // ▼▼▼ [修正] サブタイトルのtextAlign指定を削除 (CSS側で left !important に任せる) ▼▼▼
-  // document.getElementById('report-subtitle').style.textAlign = 'center'; 
+  document.getElementById('report-subtitle').style.textAlign = 'center'; 
   document.getElementById('slide-body').style.whiteSpace = 'pre-wrap';
   document.getElementById('slide-body').classList.remove('flex', 'items-center', 'justify-center', 'text-center');
 
@@ -605,9 +571,11 @@ async function prepareAndShowIntroPages(reportType) {
       try {
           const overallData = await getReportDataForCurrentClinic("全体");
           overallCount = overallData.npsScoreData.totalCount || 0;
-          
-          // ▼▼▼ [修正] 転記済みリストの件数取得ロジックを修正 (currentAiCompletionStatus を利用) ▼▼▼
-          clinicListCount = Object.keys(currentAiCompletionStatus).length; 
+          clinicListCount = (await fetch('/api/getTransferredList', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ centralSheetId: currentCentralSheetId })
+          }).then(r => r.json())).sheetTitles.length - 2; 
           
           const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
           clinicCount = clinicData.npsScoreData.totalCount || 0;
@@ -635,30 +603,25 @@ async function prepareAndShowIntroPages(reportType) {
   }
 }
 
-// ▼▼▼ [修正] グラフ描画用シェル設定 (サブタイトル制御 + 余白変更) ▼▼▼
+// ▼▼▼ [修正] グラフ描画用シェル設定 (高さ 320px, NPS背景色削除) ▼▼▼
 function prepareChartPage(title, subtitle, type, isBar=false) { 
   document.getElementById('report-title').textContent = title;
-  document.getElementById('report-subtitle').textContent = subtitle; // (NPS以外は空文字が渡される)
-  // ▼▼▼ [修正] サブタイトルのtextAlign指定を削除 (CSS側で left !important に任せる) ▼▼▼
-  // document.getElementById('report-subtitle').style.textAlign = 'center'; 
-  
-  // ▼▼▼ [変更] (Req ⑤) グラフページではセパレーターマージンを 24px に変更 ▼▼▼
+  document.getElementById('report-subtitle').textContent = subtitle;
+  document.getElementById('report-subtitle').style.textAlign = 'center'; // グラフページは中央揃え
   document.getElementById('report-separator').style.display='block';
-  document.getElementById('report-separator').style.marginBottom = '24px'; // 16px -> 24px
 
   let htmlContent = '';
   const cid = isBar ? 'bar-chart' : 'pie-chart';
   const chartHeightClass = 'h-[320px]'; // A4枠内に収まるように高さを固定
 
   if (type === 'nps_score') {
-      // ▼▼▼ [修正] (Req ⑤) NPSスコアのセパレーターマージンは 16px のままにする ▼▼▼
-      document.getElementById('report-separator').style.marginBottom = '16px';
       htmlContent = `
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full">
               <div class="flex flex-col h-full">
                   <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
                   <div id="clinic-bar-chart" class="w-full ${chartHeightClass} border border-gray-200 flex items-center justify-center"></div>
-                  <div class="w-full h-[150px] flex flex-col justify-center items-center mt-2"> <p class="text-sm text-gray-500 mb-2">【画像入力エリア】</p>
+                  <div class="w-full h-[150px] flex flex-col justify-center items-center mt-4">
+                      <p class="text-sm text-gray-500 mb-2">【画像入力エリア】</p>
                       <div class="w-full h-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400">
                           [画像を入力する]
                       </div>
@@ -687,19 +650,10 @@ function prepareChartPage(title, subtitle, type, isBar=false) {
   document.getElementById('slide-body').innerHTML = htmlContent;
 }
 
-// --- ▼▼▼ [修正] グラフ描画関数 (フォントサイズ 14pt, %を黒文字に) ▼▼▼
-function drawSatisfactionCharts(clinicChartData, overallChartData){ 
-    // ▼▼▼ [修正] fontSize: 14, pieSliceTextStyle.color: 'black' (ご要望) ▼▼▼
-    const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:14,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:14}},tooltip:{showColorCode:true,textStyle:{fontSize:14},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099'], backgroundColor: 'transparent'};
-    const cdEl=document.getElementById('clinic-pie-chart');if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');if(clinicChartData&&clinicChartData.length>1&&clinicChartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(clinicChartData);const c=new google.visualization.PieChart(cdEl);c.draw(d,opt);} else {cdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-pie-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');if(overallChartData&&overallChartData.length>1&&overallChartData.slice(1).some(row=>row[1]>0)){const avgD=google.visualization.arrayToDataTable(overallChartData);const avgC=new google.visualization.PieChart(avgEl);avgC.draw(avgD,opt);} else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
-function drawIncomeCharts(clinicData, overallData){ 
-    // ▼▼▼ [修正] fontSize: 14, annotations.textStyle.color: 'black' (ご要望) ▼▼▼
-    const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:14,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:"#.##'%'",viewWindow:{min:0}, textStyle:{fontSize:14}, titleTextStyle:{fontSize:14}}, hAxis:{textStyle:{fontSize:14}, titleTextStyle:{fontSize:14}}, backgroundColor: 'transparent'};
-    const ccdEl=document.getElementById('clinic-bar-chart');if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');if(clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1){const cd=google.visualization.arrayToDataTable(clinicData.results);const cc=new google.visualization.ColumnChart(ccdEl);cc.draw(cd,opt);} else {ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-bar-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');if(overallData.totalCount > 0 && overallData.results && overallData.results.length > 1){const avgD=google.visualization.arrayToDataTable(overallData.results);const avgC=new google.visualization.ColumnChart(avgEl);avgC.draw(avgD,opt); } else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
-function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = document.getElementById('clinic-bar-chart');if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];if (clinicData.totalCount > 0) {for (let i = 0; i <= 10; i++) {const count = clinicData.counts[i] || 0;const percentage = (count / clinicData.totalCount) * 100;clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);}} 
-    // ▼▼▼ [修正] fontSize: 14, annotations.textStyle.color: 'black' (ご要望) ▼▼▼
-    const opt = {legend: { position: 'none' },colors: ['#DE5D83'], annotations: {textStyle: { fontSize: 14, color: 'black', auraColor: 'none' },alwaysOutside: false,stem: { color: 'transparent' }},vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle:{fontSize:14}, titleTextStyle:{fontSize:14}},hAxis: { title: '推奨度スコア (0〜10)', textStyle:{fontSize:14}, titleTextStyle:{fontSize:14}},bar: { groupWidth: '80%' },isStacked: false, chartArea:{height:'75%', width:'90%', left:'5%', top:'5%'}, backgroundColor: 'transparent'};
-    if (clinicData.totalCount > 0 && clinicChartData.length > 1) {const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);const clinicChart = new google.visualization.ColumnChart(clinicChartEl);clinicChart.draw(clinicDataVis, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const summaryArea = document.getElementById('nps-summary-area');if (summaryArea) {summaryArea.innerHTML = ` <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs"> <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p> <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p> </div> `;} const clinicHeaderEl = document.getElementById('clinic-chart-header');if (clinicHeaderEl) {clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;} }
+// --- ▼▼▼ [修正] グラフ描画関数 (フォントサイズ 12pt に) ▼▼▼
+function drawSatisfactionCharts(clinicChartData, overallChartData){ const opt={is3D:true,chartArea:{left:'5%',top:'5%',width:'90%',height:'90%'},pieSliceText:'percentage',pieSliceTextStyle:{color:'black',fontSize:12,bold:true},legend:{position:'labeled',textStyle:{color:'black',fontSize:12}},tooltip:{showColorCode:true,textStyle:{fontSize:12},trigger:'focus'},colors:['#4285F4','#DB4437','#F4B400','#0F9D58','#990099'], backgroundColor: 'transparent'};const cdEl=document.getElementById('clinic-pie-chart');if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');if(clinicChartData&&clinicChartData.length>1&&clinicChartData.slice(1).some(row=>row[1]>0)){const d=google.visualization.arrayToDataTable(clinicChartData);const c=new google.visualization.PieChart(cdEl);c.draw(d,opt);} else {cdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-pie-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-pie-chart)が見つかりません。');if(overallChartData&&overallChartData.length>1&&overallChartData.slice(1).some(row=>row[1]>0)){const avgD=google.visualization.arrayToDataTable(overallChartData);const avgC=new google.visualization.PieChart(avgEl);avgC.draw(avgD,opt);} else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
+function drawIncomeCharts(clinicData, overallData){ const opt={legend:{position:'none'},colors:['#DE5D83'],annotations:{textStyle:{fontSize:12,color:'black',auraColor:'none'},alwaysOutside:false,stem:{color:'transparent'}},vAxis:{format:"#.##'%'",viewWindow:{min:0}, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, hAxis:{textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}}, backgroundColor: 'transparent'};const ccdEl=document.getElementById('clinic-bar-chart');if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');if(clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1){const cd=google.visualization.arrayToDataTable(clinicData.results);const cc=new google.visualization.ColumnChart(ccdEl);cc.draw(cd,opt);} else {ccdEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const avgEl=document.getElementById('average-bar-chart');if (!avgEl) throw new Error('グラフ描画エリア(average-bar-chart)が見つかりません。');if(overallData.totalCount > 0 && overallData.results && overallData.results.length > 1){const avgD=google.visualization.arrayToDataTable(overallData.results);const avgC=new google.visualization.ColumnChart(avgEl);avgC.draw(avgD,opt); } else {avgEl.innerHTML='<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} }
+function drawNpsScoreCharts(clinicData, overallData) { const clinicChartEl = document.getElementById('clinic-bar-chart');if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');const clinicNpsScore = calculateNps(clinicData.counts, clinicData.totalCount);const overallNpsScore = calculateNps(overallData.counts, overallData.totalCount);const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];if (clinicData.totalCount > 0) {for (let i = 0; i <= 10; i++) {const count = clinicData.counts[i] || 0;const percentage = (count / clinicData.totalCount) * 100;clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);}} const opt = {legend: { position: 'none' },colors: ['#DE5D83'], annotations: {textStyle: { fontSize: 12, color: 'black', auraColor: 'none' },alwaysOutside: false,stem: { color: 'transparent' }},vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},hAxis: { title: '推奨度スコア (0〜10)', textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},bar: { groupWidth: '80%' },isStacked: false, chartArea:{height:'75%', width:'90%', left:'5%', top:'5%'}, backgroundColor: 'transparent'};if (clinicData.totalCount > 0 && clinicChartData.length > 1) {const clinicDataVis = google.visualization.arrayToDataTable(clinicChartData);const clinicChart = new google.visualization.ColumnChart(clinicChartEl);clinicChart.draw(clinicDataVis, opt);} else {clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';} const summaryArea = document.getElementById('nps-summary-area');if (summaryArea) {summaryArea.innerHTML = ` <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs"> <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p> <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p> </div> `;} const clinicHeaderEl = document.getElementById('clinic-chart-header');if (clinicHeaderEl) {clinicHeaderEl.textContent = `貴院の結果 (全 ${clinicData.totalCount} 件)`;} }
 function calculateNps(counts, totalCount) { if (totalCount === 0) return 0;let promoters = 0, passives = 0, detractors = 0;for (let i = 0; i <= 10; i++) {const count = counts[i] || 0;if (i >= 9) promoters += count;else if (i >= 7) passives += count;else detractors += count;} return ((promoters / totalCount) - (detractors / totalCount)) * 100; }
 
 
@@ -737,7 +691,7 @@ function getExcelColumnName(colIndex) {
 }
 
 /**
- * [修正] コメントのサブナビゲーション (サブタイトル廃止)
+ * [新規] コメントのサブナビゲーション (NPS 10点, 9点...) を描画
  */
 function showCommentSubNav(reportType) {
     const navContainer = document.getElementById('comment-sub-nav');
@@ -748,8 +702,7 @@ function showCommentSubNav(reportType) {
     navContainer.innerHTML = '';
     
     let title = '';
-    // ▼▼▼ [修正] サブタイトルを廃止 (空に) ▼▼▼
-    let subTitle = ''; 
+    let subTitle = 'データ一覧（1列20データずつ）';
     
     if (reportType === 'nps') {
         title = 'アンケート結果　ーNPS推奨度 理由ー';
@@ -771,7 +724,7 @@ function showCommentSubNav(reportType) {
         });
     } else {
         const titleMap = { 'feedback_i': '良かった点や悪かった点など', 'feedback_j': '印象に残ったスタッフへのコメント', 'feedback_m': 'お産にかかわるご意見・ご感想' };
-        title = `アンケート結果S${titleMap[reportType]}ー`;
+        title = `アンケート結果　ー${titleMap[reportType]}ー`;
     }
     
     document.getElementById('report-title').textContent = title;
@@ -779,7 +732,7 @@ function showCommentSubNav(reportType) {
 }
 
 /**
- * [修正] APIからコメントシートのデータを取得し、最初のページを描画 (NPSサブタイトル・件数修正)
+ * [新規] APIからコメントシートのデータを取得し、最初のページを描画
  */
 async function fetchAndRenderCommentPage(commentKey) {
     currentCommentData = null;
@@ -817,24 +770,12 @@ async function fetchAndRenderCommentPage(commentKey) {
         
         const data = await response.json(); // 例: [ ['A列c1', 'A列c2'], ['B列c1'] ]
         
-        // ▼▼▼ [修正] (Req 3) 1ページ目の件数ではなく、全ページの合計件数を計算 ▼▼▼
-        let totalCommentCount = 0;
-        if (data && data.length > 0) {
-            totalCommentCount = data.reduce((acc, column) => acc + column.length, 0);
-        }
-        // ▲▲▲
-
-        if (totalCommentCount === 0) {
+        if (!data || data.length === 0 || (data.length > 0 && data[0].length === 0)) {
             currentCommentData = [];
             document.getElementById('slide-body').innerHTML = '<p class="text-center text-gray-500 py-16">コメントデータがありません</p>';
             renderCommentControls(); 
-            // ▼▼▼ [修正] データ0件でもNPSサブタイトルを設定 ▼▼▼
-            setNpsSubtitle(commentKey, 0); 
         } else {
             currentCommentData = data;
-            // ▼▼▼ [修正] 描画の前にNPSサブタイトルを設定 (合計件数を渡す) ▼▼▼
-            setNpsSubtitle(commentKey, totalCommentCount); 
-            
             renderCommentPage(0); // 最初のページ (A列) を描画
         }
         
@@ -845,35 +786,6 @@ async function fetchAndRenderCommentPage(commentKey) {
         showLoading(false);
     }
 }
-
-/**
- * [修正] NPSコメント用のサブタイトルを設定する (ご要望の形式)
- * @param {string} commentKey (例: "L_10", "I")
- * @param {number} count (★グループの合計件数)
- */
-function setNpsSubtitle(commentKey, count) {
-    const subTitleEl = document.getElementById('report-subtitle');
-    if (!subTitleEl) return;
-    
-    let subTitle = '';
-    // (アイコンURLは未指定のため、プレースホルダ)
-    if (commentKey === 'L_10' || commentKey === 'L_9') {
-        const score = commentKey.split('_')[1];
-        // ▼▼▼ [修正] count は既に合計件数 (Req 3) ▼▼▼
-        subTitle = `[アイコン①] NPS ${score} ${count}人`; 
-    } else if (commentKey === 'L_8' || commentKey === 'L_7') {
-        const score = commentKey.split('_')[1];
-        subTitle = `[アイコン②] NPS ${score} ${count}人`;
-    } else if (commentKey === 'L_6_under') {
-        subTitle = `[アイコン③] NPS 6以下 ${count}人`;
-    } else {
-        // "I", "J", "M" の場合はサブタイトルなし
-        subTitle = '';
-    }
-    
-    subTitleEl.textContent = subTitle;
-}
-
 
 /**
  * [修正] 指定されたページ(列)のコメントを <p> (編集不可) として描画
@@ -887,8 +799,8 @@ function renderCommentPage(pageIndex) {
     const bodyEl = document.getElementById('slide-body');
     bodyEl.innerHTML = '';
     
-    // ▼▼▼ [修正] スクロールを 'hidden' に変更 (ルール ④) ▼▼▼
-    bodyEl.style.overflowY = 'hidden'; 
+    // ▼▼▼ [修正] コメント表示エリアにスクロールを追加 ▼▼▼
+    bodyEl.style.overflowY = 'auto'; 
     
     if (columnData.length === 0 && currentCommentData.length > 0) {
         bodyEl.innerHTML = '<p class="text-center text-gray-500 py-16">(このページは空です)</p>';
@@ -907,10 +819,6 @@ function renderCommentPage(pageIndex) {
     
     // ヘッダーのコントロール（ページャー、保存ボタン）を再描画
     renderCommentControls();
-    
-    // ▼▼▼ [新規] フォントサイズ自動調整を実行 (ルール ④, ⑥) ▼▼▼
-    // (CSSで 9pt が指定されているため、9pt から開始)
-    adjustFontSize(bodyEl, 9);
 }
 
 /**
@@ -950,23 +858,21 @@ function renderCommentControls() {
 // --- ▲▲▲ コメントスライド構築関数群 終わり ▲▲▲ ---
 
 
-// ▼▼▼ [修正] 市区町村 (Req ④: サブタイトル廃止, ソート) (Req ⑤: 余白変更) ▼▼▼
+// ▼▼▼ [修正] 市区町村 (テーブルはスクロール許可) ▼▼▼
 async function prepareAndShowMunicipalityReport() {
   console.log('Prepare municipality report');
   updateNavActiveState('municipality', null, null);
   showScreen('screen3');
   document.getElementById('report-title').textContent = `アンケート結果　ーご回答者さまの市町村ー`;
-  // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
-  document.getElementById('report-subtitle').textContent = ''; 
+  document.getElementById('report-subtitle').textContent = 'ご出産された方の住所（市町村）について教えてください。';
+  document.getElementById('report-subtitle').style.textAlign = 'center'; 
   document.getElementById('report-separator').style.display='block';
-  // ▼▼▼ [変更] (Req ⑤) グラフページではセパレーターマージンを 24px に変更 ▼▼▼
-  document.getElementById('report-separator').style.marginBottom = '24px'; // 16px -> 24px
   
   const slideBody = document.getElementById('slide-body');
   slideBody.style.whiteSpace = 'normal';
   slideBody.innerHTML = '<p class="text-center text-gray-500 py-16">市区町村データを読み込み中...</p>';
   slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
-  slideBody.style.overflowY = 'auto'; // ★ 市区町村テーブルはスクロール許可 (ルール④の例外)
+  slideBody.style.overflowY = 'auto'; // ★ 市区町村テーブルはスクロール許可
   
   showLoading(true, '市区町村データを読み込み中...');
   
@@ -984,14 +890,6 @@ async function prepareAndShowMunicipalityReport() {
           throw new Error(`集計APIエラー (${response.status}): ${errorText}`);
       }
       const tableData = await response.json();
-      
-      // ▼▼▼ [修正] (Req ④) 「不明」を最下部にソート ▼▼▼
-      tableData.sort((a, b) => {
-          if (a.prefecture === '不明') return 1;
-          if (b.prefecture === '不明') return -1;
-          return b.count - a.count; // 通常は件数で降順
-      });
-      
       displayMunicipalityTable(tableData);
   } catch (err) {
       console.error('Failed to get municipality report:', err);
@@ -1001,34 +899,31 @@ async function prepareAndShowMunicipalityReport() {
   }
 }
 
-// ▼▼▼ [修正] (Req ④) 市区町村テーブル描画 (スタイル適用) ▼▼▼
+// (変更なし) 市区町村テーブル描画
 function displayMunicipalityTable(data) { 
   const slideBody = document.getElementById('slide-body'); 
   if (!data || data.length === 0) { 
       slideBody.innerHTML = '<p class="text-center text-gray-500 py-16">集計データがありません。</p>'; 
       return; 
   } 
-  // ▼▼▼ [修正] (Req ④) コンテナに余白(px-8)、テーブルに 'municipality-table' クラスを追加 ▼▼▼
-  let tableHtml = `<div class="municipality-table-container w-full h-full px-8"><table class="w-full municipality-table"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th>都道府県</th><th>市区町村</th><th>件数</th><th>割合</th></tr></thead><tbody class="bg-white">`; 
+  let tableHtml = `<div class="municipality-table-container w-full h-full border border-gray-200 rounded-lg"><table class="w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">都道府県</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">市区町村</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">件数</th><th class="py-3 text-left font-medium text-gray-500 uppercase tracking-wider">割合</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`; 
   data.forEach(row => { 
-      tableHtml += `<tr><td>${row.prefecture}</td><td>${row.municipality}</td><td class="text-right">${row.count}</td><td class="text-right">${row.percentage.toFixed(2)}%</td></tr>`; 
+      tableHtml += `<tr><td class="py-2 font-medium text-gray-900">${row.prefecture}</td><td class="py-2 text-gray-700">${row.municipality}</td><td class="py-2 text-gray-700 text-right">${row.count}</td><td class="py-2 text-gray-700 text-right">${row.percentage.toFixed(2)}%</td></tr>`; 
   }); 
   tableHtml += '</tbody></table></div>'; 
   slideBody.innerHTML = tableHtml; 
 }
 
 
-// ▼▼▼ [修正] おすすめ理由 (サブタイトル廃止) (Req ⑤: 余白変更) ▼▼▼
+// ▼▼▼ [修正] おすすめ理由 (フォントサイズ 12pt, 左側背景色) ▼▼▼
 async function prepareAndShowRecommendationReport() {
     console.log('Prepare recommendation report');
     updateNavActiveState('recommendation', null, null);
     showScreen('screen3');
     document.getElementById('report-title').textContent = 'アンケート結果　ー本病院を選ぶ上で最も参考にしたものー';
-    // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
-    document.getElementById('report-subtitle').textContent = '';
-    // ▼▼▼ [変更] (Req ⑤) グラフページではセパレーターマージンを 24px に変更 ▼▼▼
+    document.getElementById('report-subtitle').textContent = 'ご出産された産婦人科医院への本病院を選ぶ上で最も参考にしたものについて、教えてください。';
+    document.getElementById('report-subtitle').style.textAlign = 'center';
     document.getElementById('report-separator').style.display='block';
-    document.getElementById('report-separator').style.marginBottom = '24px'; // 16px -> 24px
     
     const slideBody = document.getElementById('slide-body');
     slideBody.style.whiteSpace = 'normal';
@@ -1066,8 +961,8 @@ async function prepareAndShowRecommendationReport() {
         
         showLoading(false);
         
-        // ▼▼▼ [修正] フォントサイズを 14pt に, %を黒文字に (ルール②) ▼▼▼
-        const opt = {is3D: true,chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },pieSliceText: 'percentage',pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' }, backgroundColor: 'transparent'};
+        // ▼▼▼ [修正] フォントサイズを 12pt に ▼▼▼
+        const opt = {is3D: true,chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },pieSliceText: 'percentage',pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' }, backgroundColor: 'transparent'};
         const clinicChartEl = document.getElementById('clinic-pie-chart');
         if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
         const totalClinicCount = clinicChartData.slice(1).reduce((sum, row) => sum + row[1], 0);
@@ -1084,7 +979,7 @@ async function prepareAndShowRecommendationReport() {
 }
 
 
-// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (Req ⑤, ⑦.1, ⑦.2, ⑦.3) ▼▼▼
+// ▼▼▼ [修正] Word Cloud表示 (Screen 3) (背景色クラス削除, 2x2レイアウト) ▼▼▼
 async function prepareAndShowAnalysis(columnType) {
   showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
   showScreen('screen3');
@@ -1095,13 +990,9 @@ async function prepareAndShowAnalysis(columnType) {
   let tl = [], td = 0;
   
   document.getElementById('report-title').textContent = getAnalysisTitle(columnType, 0); 
-  // ▼▼▼ [修正] (Req ⑦.3) サブタイトル廃止 ▼▼▼
-  document.getElementById('report-subtitle').textContent = ''; 
+  document.getElementById('report-subtitle').textContent = '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。';
   document.getElementById('report-subtitle').style.textAlign = 'left'; 
-  
-  // ▼▼▼ [修正] (Req ⑦.3) WCページではセパレーターマージンを 0 に ▼▼▼
   document.getElementById('report-separator').style.display='block';
-  document.getElementById('report-separator').style.marginBottom = '0';
   
   const subNav = document.getElementById('comment-sub-nav');
   const controls = document.getElementById('comment-controls');
@@ -1137,10 +1028,10 @@ async function prepareAndShowAnalysis(columnType) {
       return;
   }
   
-  // ▼▼▼ [変更] WCシェル (Req ⑦.1: gap-1に変更, Req ⑦.2: text-left に変更) ▼▼▼
+  // ▼▼▼ [修正] WCシェル (2x2 グリッドレイアウト, h-full, 背景色削除) ▼▼▼
   slideBody.innerHTML = `
       <div class="grid grid-cols-2 gap-4 h-full">
-          <div class="grid grid-cols-2 grid-rows-2 gap-1 h-full pr-2">
+          <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2">
               <div id="noun-chart-container" class="chart-container h-full">
                   <h3 class="font-bold text-center mb-0 text-blue-600 text-sm">名詞</h3>
                   <div id="noun-chart" class="w-full h-[calc(100%-20px)]"></div>
@@ -1160,10 +1051,12 @@ async function prepareAndShowAnalysis(columnType) {
           </div>
           <div class="space-y-2 flex flex-col h-full">
               <p class="text-sm text-gray-600 text-left px-2">
-                  スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。単語の色は品詞の種類で異なります。<br>
+                  スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>
+                  単語の色は品詞の種類で異なります。<br>
                   <span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span>
               </p>
-              <div id="word-cloud-container" class="h-[calc(100%-60px)] border border-gray-200"> <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
+              <div id="word-cloud-container" class="h-[calc(100%-60px)] border border-gray-200"> 
+                  <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
               </div>
               <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
           </div>
@@ -1184,7 +1077,7 @@ async function prepareAndShowAnalysis(columnType) {
   }
 }
 
-// ▼▼▼ [修正] Word Cloud描画 (Req ⑦: 余白削除, ぼやけ解消, 10-17pt) ▼▼▼
+// ▼▼▼ [修正] Word Cloud描画 (フォントサイズ 12pt, ソート順修正, WC描画バグ修正) ▼▼▼
 function drawAnalysisCharts(results) { 
     if(!results||results.length===0){
         console.log("No analysis results.");
@@ -1194,68 +1087,58 @@ function drawAnalysisCharts(results) {
     } 
     const nouns=results.filter(r=>r.pos==='名詞'),verbs=results.filter(r=>r.pos==='動詞'),adjs=results.filter(r=>r.pos==='形容詞'),ints=results.filter(r=>r.pos==='感動詞');
     
-    // ▼▼▼ [修正] barOpt (レイアウト調整) ▼▼▼
+    // ▼▼▼ [修正] barOpt (フォント 12pt, 余白調整) ▼▼▼
     const barOpt={bars:'horizontal',legend:{position:'none'},
-    hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},
-    vAxis:{title: null, textStyle:{fontSize:10}, titleTextStyle:{fontSize:12}}, 
-    // ▼▼▼ [修正] chartArea の left/width を調整 (ご要望) ▼▼▼
-    chartArea:{height:'90%', width:'70%', left:'25%', top:'5%'}, 
-    backgroundColor: 'transparent'};
+        hAxis:{title:'スコア(出現頻度)',minValue:0, textStyle:{fontSize:12}, titleTextStyle:{fontSize:12}},
+        // ▼▼▼ [修正] vAxis title: '単語' -> null, textStyle 10pt (余白確保のため) ▼▼▼
+        vAxis:{title: null, textStyle:{fontSize:10}, titleTextStyle:{fontSize:12}}, 
+        // ▼▼▼ [修正] chartArea の left/width を調整 (余白詰める) ▼▼▼
+        chartArea:{height:'90%', width:'70%', left:'25%', top:'5%'}, 
+        backgroundColor: 'transparent'
+    };
     
-    // ▼▼▼ [修正] (Req ⑦) グラフの height: '100%' を削除し、余白を詰める ▼▼▼
-    drawSingleBarChart(nouns.slice(0,8),'noun-chart',{...barOpt,colors:['#3b82f6'], width: '100%'});
-    drawSingleBarChart(verbs.slice(0,8),'verb-chart',{...barOpt,colors:['#ef4444'], width: '100%'});
-    drawSingleBarChart(adjs.slice(0,8),'adj-chart',{...barOpt,colors:['#22c55e'], width: '100%'});
-    drawSingleBarChart(ints.slice(0,8),'int-chart',{...barOpt,colors:['#6b7280'], width: '100%'});
+    // ▼▼▼ [修正] グラフ高さを 100% (h-[90%]) に ▼▼▼
+    drawSingleBarChart(nouns.slice(0,8),'noun-chart',{...barOpt,colors:['#3b82f6'], width: '100%', height: '100%'});
+    drawSingleBarChart(verbs.slice(0,8),'verb-chart',{...barOpt,colors:['#ef4444'], width: '100%', height: '100%'});
+    drawSingleBarChart(adjs.slice(0,8),'adj-chart',{...barOpt,colors:['#22c55e'], width: '100%', height: '100%'});
+    drawSingleBarChart(ints.slice(0,8),'int-chart',{...barOpt,colors:['#6b7280'], width: '100%', height: '100%'});
     
-    // ▼▼▼ [修正] (Req 6) WordCloud (ぼやけ解消, 10-17pt) ▼▼▼
+    // ▼▼▼ [修正] Word Cloud (右側) 描画バグ修正 ▼▼▼
     const wl=results.map(r=>[r.word,r.score]).slice(0,100);
     const pm=results.reduce((map,item)=>{map[item.word]=item.pos;return map;},{});
     const cv=document.getElementById('word-cloud-canvas');
     
     if(WordCloud.isSupported&&cv){
         try{
-            // ▼▼▼ [修正] (Req 6) 高解像度DPR対応 (ぼやけ解消) ▼▼▼
+            // ▼▼▼ [修正] 高DPI対応 (ぼやけ解消) + weightFactor バグ修正 ▼▼▼
             const dpr = window.devicePixelRatio || 1;
-            const rect = cv.getBoundingClientRect();
+            const rect = cv.getBoundingClientRect(); // スケーリング前のコンテナサイズ
+            
+            // キャンバスの物理サイズをDPRでスケーリング
             cv.width = rect.width * dpr;
             cv.height = rect.height * dpr;
+            
+            // コンテキストをDPRでスケーリング
             const ctx = cv.getContext('2d');
-            ctx.scale(dpr, dpr); // Scale context for high-res
+            ctx.scale(dpr, dpr); 
 
-            // ▼▼▼ [修正] (Req 6) サイズ計算ロジック (ご要望: 10〜17pt) ▼▼▼
-            const minSize = 10;
-            const maxSize = 17;
-            
-            let maxScore = 0;
-            if (wl.length > 0) {
-                 maxScore = wl[0][1]; // (scoreでソート済み前提)
-            }
-            
-            // スコアを 10pt-17pt の範囲にマッピングする
-            const weightFactor = (size) => {
-                if (maxScore === 0) return minSize;
-                const score = size;
-                // スコアを 0-1 の範囲に正規化
-                const normalizedScore = Math.max(0, score / maxScore);
-                // 10pt (min) から 17pt (max) の範囲にマッピング
-                return minSize + (maxSize - minSize) * normalizedScore;
-            };
-            // ▲▲▲
+            // weightFactor は、スケーリング「前」の論理幅 (rect.width) に基づいて計算
+            const logicalWidth = rect.width; 
             
             const options={
                 list:wl,
-                gridSize: 8, // (密度)
-                weightFactor: weightFactor, // (Req 6)
-                minSize: minSize, // (Req 6)
+                gridSize:Math.round(16 * logicalWidth / 1024), // 論理幅で計算
+                weightFactor:function(s){
+                    return Math.pow(s, 0.8) * logicalWidth / 250; // 論理幅で計算
+                },
                 fontFamily:'Noto Sans JP,sans-serif',
                 color:function(w,wt,fs,d,t){const p=pm[w]||'不明';switch(p){case'名詞':return'#3b82f6';case'動詞':return'#ef4444';case'形容詞':return'#22c55e';case'感動詞':return'#6b7280';default:return'#a8a29e';}},
                 backgroundColor:'transparent',
                 clearCanvas:true,
-                // ▼▼▼ [修正] (Req 6) 安定化のため回転を無効化 ▼▼▼
-                rotateRatio: 0
+                rotateRatio: 0 // 回転なし
             };
-            WordCloud(cv,options);
+            WordCloud(cv, options); // スケーリングされたキャンバスに描画
+            // ▲▲▲ 修正完了 ▲▲▲
         }catch(wcError){
             console.error("Error drawing WordCloud:",wcError);
             document.getElementById('word-cloud-container').innerHTML=`<p class="text-center text-red-500">ワードクラウド描画エラー:${wcError.message}</p>`;
@@ -1279,7 +1162,7 @@ function getColumnName(columnType) {
 }
 
 
-// --- ▼▼▼ [修正] AI詳細分析 (Screen 5) 処理 (Req ⑤, ⑥) ▼▼▼
+// --- ▼▼▼ [修正] AI詳細分析 (Screen 5) 処理 (サブタイトル中央揃え対応) ▼▼▼
 async function prepareAndShowDetailedAnalysis(analysisType) {
   console.log(`Prepare detailed analysis: ${analysisType}`);
   const clinicName = currentClinicForModal;
@@ -1289,7 +1172,6 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
   updateNavActiveState(null, null, analysisType);
   toggleEditDetailedAnalysis(false); 
   
-  // ▼▼▼ [修正] Screen5のフッターも表示/非表示制御 ▼▼▼
   showCopyrightFooter(true, 'screen5'); 
   
   const errorDiv = document.getElementById('detailed-analysis-error');
@@ -1297,11 +1179,7 @@ async function prepareAndShowDetailedAnalysis(analysisType) {
   errorDiv.textContent = '';
   
   document.getElementById('detailed-analysis-title').textContent = getDetailedAnalysisTitleFull(analysisType);
-  // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
-  document.getElementById('detailed-analysis-subtitle').textContent = ''; // getDetailedAnalysisSubtitleForUI(analysisType, 'analysis'); 
-  
-  // ▼▼▼ [修正] (Req ⑤) グラフページではセパレーターマージンを 16px に戻す ▼▼▼
-  document.getElementById('report-separator').style.marginBottom = '16px';
+  document.getElementById('detailed-analysis-subtitle').textContent = getDetailedAnalysisSubtitleForUI(analysisType, 'analysis'); 
   
   switchTab('analysis'); 
   
@@ -1387,7 +1265,7 @@ async function runDetailedAnalysisGeneration(analysisType) {
     }
 }
 
-// (AI表示 (共通) - ▼▼▼ [修正] フォント調整呼び出し追加 (ルール ②, ④, ⑥) ▼▼▼)
+// (AI表示 (共通) - 変更なし)
 function displayDetailedAnalysis(data, analysisType, isRawJson) {
     let analysisText, suggestionsText, overallText;
     if (isRawJson) {
@@ -1400,27 +1278,13 @@ function displayDetailedAnalysis(data, analysisType, isRawJson) {
         overallText = data.overall;
     }
     
-    // --- 表示エリア (display-*) ---
-    const displayAnalysis = document.getElementById('display-analysis');
-    const displaySuggestions = document.getElementById('display-suggestions');
-    const displayOverall = document.getElementById('display-overall');
-    
-    displayAnalysis.textContent = analysisText;
-    displaySuggestions.textContent = suggestionsText;
-    displayOverall.textContent = overallText;
-
-    // --- 編集エリア (textarea-*) ---
+    document.getElementById('display-analysis').textContent = analysisText;
     document.getElementById('textarea-analysis').value = analysisText;
+    document.getElementById('display-suggestions').textContent = suggestionsText;
     document.getElementById('textarea-suggestions').value = suggestionsText;
+    document.getElementById('display-overall').textContent = overallText;
     document.getElementById('textarea-overall').value = overallText;
     
-    // ▼▼▼ [新規] フォントサイズ自動調整 (ルール ⑥, ④) ▼▼▼
-    // (ルール ⑦: 基本 12pt)
-    adjustFontSize(displayAnalysis, 12);
-    adjustFontSize(displaySuggestions, 12);
-    adjustFontSize(displayOverall, 12);
-    
-    // (編集エリアの高さ調整)
     ['analysis', 'suggestions', 'overall'].forEach(tabId => {
          const textarea = document.getElementById(`textarea-${tabId}`);
          if (textarea) {
@@ -1440,7 +1304,7 @@ function clearDetailedAnalysisDisplay() {
     document.getElementById('textarea-overall').value = '';
 }
 
-// (タブ切り替え - ▼▼▼ [修正] (Req ⑥) タブ切り替えセレクタ修正 ▼▼▼)
+// (タブ切り替え - サブタイトル更新ロジックを反映)
 function handleTabClick(event) { 
   const tabId = event.target.dataset.tabId; 
   if (tabId) { 
@@ -1448,11 +1312,10 @@ function handleTabClick(event) {
   } 
 }
 function switchTab(tabId) { 
-    // ▼▼▼ [修正] サブタイトル廃止 ▼▼▼
-    document.getElementById('detailed-analysis-subtitle').textContent = ''; // getDetailedAnalysisSubtitleForUI(currentDetailedAnalysisType, tabId);
+    document.getElementById('detailed-analysis-subtitle').textContent = getDetailedAnalysisSubtitleForUI(currentDetailedAnalysisType, tabId);
     
+    if (isEditingDetailedAnalysis) { } 
     document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => { if (button.dataset.tabId === tabId) { button.classList.add('active'); } else { button.classList.remove('active'); } }); 
-    
     // ▼▼▼ [修正] (Req ⑥) セレクタを .tab-content から .ai-analysis-container に変更 ▼▼▼
     document.querySelectorAll('#detailed-analysis-content-area > .ai-analysis-container').forEach(content => { 
         if (content.id === `content-${tabId}`) { 
@@ -1469,16 +1332,10 @@ function switchTab(tabId) {
             activeTextarea.style.height = 'auto';
             activeTextarea.style.height = (activeTextarea.scrollHeight + 5) + 'px';
         }
-    } else {
-        // ▼▼▼ [新規] 表示中の場合：フォントサイズを再調整 (ルール ⑥, ④) ▼▼▼
-        const activeDisplay = document.getElementById(`display-${tabId}`);
-        if (activeDisplay) {
-            adjustFontSize(activeDisplay, 12);
-        }
     }
 }
 
-// (編集モード切り替え - ▼▼▼ [修正] (Req ⑥) 保存機能は存在するため変更なし ▼▼▼)
+// (編集モード切り替え - 変更なし)
 function toggleEditDetailedAnalysis(isEdit) {
     isEditingDetailedAnalysis = isEdit;
     const editBtn = document.getElementById('edit-detailed-analysis-btn');
@@ -1510,17 +1367,10 @@ function toggleEditDetailedAnalysis(isEdit) {
         cancelBtn.classList.add('hidden');
         displayAreas.forEach(el => el.classList.remove('hidden'));
         editAreas.forEach(el => el.classList.add('hidden'));
-        
-        // ▼▼▼ [新規] 表示モードに戻る際、フォントサイズを再調整 (ルール ⑥, ④) ▼▼▼
-        const activeTab = document.querySelector('#ai-tab-nav .tab-button.active').dataset.tabId;
-        const activeDisplay = document.getElementById(`display-${activeTab}`);
-        if (activeDisplay) {
-            adjustFontSize(activeDisplay, 12);
-        }
     }
 }
 
-// (AI詳細分析 (保存) - (Req ⑥) 機能は存在するため変更なし)
+// (AI詳細分析 (保存) - 変更なし)
 async function saveDetailedAnalysisEdits() {
     showLoading(true, '変更を保存中...');
     const analysisContent = document.getElementById('textarea-analysis').value;
@@ -1569,7 +1419,7 @@ async function saveDetailedAnalysisEdits() {
     }
 }
 
-// (AIタイトル・サブタイトル取得関数 - ▼▼▼ [修正] サブタイトル廃止 ▼▼▼)
+// (AIタイトル・サブタイトル取得関数 - 変更なし)
 function getDetailedAnalysisTitleFull(analysisType) {
     switch (analysisType) {
         case 'L': return '知人に病院を紹介したいと思う理由の分析';
@@ -1581,9 +1431,23 @@ function getDetailedAnalysisTitleFull(analysisType) {
     }
 }
 
-// ▼▼▼ [修正] サブタイトルを常に空文字('')に (ご要望) ▼▼▼
 function getDetailedAnalysisSubtitleForUI(analysisType, tabId) {
-     return '';
+     const base = '※コメントでいただいたフィードバックを元に分析しています';
+     const getBodyText = (type) => {
+         switch (type) {
+             case 'L': 
+             case 'M': return '患者から寄せられたお産に関するご意見を分析すると、以下の主要なテーマが浮かび上がります。';
+             case 'I_bad': return 'フィードバックの中で挙げられた「悪かった点」を分析すると、\n患者にとって以下の要素が特に課題として感じられていることが分かります。';
+             case 'I_good': return 'フィードバックの中で挙げられた「良かった点」を分析すると、\n以下の要素が患者にとって特に高く評価されていることが分かります。';
+             case 'J': return '印象に残ったスタッフに対するコメントから、いくつかの重要なテーマが浮かび上がります。\nこれらのテーマは、スタッフの評価においても重要なポイントとなります。';
+             default: return '';
+         }
+     };
+
+     if (tabId === 'overall') {
+         return base + '\n患者から寄せられたお産に関するご意見の分析と改善策を基にした、総評は以下のとおりです.';
+     }
+     return base + '\n' + getBodyText(analysisType);
 }
 
 function getDetailedAnalysisTitleBase(analysisType) {

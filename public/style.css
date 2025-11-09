@@ -99,7 +99,8 @@ body{
     overflow: hidden; 
     border: 1px solid #e5e7eb; 
     border-radius: 0.5rem; 
-    padding: 0.5rem; /* [修正] 1rem -> 0.5rem (WCグラフの収まり改善) */
+    /* ▼▼▼ [修正] 1rem -> 0.5rem (WCグラフの余白詰める) ▼▼▼ */
+    padding: 0.5rem;
     background-color: #f9fafb;
     /* ▼▼▼ [修正] justify-center -> justify-start (WCグラフの収まり改善) ▼▼▼ */
     display: flex;
@@ -112,8 +113,7 @@ body{
 
 /* ▼▼▼ [新規] グラフ背景色 ▼▼▼ */
 .clinic-graph-bg-yellow {
-    /* ▼▼▼ [修正] ご指定の色 #ffff95 に変更 ▼▼▼ */
-    background-color: #ffff95; /* 薄い黄色 */
+    background-color: #FFFFE0; /* 薄い黄色 */
 }
 
 /* AI分析タブ */
@@ -190,7 +190,6 @@ body{
 }
 
 .report-title {
-    /* ▼▼▼ [修正] 14pt -> 16pt (ご要望) ▼▼▼ */
     font-size: 16pt;
     font-weight: bold;
     margin-bottom: 8px;
@@ -198,19 +197,17 @@ body{
     flex-shrink: 0; /* 縮まない */
 }
 .report-subtitle {
-    /* ▼▼▼ [修正] 12pt -> 14pt (ご要望) ▼▼▼ */
-    font-size: 14pt;
+    font-size: 12pt;
     color: #6b7280;
     margin-bottom: 16px;
     white-space: pre-wrap;
-    /* ▼▼▼ [修正] text-align: center -> left (NPS左揃え対応) ▼▼▼ */
-    text-align: left !important;
+    /* ▼▼▼ [修正] text-align: left -> center (ご要望) ▼▼▼ */
+    text-align: center !important;
     flex-shrink: 0;
 }
 .report-separator {
     border-top: 1px dashed #9ca3af;
-    /* ▼▼▼ [修正] (Req ⑤) グラフ用のマージンを復活 ▼▼▼ */
-    margin-bottom: 16px; 
+    margin-bottom: 16px; /* マージン調整 */
     flex-shrink: 0;
 }
 
@@ -280,13 +277,12 @@ body{
 }
 
 
-/* ▼▼▼ [修正] 著作権フッター (Req ②: 余白最小化) ▼▼▼ */
+/* ▼▼▼ [修正] 著作権フッター (高さを詰めて最下部に配置) ▼▼▼ */
 .report-copyright {
     font-size: 12pt;
     text-align: center;
     color: #6b7280;
-    /* ▼▼▼ [修正] (Req ②) padding-top: 8px -> 2px ▼▼▼ */
-    padding-top: 2px; 
+    padding-top: 8px; /* 16px -> 8px */
     border-top: none; /* 1px solid #eee -> none */
     flex-shrink: 0; /* 縮まない */
     margin-top: auto; /* ★ Flexコンテナの最下部に配置 */
@@ -347,38 +343,24 @@ body{
     clip-path: polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%);
 }
 
-/* ▼▼▼ [修正] (Req ④) 市区町村テーブルのスタイル ▼▼▼ */
-.municipality-table-container {
-    /* ▼▼▼ [修正] (Req ④) 左右の余白を追加 ▼▼▼ */
-    padding-left: 2rem;
-    padding-right: 2rem;
-}
-.municipality-table {
-    width: 100%;
-    border-collapse: collapse; /* 線を重ねる */
-}
-.municipality-table th, 
-.municipality-table td {
-    /* ▼▼▼ [修正] (Req ④) 縦線を追加 ▼▼▼ */
-    border: 1px solid #d1d5db; /* gray-300 */
-    padding: 6px 12px;
+/* 表のフォントサイズ (変更なし) */
+.municipality-table-container table {
     font-size: 10pt;
 }
-.municipality-table th {
-    background-color: #f9fafb; /* bg-gray-50 */
+.municipality-table-container th, 
+.municipality-table-container td {
+    padding: 6px 12px;
 }
-
 
 /* ▼▼▼ [修正] コメント編集用textarea を削除し、表示用スタイルを追加 ▼▼▼ */
 /* .comment-edit-textarea { ... } (削除) */
 
 /* [新規] コメント表示用スタイル (編集不可) */
 .comment-display-item {
-    /* ▼▼▼ [修正] 12pt -> 9pt (ルール④,⑥対応: スクロールなしで収めるため) ▼▼▼ */
-    font-size: 9pt;
-    line-height: 1.4; /* 1.5 -> 1.4 */
+    font-size: 12pt;
+    line-height: 1.5;
     white-space: pre-wrap; /* 改行をそのまま表示 */
-    padding: 2px 0; /* 4px -> 2px */
+    padding: 4px 0;
     border-bottom: 1px solid #eee; /* 項目間の薄い線 */
     word-break: break-word;
 }
