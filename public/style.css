@@ -181,7 +181,7 @@ body{
     aspect-ratio: 297 / 210; 
     min-height: 793px; 
     margin: 0 auto;
-    padding: 40px;
+    padding: 40px 40px 20px 40px; /* [変更⑥] 下余白を減らして本文領域を拡大 */
     border: 8px solid #fcf1ed; 
     border-radius: 12px;
     background-color: #ffffff;
@@ -281,7 +281,8 @@ body{
     font-size: 12pt;
     text-align: center;
     color: #6b7280;
-    padding-top: 8px;
+    padding-top: 4px; /* [変更⑥] 上余白を減少 */
+    padding-bottom: 0; /* [変更⑥] 下余白を削除 */
     border-top: none; 
     flex-shrink: 0; 
     margin-top: auto; /* ★ Flexコンテナの最下部に配置 */
@@ -409,7 +410,7 @@ body{
     border-radius: 12px;
     padding: clamp(8px, 1.2vw, 16px);
     background: #fff;
-    font-size: 16px; /* ④ 文字サイズは16固定（Google ChartsはJS側でも指定） */
+    font-size: 14px; /* [変更④] 文字サイズは14固定（Google ChartsはJS側でも指定） */
 }
 .chart-canvas{       /* [追加] Canvas 背景も #ffff95（WCなど） */
     width: 100%;

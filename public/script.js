@@ -409,7 +409,7 @@ async function prepareAndShowReport(reportType) {
   
   const slideBody = document.getElementById('slide-body');
   slideBody.innerHTML = '';
-  slideBody.style.overflowY = 'hidden';
+  slideBody.style.overflowY = 'hidden'; // ②スクロール禁止
   slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
   showCopyrightFooter(reportType !== 'cover');
 
@@ -648,9 +648,9 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     is3D: true,
     chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
     pieSliceText: 'percentage',
-    pieSliceTextStyle: { color: 'black', fontSize: 16, bold: true },
-    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 16 } },
-    tooltip: { showColorCode: true, textStyle: { fontSize: 16 }, trigger: 'focus' },
+    pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
+    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
+    tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
     backgroundColor: '#ffff95'
   };
   const cdEl = document.getElementById('clinic-pie-chart');
@@ -675,10 +675,10 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
 
 function drawIncomeCharts(clinicData, overallData) {
   const opt = {
-    legend: { position: 'none', textStyle: { fontSize: 16 } },
-    annotations: { textStyle: { fontSize: 16, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
-    vAxis: { format: "#.##'%'", viewWindow: { min: 0 }, textStyle: { fontSize: 16 }, titleTextStyle: { fontSize: 16 } },
-    hAxis: { textStyle: { fontSize: 16 }, titleTextStyle: { fontSize: 16 } },
+    legend: { position: 'none', textStyle: { fontSize: 14 } },
+    annotations: { textStyle: { fontSize: 14, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
+    vAxis: { format: "#.##'%'", viewWindow: { min: 0 }, textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
+    hAxis: { textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
     chartArea: { height: '75%', width: '90%', left: '5%', top: '5%', backgroundColor: '#ffff95' },
     backgroundColor: '#ffff95',
     colors: ['#DE5D83']
@@ -717,10 +717,10 @@ function drawNpsScoreCharts(clinicData, overallData) {
     }
   }
   const opt = {
-    legend: { position: 'none', textStyle: { fontSize: 16 } },
-    annotations: { textStyle: { fontSize: 16, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
-    vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle: { fontSize: 16 }, titleTextStyle: { fontSize: 16 } },
-    hAxis: { title: '推奨度スコア (0〜10)', textStyle: { fontSize: 16 }, titleTextStyle: { fontSize: 16 } },
+    legend: { position: 'none', textStyle: { fontSize: 14 } },
+    annotations: { textStyle: { fontSize: 14, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
+    vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
+    hAxis: { title: '推奨度スコア (0〜10)', textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
     bar: { groupWidth: '80%' },
     isStacked: false,
     chartArea: { height: '75%', width: '90%', left: '5%', top: '5%', backgroundColor: '#ffff95' },
@@ -944,7 +944,7 @@ async function prepareAndShowMunicipalityReport() {
   slideBody.style.whiteSpace = 'normal';
   slideBody.innerHTML = '<p class="text-center text-gray-500 py-16">市区町村データを読み込み中...</p>';
   slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
-  slideBody.style.overflowY = 'auto';
+  slideBody.style.overflowY = 'auto'; // 市区町村表のみスクロール許可
   
   showLoading(true, '市区町村データを読み込み中...');
   
@@ -977,15 +977,20 @@ function displayMunicipalityTable(data) {
     slideBody.innerHTML = '<p class="text-center text-gray-500 py-16">集計データがありません。</p>'; 
     return; 
   } 
-  // ▼▼▼ [修正] 「不明」を割合に関係なく最下段へ ▼▼▼
+  // ▼▼▼ [修正③] 「不明」を割合に関係なく最下段へ ▼▼▼
   const rows = Array.isArray(data) ? [...data] : [];
-  rows.sort((a, b) => {
-    const aUnk = a.municipality === '不明';
-    const bUnk = b.municipality === '不明';
-    if (aUnk && !bUnk) return 1;
-    if (!aUnk && bUnk) return -1;
-    return 0; // それ以外は元の順序を維持
+  const unknownRows = [];
+  const normalRows = [];
+
+  rows.forEach(row => {
+    if (row.municipality === '不明') {
+      unknownRows.push(row);
+    } else {
+      normalRows.push(row);
+    }
   });
+
+  const sortedRows = [...normalRows, ...unknownRows];
 
   let tableHtml = `
     <div class="municipality-table-container w-full h-full border border-gray-200 rounded-lg">
@@ -999,8 +1004,8 @@ function displayMunicipalityTable(data) {
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-  `; 
-  rows.forEach(row => { 
+  `;
+  sortedRows.forEach(row => { 
     tableHtml += `
       <tr>
         <td class="py-2 font-medium text-gray-900">${row.prefecture}</td>
@@ -1073,9 +1078,9 @@ async function prepareAndShowRecommendationReport() {
       is3D: true,
       chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
       pieSliceText: 'percentage',
-      pieSliceTextStyle: { color: 'black', fontSize: 16, bold: true },
-      legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 16 } },
-      tooltip: { showColorCode: true, textStyle: { fontSize: 16 }, trigger: 'focus' },
+      pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
+      legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
+      tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
       backgroundColor: '#ffff95'
     };
     const clinicChartEl = document.getElementById('clinic-pie-chart');
@@ -1169,7 +1174,7 @@ async function prepareAndShowAnalysis(columnType) {
   
   slideBody.innerHTML = `
     <div class="grid grid-cols-2 gap-4 h-full">
-      <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2">
+      <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2 chart-wc-left">
         <div id="noun-chart-container" class="chart-container h-full">
           <h3 class="font-bold text-center mb-0 text-blue-600 text-sm">名詞</h3>
           <div id="noun-chart" class="w-full h-[calc(100%-20px)]"></div>
@@ -1525,15 +1530,15 @@ function handleTabClick(event) {
   if (tabId) switchTab(tabId);
 }
 
-// [置き換え] タブ切り替え本体
-async function switchTab(tabId) { 
+// [置き換え] タブ切り替え本体（①ページ切り替えの時と同じように差し替え描画）
+async function switchTab(tabId) {
   console.log(`Switching tab to: ${tabId}`);
-  
+
   // 1. APIから該当セルを取得
   showLoading(true, '分析データを読み込み中...');
   const errorDiv = document.getElementById('detailed-analysis-error');
   errorDiv.classList.add('hidden');
-  
+
   let content = '（データがありません）';
   let pentagonText = '...';
 
@@ -1544,15 +1549,15 @@ async function switchTab(tabId) {
       body: JSON.stringify({
         centralSheetId: currentCentralSheetId,
         clinicName: currentClinicForModal,
-        columnType: currentDetailedAnalysisType, // (例: 'L')
-        tabId: tabId // (例: 'suggestions')
+        columnType: currentDetailedAnalysisType,
+        tabId: tabId
       })
     });
-        
+
     if (!response.ok) {
       throw new Error(`APIエラー (${response.status}): ${await response.text()}`);
     }
-        
+
     const data = await response.json();
     content = data.content;
     pentagonText = data.pentagonText;
@@ -1561,11 +1566,11 @@ async function switchTab(tabId) {
     console.error('Failed to fetch single analysis cell:', err);
     errorDiv.textContent = `データ読み込み失敗: ${err.message}`;
     errorDiv.classList.remove('hidden');
-    
+
   } finally {
     showLoading(false);
   }
-  
+
   // 2. タブの active 表示更新
   document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => {
     const isActive = button.dataset.tabId === tabId;
@@ -1573,31 +1578,36 @@ async function switchTab(tabId) {
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
 
-  // 3. コンテナの表示切替
-  const allContainers = document.querySelectorAll('#detailed-analysis-content-area .ai-analysis-container');
-  const activeContent = document.getElementById(`content-${tabId}`);
-  allContainers.forEach(c => c.classList.add('hidden'));
+  // 3. ▼▼▼ [修正①] CSS差し替え（.ai-panel の .is-active 切替）でスムーズに表示変更 ▼▼▼
+  const allPanels = document.querySelectorAll('#detailed-analysis-content-area .ai-panel');
+  const activePanel = document.getElementById(`content-${tabId}`);
 
-  if (activeContent) {
-    activeContent.classList.remove('hidden');
-    
+  allPanels.forEach(panel => {
+    panel.classList.remove('is-active');
+    panel.setAttribute('aria-hidden', 'true');
+  });
+
+  if (activePanel) {
+    activePanel.classList.add('is-active');
+    activePanel.setAttribute('aria-hidden', 'false');
+
     // 五角形テキスト
-    const shape = activeContent.querySelector('.ai-analysis-shape'); 
+    const shape = activePanel.querySelector('.ai-analysis-shape');
     if (shape) {
       shape.textContent = pentagonText;
     }
-    
+
     // 本文
-    const displayContent = activeContent.querySelector('.ai-analysis-content');
+    const displayContent = activePanel.querySelector('.ai-analysis-content');
     if (displayContent) {
       displayContent.textContent = content;
       if (!isEditingDetailedAnalysis) {
         adjustFontSize(displayContent);
       }
     }
-    
+
     // 編集用Textarea
-    const textarea = activeContent.querySelector('.edit-textarea');
+    const textarea = activePanel.querySelector('.edit-textarea');
     if (textarea) {
       textarea.value = content;
     }
