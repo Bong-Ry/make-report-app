@@ -1686,16 +1686,22 @@ async function switchTab(tabId) {
     // 五角形テキスト
     const shape = activePanel.querySelector('.ai-analysis-shape');
     if (shape) {
+      console.log(`[switchTab] Updating pentagon text to: ${pentagonText}`);
       shape.textContent = pentagonText;
+    } else {
+      console.error(`[switchTab] Pentagon shape element not found in panel: content-${tabId}`);
     }
 
     // 本文
     const displayContent = activePanel.querySelector('.ai-analysis-content');
     if (displayContent) {
+      console.log(`[switchTab] Updating content (length: ${content.length})`);
       displayContent.textContent = content;
       if (!isEditingDetailedAnalysis) {
         adjustFontSize(displayContent);
       }
+    } else {
+      console.error(`[switchTab] Display content element not found in panel: content-${tabId}`);
     }
 
     // 編集用Textarea
@@ -1703,6 +1709,8 @@ async function switchTab(tabId) {
     if (textarea) {
       textarea.value = content;
     }
+  } else {
+    console.error(`[switchTab] Active panel not found: content-${tabId}`);
   }
 }
 // =================================================================
