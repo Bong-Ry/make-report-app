@@ -95,11 +95,11 @@ body{
 #loading-overlay > div > div { border-top-color: #333; border-bottom-color: #333; }
 
 /* Word Cloud/Chartのコンテナ */
-.chart-container { 
-    overflow: hidden; 
-    border: 1px solid #e5e7eb; 
-    border-radius: 0.5rem; 
-    padding: 0.5rem;
+.chart-container {
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 0.25rem; /* 0.5rem → 0.25rem に縮小 */
     background-color: #f9fafb;
     display: flex;
     flex-direction: column;
@@ -208,7 +208,7 @@ body{
 }
 .report-separator {
     border-top: 1px dashed #9ca3af;
-    margin-bottom: 16px;
+    margin-bottom: 2px; /* 16px → 2px に縮小 */
     flex-shrink: 0;
 }
 

@@ -1266,31 +1266,29 @@ async function prepareAndShowAnalysis(columnType) {
   
   slideBody.innerHTML = `
     <div class="grid grid-cols-2 gap-4 h-full">
-      <div class="grid grid-cols-2 grid-rows-2 gap-2 h-full pr-2 chart-wc-left">
+      <div class="grid grid-cols-2 grid-rows-2 gap-1 h-full pr-2 chart-wc-left">
         <div id="noun-chart-container" class="chart-container h-full">
-          <h3 class="font-bold text-center mb-0 text-blue-600 text-sm">名詞</h3>
-          <div id="noun-chart" class="w-full h-[calc(100%-20px)]"></div>
+          <h3 class="font-bold text-center mb-0 text-blue-600 text-sm leading-tight">名詞</h3>
+          <div id="noun-chart" class="w-full h-[calc(100%-18px)]"></div>
         </div>
         <div id="verb-chart-container" class="chart-container h-full">
-          <h3 class="font-bold text-center mb-0 text-red-600 text-sm">動詞</h3>
-          <div id="verb-chart" class="w-full h-[calc(100%-20px)]"></div>
+          <h3 class="font-bold text-center mb-0 text-red-600 text-sm leading-tight">動詞</h3>
+          <div id="verb-chart" class="w-full h-[calc(100%-18px)]"></div>
         </div>
         <div id="adj-chart-container" class="chart-container h-full">
-          <h3 class="font-bold text-center mb-0 text-green-600 text-sm">形容詞</h3>
-          <div id="adj-chart" class="w-full h-[calc(100%-20px)]"></div>
+          <h3 class="font-bold text-center mb-0 text-green-600 text-sm leading-tight">形容詞</h3>
+          <div id="adj-chart" class="w-full h-[calc(100%-18px)]"></div>
         </div>
         <div id="int-chart-container" class="chart-container h-full">
-          <h3 class="font-bold text-center mb-0 text-gray-600 text-sm">感動詞</h3>
-          <div id="int-chart" class="w-full h-[calc(100%-20px)]"></div>
+          <h3 class="font-bold text-center mb-0 text-gray-600 text-sm leading-tight">感動詞</h3>
+          <div id="int-chart" class="w-full h-[calc(100%-18px)]"></div>
         </div>
       </div>
-      <div class="space-y-2 flex flex-col h-full">
-        <p class="text-sm text-gray-600 text-left px-2">
-          スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>
-          単語の色は品詞の種類で異なります。<br>
-          <span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span>
+      <div class="flex flex-col h-full">
+        <p class="text-sm text-gray-600 text-left px-2 leading-tight mb-1">
+          スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。単語の色は品詞の種類で異なります。<span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span>
         </p>
-        <div id="word-cloud-container" class="h-[calc(100%-60px)] border border-gray-200"> 
+        <div id="word-cloud-container" class="flex-1 border border-gray-200"> 
           <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
         </div>
         <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
