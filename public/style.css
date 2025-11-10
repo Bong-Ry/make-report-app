@@ -1,4 +1,4 @@
-/* public/style.css (ファイル5) */
+/* public/style.css (ファイル5)  ——— 修正後・完全版（省略なし） */
 
 body{
     font-family:'Noto Sans JP', sans-serif;
@@ -103,15 +103,23 @@ body{
     background-color: #f9fafb;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: center; /* [変更] 中央配置（もともと flex-start） */
     align-items: center;
     height: 100%;
 }
-#word-cloud-canvas { width: 100%; height: 100%; border: 1px solid #e5e7eb; border-radius: 0.5rem; background-color: #f9fafb; cursor: default; }
+/* WordCloud キャンバス */
+#word-cloud-canvas { 
+    width: 100%; 
+    height: 100%; 
+    border: 1px solid #e5e7eb; 
+    border-radius: 0.5rem; 
+    background-color: #ffff95; /* [変更] ④ グラフ背景を #ffff95 に統一 */
+    cursor: default; 
+}
 
 /* グラフ背景色 */
 .clinic-graph-bg-yellow {
-    background-color: #FFFFE0; /* 薄い黄色 */
+    background-color: #ffff95; /* [変更] ④ 指定色に合わせる（#FFFFE0 → #ffff95） */
 }
 
 /* AI分析タブ */
@@ -347,4 +355,79 @@ body{
     padding: 4px 0;
     border-bottom: 1px solid #eee; /* 項目間の薄い線 */
     word-break: break-word;
+}
+
+
+/* ======== ここから要件のための追加スタイル ======== */
+
+/* ② 本文スクロール禁止 + 自動フィット用フック */
+.fit-text{           /* [追加] すべての“シート本文”ラッパへ付与 */
+    overflow: hidden;
+    position: relative;
+}
+[data-fit-target]{   /* [追加] JSで scale() を当てる対象（タイトル/本文など） */
+    --fit-scale: 1;
+    transform: scale(var(--fit-scale));
+    transform-origin: top center;
+    will-change: transform;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* ① AI分析タブ：差し替え表示を滑らかにするアニメ下地 */
+.ai-panel{           /* [追加] 非アクティブ */
+    display: none;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .18s ease, transform .18s ease;
+}
+.ai-panel.is-active{ /* [追加] アクティブ */
+    display: flex;              /* 既存の .ai-analysis-container と同等のレイアウト */
+    opacity: 1;
+    transform: none;
+}
+
+/* ④ グラフの“中央配置”を徹底する補助 */
+.center-charts{      /* [追加] スライド内のグラフラッパ */
+    display: block;
+}
+.chart-grid{         /* [追加] 2カラム→SPで1カラム */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-items: center;
+    justify-items: center;
+    margin-top: 10px;
+}
+.chart-slot{         /* [追加] グラフスロットの基本（中央揃え） */
+    width: 100%;
+    min-height: clamp(200px, 28vh, 420px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: clamp(8px, 1.2vw, 16px);
+    background: #fff;
+    font-size: 16px; /* ④ 文字サイズは16固定（Google ChartsはJS側でも指定） */
+}
+.chart-canvas{       /* [追加] Canvas 背景も #ffff95（WCなど） */
+    width: 100%;
+    height: 100%;
+    background: #ffff95;
+    border-radius: 8px;
+    display: block;
+}
+/* ⑤ WC 左グラフ 下余白圧縮 */
+.chart-wc-left{      /* [追加] JSのaxis/padding調整と併用 */
+    padding-bottom: clamp(4px, 0.5vw, 8px);
+    line-height: 0;
+}
+
+/* ③ 市区町村テーブル（HTML側: .municipality-table-container を継続使用） */
+/*   “不明” を末尾に送るのは JS の並べ替えで実施。CSS追加は不要 */
+
+/* レスポンシブ補助 */
+@media (max-width: 1024px){
+    .chart-grid{ grid-template-columns: 1fr; }
 }

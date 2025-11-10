@@ -5,234 +5,298 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>レポートアプリ</title>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Libs -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.1.1/wordcloud2.min.js"></script>
 
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-  
+
+  <!-- Custom CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="text-gray-900">
+<body class="text-gray-900 font-['Noto_Sans_JP']">
 
-  <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50 hidden"><div class="flex flex-col items-center"><div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-gray-800"></div><p id="loading-message" class="mt-4 text-lg font-semibold text-gray-800"></p></div></div>
-
-  <div id="screen1" class="screen">
-    <div class="card max-w-lg mx-auto mt-12">
-      <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-gray-800">集計期間の選択</h1>
-        <p class="text-sm text-gray-500 mt-2">レポートを生成する期間を設定してください。</p>
-      </div>
-      <div class="space-y-6">
-        <div>
-          <label for="start-year" class="font-bold text-gray-700 mb-2 block text-sm">開始年月</label>
-          <div class="grid grid-cols-2 gap-4">
-            <select id="start-year" class="select-box"></select>
-            <select id="start-month" class="select-box"></select>
-          </div>
-        </div>
-        <div>
-          <label for="end-year" class="font-bold text-gray-700 mb-2 block text-sm">終了年月</label>
-          <div class="grid grid-cols-2 gap-4">
-            <select id="end-year" class="select-box"></select>
-            <select id="end-month" class="select-box"></select>
-          </div>
-        </div>
-        <div class="pt-4 border-t mt-6">
-          <button id="next-to-clinics" class="btn w-full bg-gray-800 text-white hover:bg-gray-700">次へ進む</button>
-        </div>
-      </div>
+  <!-- ローディング -->
+  <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50 hidden">
+    <div class="flex flex-col items-center">
+      <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-gray-800"></div>
+      <p id="loading-message" class="mt-4 text-lg font-semibold text-gray-800"></p>
     </div>
   </div>
 
-  <div id="screen2" class="screen hidden">
-    <header class="flex justify-between items-center mb-6 pb-4 border-b">
-      <button id="back-to-period" class="btn">&lt; 期間選択へ戻る</button>
-      <div id="period-display" class="text-base font-semibold text-gray-700 bg-white py-2 px-4 rounded-lg shadow-sm border"></div>
-    </header>
-    <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:px-8">
-      <section class="card">
-        <h2 class="text-xl font-bold mb-5">1. クリニックを選択 (未転記)</h2>
-        <div id="clinic-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2 border rounded-lg p-4 bg-gray-50">
-          <p class="text-sm text-gray-500 text-center py-4">読み込み中...</p>
-        </div>
-        <div class="mt-6 text-right">
-          <button id="issue-btn" class="btn bg-gray-800 text-white hover:bg-gray-700" disabled>データ転記実行</button>
-        </div>
-      </section>
-      <section class="card">
-        <h2 class="text-xl font-bold mb-5">2. レポートを閲覧 (転記済み)</h2>
-        <div id="issued-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2">
-          <p class="text-sm text-gray-500 text-center py-8">読み込み中...</p>
-        </div>
-      </section>
-    </main>
-  </div>
+  <!-- ピンク枠のフレーム：本文最大化 + フッターを枠直上に吸着（⑥） -->
+  <div id="app-frame" class="app-frame">
 
-  <div id="screen3" class="screen hidden">
-    <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
-      <div id="report-nav" class="flex flex-wrap justify-center items-center gap-2">
-        <button data-report-type="cover" class="btn">表紙</button>
-        <button data-report-type="toc" class="btn">目次</button>
-        <button data-report-type="summary" class="btn">概要</button>
-        <button data-report-type="age" class="btn">年代</button>
-        <button data-report-type="children" class="btn">お子様数</button>
-        <button data-report-type="income" class="btn">世帯年収</button>
-        <button data-report-type="municipality" class="btn">市区町村</button>
-        <button data-report-type="satisfaction_b" class="btn">満足度</button>
-        <button data-report-type="satisfaction_c" class="btn">施設</button>
-        <button data-report-type="satisfaction_d" class="btn">アクセス</button>
-        <button data-report-type="satisfaction_e" class="btn">費用</button>
-        <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
-        <button data-report-type="satisfaction_g" class="btn">スタッフ</button>
-        <button data-report-type="satisfaction_h" class="btn">先生</button>
-        <button data-report-type="recommendation" class="btn">おすすめ理由</button>
-        <button data-report-type="nps_score" class="btn">NPS値</button>
-        <button data-report-type="nps" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">NPS理由</button>
-        <button data-report-type="feedback_i" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">良かった点</button>
-        <button data-report-type="feedback_j" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">印象スタッフ</button>
-        <button data-report-type="feedback_m" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">お産意見</button>
-        <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-NPS</button>
-        <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-良い点</button>
-        <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-スタッフ</button>
-        <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-お産</button>
-        <button data-detailed-analysis-type="L" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-NPS</button>
-        <button data-detailed-analysis-type="I_bad" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-悪い点</button>
-        <button data-detailed-analysis-type="I_good" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-良い点</button>
-        <button data-detailed-analysis-type="J" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-スタッフ</button>
-        <button data-detailed-analysis-type="M" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-お産</button>
-      </div>
-      <div class="flex items-center gap-4">
-        <button id="pdf-export-btn" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button>
-        <button id="back-to-clinics" class="btn">院一覧へ戻る</button>
-      </div>
-    </header>
-    
-    <div id="slide-header" class="mb-4"> <div id="comment-sub-nav"></div>
-      <div id="comment-controls"></div>
-    </div>
-    <main class="report-body">
-      
-      <h1 id="report-title" class="report-title"></h1>
-      
-      <p id="report-subtitle" class="report-subtitle"></p>
-      
-      <hr id="report-separator" class="report-separator">
-      
-      <div id="slide-content" class="report-content">
-        <div id="slide-body" class="h-full">
-          <p class="text-center text-gray-500 py-16">レポートタイプを選択してください</p>
+    <!-- ================= screen1: 期間選択 ================= -->
+    <div id="screen1" class="screen">
+      <div class="card max-w-lg mx-auto mt-12">
+        <div class="text-center mb-8">
+          <h1 class="text-2xl font-bold text-gray-800">集計期間の選択</h1>
+          <p class="text-sm text-gray-500 mt-2">レポートを生成する期間を設定してください。</p>
+        </div>
+        <div class="space-y-6">
+          <div>
+            <label for="start-year" class="font-bold text-gray-700 mb-2 block text-sm">開始年月</label>
+            <div class="grid grid-cols-2 gap-4">
+              <select id="start-year" class="select-box"></select>
+              <select id="start-month" class="select-box"></select>
+            </div>
+          </div>
+          <div>
+            <label for="end-year" class="font-bold text-gray-700 mb-2 block text-sm">終了年月</label>
+            <div class="grid grid-cols-2 gap-4">
+              <select id="end-year" class="select-box"></select>
+              <select id="end-month" class="select-box"></select>
+            </div>
+          </div>
+          <div class="pt-4 border-t mt-6">
+            <button id="next-to-clinics" class="btn w-full bg-gray-800 text-white hover:bg-gray-700">次へ進む</button>
+          </div>
         </div>
       </div>
-      
-      <div id="report-copyright" class="report-copyright" style="display: none;">
-        © 2025 Commit Corporation. All Rights Reserved.
-      </div>
-      
+    </div>
+
+    <!-- ================= screen2: クリニック選択 / 転記 ================= -->
+    <div id="screen2" class="screen hidden">
+      <header class="flex justify-between items-center mb-6 pb-4 border-b">
+        <button id="back-to-period" class="btn">&lt; 期間選択へ戻る</button>
+        <div id="period-display" class="text-base font-semibold text-gray-700 bg-white py-2 px-4 rounded-lg shadow-sm border"></div>
+      </header>
+      <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:px-8">
+        <section class="card">
+          <h2 class="text-xl font-bold mb-5">1. クリニックを選択 (未転記)</h2>
+          <!-- ② 本文のスクロール禁止は“レポート本文”のみ対象にするので、ここは従来通りスクロール可 -->
+          <div id="clinic-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2 border rounded-lg p-4 bg-gray-50">
+            <p class="text-sm text-gray-500 text-center py-4">読み込み中...</p>
+          </div>
+          <div class="mt-6 text-right">
+            <button id="issue-btn" class="btn bg-gray-800 text-white hover:bg-gray-700" disabled>データ転記実行</button>
+          </div>
+        </section>
+        <section class="card">
+          <h2 class="text-xl font-bold mb-5">2. レポートを閲覧 (転記済み)</h2>
+          <div id="issued-list-container" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+            <p class="text-sm text-gray-500 text-center py-8">読み込み中...</p>
+          </div>
+        </section>
       </main>
-  </div>
-  
-  <div id="screen5" class="screen hidden">
-    <header class="mb-6 flex flex-col space-y-4 pb-6 border-b border-gray-200">
-        <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div id="report-nav-screen5" class="flex flex-wrap justify-center items-center gap-2">
-                <button data-report-type="cover" class="btn">表紙</button>
-                <button data-report-type="toc" class="btn">目次</button>
-                <button data-report-type="summary" class="btn">概要</button>
-                <button data-report-type="age" class="btn">年代</button>
-                <button data-report-type="children" class="btn">お子様数</button>
-                <button data-report-type="income" class="btn">世帯年収</button>
-                <button data-report-type="municipality" class="btn">市区町村</button>
-                <button data-report-type="satisfaction_b" class="btn">満足度</button>
-                <button data-report-type="satisfaction_c" class="btn">施設</button>
-                <button data-report-type="satisfaction_d" class="btn">アクセス</button>
-                <button data-report-type="satisfaction_e" class="btn">費用</button>
-                <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
-                <button data-report-type="satisfaction_g" class="btn">スタッフ</button>
-                <button data-report-type="satisfaction_h" class="btn">先生</button>
-                <button data-report-type="recommendation" class="btn">おすすめ理由</button>
-                <button data-report-type="nps_score" class="btn">NPS値</button>
-                <button data-report-type="nps" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">NPS理由</button>
-                <button data-report-type="feedback_i" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">良かった点</button>
-                <button data-report-type="feedback_j" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">印象スタッフ</button>
-                <button data-report-type="feedback_m" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">お産意見</button>
-                <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-NPS</button>
-                <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-良い点</button>
-                <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-スタッフ</button>
-                <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-お産</button>
-                <button data-detailed-analysis-type="L" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-NPS</button>
-                <button data-detailed-analysis-type="I_bad" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-悪い点</button>
-                <button data-detailed-analysis-type="I_good" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-良い点</button>
-                <button data-detailed-analysis-type="J" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-スタッフ</button>
-                <button data-detailed-analysis-type="M" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-お産</button>
-            </div>
-            <div class="flex items-center gap-4">
-                 <button id="pdf-export-btn-screen5" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button>
-                 <button id="back-to-clinics-from-detailed-analysis" class="btn">院一覧へ戻る</button>
-            </div>
-        </div>
-        
-        <div class="mt-4 flex justify-between items-center">
-            <div class="border-b border-gray-200">
-                <nav id="ai-tab-nav" class="flex -mb-px" aria-label="Tabs">
-                    <button id="tab-analysis" data-tab-id="analysis" class="tab-button active">分析と考察</button>
-                    <button id="tab-suggestions" data-tab-id="suggestions" class="tab-button">改善提案</button>
-                    <button id="tab-overall" data-tab-id="overall" class="tab-button">総評</button>
-                </nav>
-            </div>
-            <div class="flex items-center gap-4">
-                <button id="regenerate-detailed-analysis-btn" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">AI分析を再実行</button>
-                <button id="edit-detailed-analysis-btn" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">編集</button>
-                <button id="save-detailed-analysis-btn" class="btn !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white hidden">保存</button>
-                <button id="cancel-edit-detailed-analysis-btn" class="btn !border-gray-600 !text-gray-600 hover:!bg-gray-600 hover:!text-white hidden">キャンセル</button>
-            </div>
-        </div>
-    </header>
-    
-    <main class="report-body">
-      
-      <h1 id="detailed-analysis-title" class="report-title"></h1>
-      
-      <p id="detailed-analysis-subtitle" class="report-subtitle"></p>
-      
-      <hr class="report-separator">
+    </div>
 
-      <div id="detailed-analysis-content-area" class="report-content">
-          <div id="content-analysis" class="ai-analysis-container">
-              <div class="ai-analysis-sidebar">
-                  <div class="ai-analysis-shape">分析と考察</div>
+    <!-- ================= screen3: レポート本体 ================= -->
+    <div id="screen3" class="screen hidden sheet-screen">
+      <header class="mb-6 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pb-6 border-b border-gray-200">
+        <div id="report-nav" class="flex flex-wrap justify-center items-center gap-2">
+          <button data-report-type="cover" class="btn">表紙</button>
+          <button data-report-type="toc" class="btn">目次</button>
+          <button data-report-type="summary" class="btn">概要</button>
+          <button data-report-type="age" class="btn">年代</button>
+          <button data-report-type="children" class="btn">お子様数</button>
+          <button data-report-type="income" class="btn">世帯年収</button>
+          <button data-report-type="municipality" class="btn">市区町村</button>
+          <button data-report-type="satisfaction_b" class="btn">満足度</button>
+          <button data-report-type="satisfaction_c" class="btn">施設</button>
+          <button data-report-type="satisfaction_d" class="btn">アクセス</button>
+          <button data-report-type="satisfaction_e" class="btn">費用</button>
+          <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
+          <button data-report-type="satisfaction_g" class="btn">スタッフ</button>
+          <button data-report-type="satisfaction_h" class="btn">先生</button>
+          <button data-report-type="recommendation" class="btn">おすすめ理由</button>
+          <button data-report-type="nps_score" class="btn">NPS値</button>
+          <button data-report-type="nps" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">NPS理由</button>
+          <button data-report-type="feedback_i" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">良かった点</button>
+          <button data-report-type="feedback_j" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">印象スタッフ</button>
+          <button data-report-type="feedback_m" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">お産意見</button>
+          <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-NPS</button>
+          <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-良い点</button>
+          <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-スタッフ</button>
+          <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-お産</button>
+          <button data-detailed-analysis-type="L" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-NPS</button>
+          <button data-detailed-analysis-type="I_bad" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-悪い点</button>
+          <button data-detailed-analysis-type="I_good" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-良い点</button>
+          <button data-detailed-analysis-type="J" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-スタッフ</button>
+          <button data-detailed-analysis-type="M" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-お産</button>
+        </div>
+        <div class="flex items-center gap-4">
+          <button id="pdf-export-btn" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button>
+          <button id="back-to-clinics" class="btn">院一覧へ戻る</button>
+        </div>
+      </header>
+
+      <div id="slide-header" class="mb-4">
+        <div id="comment-sub-nav"></div>
+        <div id="comment-controls"></div>
+      </div>
+
+      <!-- ② 本文はスクロール禁止 + 自動フィット（fit-text） -->
+      <main class="report-body fit-text" data-fit-scope="sheet">
+        <h1 id="report-title" class="report-title" data-fit-target></h1>
+        <p id="report-subtitle" class="report-subtitle" data-fit-target></p>
+
+        <hr id="report-separator" class="report-separator">
+
+        <!-- ④ グラフ中央配置 & 背景 #ffff95 のためのラッパ。Google Chartsもここに描画 -->
+        <div id="slide-content" class="report-content center-charts">
+          <div id="slide-body" class="h-full" data-fit-target>
+            <p class="text-center text-gray-500 py-16">レポートタイプを選択してください</p>
+
+            <!-- ③ 市区町村表（JSが行を生成）。data-unknown="true" を末尾へ（JSで制御） -->
+            <div id="municipality-table-wrap" class="table-wrap hidden">
+              <table id="municipality-table" class="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">市区町村</th>
+                    <th scope="col">件数</th>
+                    <th scope="col">割合</th>
+                  </tr>
+                </thead>
+                <tbody><!-- JSで生成 --></tbody>
+              </table>
+            </div>
+
+            <!-- ④⑤ WCグラフ用のスロット（左の下余白圧縮はCSS & 後述JSでさらに詰める） -->
+            <div id="wc-charts" class="chart-grid hidden">
+              <div id="wc-left-container" class="chart-slot chart-wc-left">
+                <canvas id="wc-left" class="chart-canvas"></canvas>
               </div>
-              <div id="display-analysis" class="ai-analysis-content"></div>
-              <div id="edit-analysis" class="hidden w-4/5"> <textarea id="textarea-analysis" class="edit-textarea"></textarea></div>
-          </div>
-          <div id="content-suggestions" class="ai-analysis-container hidden">
-               <div class="ai-analysis-sidebar">
-                  <div class="ai-analysis-shape">改善提案</div>
+              <div id="wc-right-container" class="chart-slot">
+                <canvas id="wc-right" class="chart-canvas"></canvas>
               </div>
-              <div id="display-suggestions" class="ai-analysis-content"></div>
-              <div id="edit-suggestions" class="hidden w-4/5"> <textarea id="textarea-suggestions" class="edit-textarea"></textarea></div>
-          </div>
-          <div id="content-overall" class="ai-analysis-container hidden">
-               <div class="ai-analysis-sidebar">
-                  <div class="ai-analysis-shape">総評</div>
+            </div>
+
+            <!-- ④ Google Charts用のスロット（NPSなど） -->
+            <div id="gc-charts" class="chart-grid hidden">
+              <div class="chart-slot gc-chart-slot">
+                <div id="gc-chart-1" class="gc-chart"></div>
               </div>
-              <div id="display-overall" class="ai-analysis-content"></div>
-              <div id="edit-overall" class="hidden w-4/5"> <textarea id="textarea-overall" class="edit-textarea"></textarea></div>
+              <div class="chart-slot gc-chart-slot">
+                <div id="gc-chart-2" class="gc-chart"></div>
+              </div>
+            </div>
+
           </div>
+        </div>
+
+        <!-- ⑥ フッター（ピンク枠直上に吸着） -->
+        <div id="report-copyright" class="report-copyright">
+          © 2025 Commit Corporation. All Rights Reserved.
+        </div>
+      </main>
+    </div>
+
+    <!-- ================= screen5: 詳細AI分析（タブ切替高速化の下地） ================= -->
+    <div id="screen5" class="screen hidden sheet-screen">
+      <header class="mb-6 flex flex-col space-y-4 pb-6 border-b border-gray-200">
+        <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          <div id="report-nav-screen5" class="flex flex-wrap justify-center items-center gap-2">
+            <button data-report-type="cover" class="btn">表紙</button>
+            <button data-report-type="toc" class="btn">目次</button>
+            <button data-report-type="summary" class="btn">概要</button>
+            <button data-report-type="age" class="btn">年代</button>
+            <button data-report-type="children" class="btn">お子様数</button>
+            <button data-report-type="income" class="btn">世帯年収</button>
+            <button data-report-type="municipality" class="btn">市区町村</button>
+            <button data-report-type="satisfaction_b" class="btn">満足度</button>
+            <button data-report-type="satisfaction_c" class="btn">施設</button>
+            <button data-report-type="satisfaction_d" class="btn">アクセス</button>
+            <button data-report-type="satisfaction_e" class="btn">費用</button>
+            <button data-report-type="satisfaction_f" class="btn">雰囲気</button>
+            <button data-report-type="satisfaction_g" class="btn">スタッフ</button>
+            <button data-report-type="satisfaction_h" class="btn">先生</button>
+            <button data-report-type="recommendation" class="btn">おすすめ理由</button>
+            <button data-report-type="nps_score" class="btn">NPS値</button>
+            <button data-report-type="nps" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">NPS理由</button>
+            <button data-report-type="feedback_i" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">良かった点</button>
+            <button data-report-type="feedback_j" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">印象スタッフ</button>
+            <button data-report-type="feedback_m" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">お産意見</button>
+            <button data-analysis-type="L" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-NPS</button>
+            <button data-analysis-type="I" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-良い点</button>
+            <button data-analysis-type="J" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-スタッフ</button>
+            <button data-analysis-type="M" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">WC-お産</button>
+            <button data-detailed-analysis-type="L" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-NPS</button>
+            <button data-detailed-analysis-type="I_bad" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-悪い点</button>
+            <button data-detailed-analysis-type="I_good" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-良い点</button>
+            <button data-detailed-analysis-type="J" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-スタッフ</button>
+            <button data-detailed-analysis-type="M" data-tab-type="analysis" class="btn !border-purple-600 !text-purple-600 hover:!bg-purple-600 hover:!text-white">AI-お産</button>
+          </div>
+          <div class="flex items-center gap-4">
+            <button id="pdf-export-btn-screen5" class="btn bg-gray-800 text-white hover:bg-gray-700">PDF出力</button>
+            <button id="back-to-clinics-from-detailed-analysis" class="btn">院一覧へ戻る</button>
+          </div>
+        </div>
+
+        <!-- ① AI分析タブ：NPSコメントのページングと同じ“差し替え”描画に寄せるための下地 -->
+        <div class="mt-4 flex justify-between items-center">
+          <div class="border-b border-gray-200">
+            <nav id="ai-tab-nav" class="flex -mb-px" aria-label="Tabs">
+              <button id="tab-analysis" data-tab-id="analysis" class="tab-button active" role="tab" aria-selected="true" aria-controls="content-analysis">分析と考察</button>
+              <button id="tab-suggestions" data-tab-id="suggestions" class="tab-button" role="tab" aria-selected="false" aria-controls="content-suggestions">改善提案</button>
+              <button id="tab-overall" data-tab-id="overall" class="tab-button" role="tab" aria-selected="false" aria-controls="content-overall">総評</button>
+            </nav>
+          </div>
+          <div class="flex items-center gap-4">
+            <button id="regenerate-detailed-analysis-btn" class="btn !border-red-600 !text-red-600 hover:!bg-red-600 hover:!text-white">AI分析を再実行</button>
+            <button id="edit-detailed-analysis-btn" class="btn !border-blue-600 !text-blue-600 hover:!bg-blue-600 hover:!text-white">編集</button>
+            <button id="save-detailed-analysis-btn" class="btn !border-green-600 !text-green-600 hover:!bg-green-600 hover:!text-white hidden">保存</button>
+            <button id="cancel-edit-detailed-analysis-btn" class="btn !border-gray-600 !text-gray-600 hover:!bg-gray-600 hover:!text-white hidden">キャンセル</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- ② 本文はスクロール禁止 + 自動フィット（fit-text）。各タブのパネルは差し替え表示（①） -->
+      <main class="report-body fit-text" data-fit-scope="sheet" aria-live="polite">
+        <h1 id="detailed-analysis-title" class="report-title" data-fit-target></h1>
+        <p id="detailed-analysis-subtitle" class="report-subtitle" data-fit-target></p>
+
+        <hr class="report-separator">
+
+        <div id="detailed-analysis-content-area" class="report-content">
+          <!-- ① タブ切替のアニメ下地：.ai-panel を is-active に差し替え（reloadせず差し替え） -->
+          <section id="content-analysis" class="ai-analysis-container ai-panel is-active" role="tabpanel" aria-labelledby="tab-analysis">
+            <div class="ai-analysis-sidebar"><div class="ai-analysis-shape">分析と考察</div></div>
+            <div id="display-analysis" class="ai-analysis-content" data-fit-target></div>
+            <div id="edit-analysis" class="hidden w-4/5">
+              <textarea id="textarea-analysis" class="edit-textarea"></textarea>
+            </div>
+          </section>
+
+          <section id="content-suggestions" class="ai-analysis-container ai-panel" role="tabpanel" aria-labelledby="tab-suggestions" aria-hidden="true">
+            <div class="ai-analysis-sidebar"><div class="ai-analysis-shape">改善提案</div></div>
+            <div id="display-suggestions" class="ai-analysis-content" data-fit-target></div>
+            <div id="edit-suggestions" class="hidden w-4/5">
+              <textarea id="textarea-suggestions" class="edit-textarea"></textarea>
+            </div>
+          </section>
+
+          <section id="content-overall" class="ai-analysis-container ai-panel" role="tabpanel" aria-labelledby="tab-overall" aria-hidden="true">
+            <div class="ai-analysis-sidebar"><div class="ai-analysis-shape">総評</div></div>
+            <div id="display-overall" class="ai-analysis-content" data-fit-target></div>
+            <div id="edit-overall" class="hidden w-4/5">
+              <textarea id="textarea-overall" class="edit-textarea"></textarea>
+            </div>
+          </section>
+
           <div id="detailed-analysis-error" class="text-red-500 text-sm text-center hidden p-4"></div>
-      </div>
-      
-      <div class="report-copyright"> © 2025 Commit Corporation. All Rights Reserved.
-      </div>
-    </main>
-  </div>
-  
-  
+        </div>
+
+        <!-- ⑥ フッター（ピンク枠直上に吸着） -->
+        <div class="report-copyright">
+          © 2025 Commit Corporation. All Rights Reserved.
+        </div>
+      </main>
+    </div>
+
+  </div><!-- /app-frame -->
+
+  <!-- 次ターンで script.js（差し替え描画・フォント自動フィット・グラフ既定・不明末尾・WC余白）を提供 -->
   <script src="script.js"></script>
-  
 </body>
 </html>
