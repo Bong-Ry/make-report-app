@@ -644,7 +644,8 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
 
 // --- グラフ描画関数 ---
 function drawSatisfactionCharts(clinicChartData, overallChartData) {
-  const baseOpt = {
+  // 左側（貴院）のグラフのみ背景色を設定
+  const clinicOpt = {
     is3D: true,
     chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
     pieSliceText: 'percentage',
@@ -653,12 +654,21 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
     backgroundColor: '#ffff95'
   };
+  // 右側（全体平均）のグラフは背景色なし
+  const overallOpt = {
+    is3D: true,
+    chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },
+    pieSliceText: 'percentage',
+    pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
+    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
+    tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' }
+  };
   const cdEl = document.getElementById('clinic-pie-chart');
   if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
   if (clinicChartData && clinicChartData.length > 1 && clinicChartData.slice(1).some(row => row[1] > 0)) {
     const d = google.visualization.arrayToDataTable(clinicChartData);
     const c = new google.visualization.PieChart(cdEl);
-    c.draw(d, baseOpt);
+    c.draw(d, clinicOpt);
   } else {
     cdEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
   }
@@ -667,14 +677,15 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
   if (overallChartData && overallChartData.length > 1 && overallChartData.slice(1).some(row => row[1] > 0)) {
     const avgD = google.visualization.arrayToDataTable(overallChartData);
     const avgC = new google.visualization.PieChart(avgEl);
-    avgC.draw(avgD, baseOpt);
+    avgC.draw(avgD, overallOpt);
   } else {
     avgEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
   }
 }
 
 function drawIncomeCharts(clinicData, overallData) {
-  const opt = {
+  // 左側（貴院）のグラフのみ背景色を設定
+  const clinicOpt = {
     legend: { position: 'none', textStyle: { fontSize: 14 } },
     annotations: { textStyle: { fontSize: 14, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
     vAxis: { format: "#.##'%'", viewWindow: { min: 0 }, textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
@@ -683,12 +694,21 @@ function drawIncomeCharts(clinicData, overallData) {
     backgroundColor: '#ffff95',
     colors: ['#DE5D83']
   };
+  // 右側（全体平均）のグラフは背景色なし
+  const overallOpt = {
+    legend: { position: 'none', textStyle: { fontSize: 14 } },
+    annotations: { textStyle: { fontSize: 14, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
+    vAxis: { format: "#.##'%'", viewWindow: { min: 0 }, textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
+    hAxis: { textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
+    chartArea: { height: '75%', width: '90%', left: '5%', top: '5%' },
+    colors: ['#DE5D83']
+  };
   const ccdEl = document.getElementById('clinic-bar-chart');
   if (!ccdEl) throw new Error('グラフ描画エリア(clinic-bar-chart)が見つかりません。');
   if (clinicData.totalCount > 0 && clinicData.results && clinicData.results.length > 1) {
     const cd = google.visualization.arrayToDataTable(clinicData.results);
     const cc = new google.visualization.ColumnChart(ccdEl);
-    cc.draw(cd, opt);
+    cc.draw(cd, clinicOpt);
   } else {
     ccdEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
   }
@@ -697,7 +717,7 @@ function drawIncomeCharts(clinicData, overallData) {
   if (overallData.totalCount > 0 && overallData.results && overallData.results.length > 1) {
     const avgD = google.visualization.arrayToDataTable(overallData.results);
     const avgC = new google.visualization.ColumnChart(avgEl);
-    avgC.draw(avgD, opt);
+    avgC.draw(avgD, overallOpt);
   } else {
     avgEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
   }
@@ -795,10 +815,10 @@ function showCommentSubNav(reportType) {
     return;
   }
   navContainer.innerHTML = '';
-    
+
   let title = '';
   let subTitle = 'データ一覧（1列20データずつ）';
-    
+
   if (reportType === 'nps') {
     title = 'アンケート結果　ーNPS推奨度 理由ー';
     const groups = [
@@ -820,16 +840,40 @@ function showCommentSubNav(reportType) {
     const titleMap = { 'feedback_i': '良かった点や悪かった点など', 'feedback_j': '印象に残ったスタッフへのコメント', 'feedback_m': 'お産にかかわるご意見・ご感想' };
     title = `アンケート結果　ー${titleMap[reportType]}ー`;
   }
-    
+
   document.getElementById('report-title').textContent = title;
   document.getElementById('report-subtitle').textContent = subTitle;
+  // サブタイトルを左寄せに変更
+  if (reportType === 'nps') {
+    document.getElementById('report-subtitle').style.textAlign = 'left';
+  } else {
+    document.getElementById('report-subtitle').style.textAlign = 'center';
+  }
+}
+
+// NPSコメントのサブタイトルを更新する関数
+function updateCommentSubtitle(commentKey, totalCount) {
+  if (!currentCommentType || currentCommentType !== 'nps') return;
+
+  const labelMap = {
+    'L_10': 'NPS10',
+    'L_9': 'NPS9',
+    'L_8': 'NPS8',
+    'L_7': 'NPS7',
+    'L_6_under': 'NPS6以下'
+  };
+
+  const label = labelMap[commentKey] || commentKey;
+  const subtitle = `${label}　${totalCount}人`;
+  document.getElementById('report-subtitle').textContent = subtitle;
+  document.getElementById('report-subtitle').style.textAlign = 'left';
 }
 
 async function fetchAndRenderCommentPage(commentKey) {
   currentCommentData = null;
   currentCommentPageIndex = 0;
   currentCommentSheetName = getCommentSheetName(currentClinicForModal, commentKey);
-    
+
   if (!currentCommentSheetName) {
     console.error("無効なコメントキー:", commentKey);
     return;
@@ -837,7 +881,7 @@ async function fetchAndRenderCommentPage(commentKey) {
 
   showLoading(true, `コメントシート (${currentCommentSheetName}) を読み込み中...`);
   document.getElementById('slide-body').innerHTML = '';
-    
+
   const controlsContainer = document.getElementById('comment-controls');
   if (controlsContainer) {
     controlsContainer.innerHTML = '';
@@ -849,8 +893,8 @@ async function fetchAndRenderCommentPage(commentKey) {
     const response = await fetch('/api/getCommentData', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        centralSheetId: currentCentralSheetId, 
+      body: JSON.stringify({
+        centralSheetId: currentCentralSheetId,
         sheetName: currentCommentSheetName
       })
     });
@@ -858,18 +902,22 @@ async function fetchAndRenderCommentPage(commentKey) {
     if (!response.ok) {
       throw new Error(`コメント取得APIエラー (${response.status}): ${await response.text()}`);
     }
-        
+
     const data = await response.json(); // 例: [ ['A列c1', 'A列c2'], ['B列c1'] ]
-        
+
     if (!data || data.length === 0 || (data.length > 0 && data[0].length === 0)) {
       currentCommentData = [];
       document.getElementById('slide-body').innerHTML = '<p class="text-center text-gray-500 py-16">コメントデータがありません</p>';
-      renderCommentControls(); 
+      updateCommentSubtitle(commentKey, 0);
+      renderCommentControls();
     } else {
       currentCommentData = data;
+      // 全コメント数をカウント
+      const totalCount = data.reduce((sum, col) => sum + col.length, 0);
+      updateCommentSubtitle(commentKey, totalCount);
       renderCommentPage(0); // 最初のページ (A列) を描画
     }
-        
+
   } catch (e) {
     console.error('Comment data fetch error:', e);
     document.getElementById('slide-body').innerHTML = `<p class="text-center text-red-500 py-16">コメントデータ取得失敗<br>(${e.message})</p>`;
@@ -880,14 +928,14 @@ async function fetchAndRenderCommentPage(commentKey) {
 
 function renderCommentPage(pageIndex) {
   if (!currentCommentData) return;
-    
+
   currentCommentPageIndex = pageIndex;
   const columnData = currentCommentData[pageIndex] || [];
-    
+
   const bodyEl = document.getElementById('slide-body');
   bodyEl.innerHTML = '';
-  bodyEl.style.overflowY = 'auto'; 
-    
+  bodyEl.style.overflowY = 'hidden'; // スクロール禁止
+
   if (columnData.length === 0 && currentCommentData.length > 0) {
     bodyEl.innerHTML = '<p class="text-center text-gray-500 py-16">(このページは空です)</p>';
   } else {
@@ -899,9 +947,43 @@ function renderCommentPage(pageIndex) {
       fragment.appendChild(p);
     });
     bodyEl.appendChild(fragment);
+
+    // コメント表示後にフォントサイズを調整
+    adjustCommentFontSizes(bodyEl);
   }
-    
+
   renderCommentControls();
+}
+
+// コメント一覧のフォントサイズを自動調整する関数
+function adjustCommentFontSizes(containerEl) {
+  if (!containerEl) return;
+
+  const initialFontSizePt = 12;
+  const minFontSizePt = 7;
+  const step = 0.5;
+  let currentSize = initialFontSizePt;
+
+  // 全てのコメントアイテムに同じフォントサイズを適用
+  const commentItems = containerEl.querySelectorAll('.comment-display-item');
+  commentItems.forEach(item => {
+    item.style.fontSize = currentSize + 'pt';
+  });
+
+  // コンテナがあふれている場合、フォントサイズを縮小
+  for (let i = 0; i < 100; i++) {
+    if (containerEl.scrollHeight <= containerEl.clientHeight) {
+      break;
+    }
+    currentSize -= step;
+    if (currentSize < minFontSizePt) {
+      currentSize = minFontSizePt;
+      break;
+    }
+    commentItems.forEach(item => {
+      item.style.fontSize = currentSize + 'pt';
+    });
+  }
 }
 
 function renderCommentControls() {
@@ -1073,8 +1155,9 @@ async function prepareAndShowRecommendationReport() {
     const overallChartData = await overallChartDataRes.json(); 
         
     showLoading(false);
-        
-    const opt = {
+
+    // 左側（貴院）のグラフのみ背景色を設定
+    const clinicOpt = {
       is3D: true,
       chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
       pieSliceText: 'percentage',
@@ -1083,12 +1166,21 @@ async function prepareAndShowRecommendationReport() {
       tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
       backgroundColor: '#ffff95'
     };
+    // 右側（全体平均）のグラフは背景色なし
+    const overallOpt = {
+      is3D: true,
+      chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },
+      pieSliceText: 'percentage',
+      pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
+      legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
+      tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' }
+    };
     const clinicChartEl = document.getElementById('clinic-pie-chart');
     if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
     const totalClinicCount = clinicChartData.slice(1).reduce((sum, row) => sum + row[1], 0);
     if (totalClinicCount > 0) {
       const d = google.visualization.arrayToDataTable(clinicChartData);
-      new google.visualization.PieChart(clinicChartEl).draw(d, opt);
+      new google.visualization.PieChart(clinicChartEl).draw(d, clinicOpt);
     } else {
       clinicChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
     }
@@ -1097,7 +1189,7 @@ async function prepareAndShowRecommendationReport() {
     const totalOverallCount = overallChartData.slice(1).reduce((sum, row) => sum + row[1], 0);
     if (totalOverallCount > 0) {
       const d = google.visualization.arrayToDataTable(overallChartData);
-      new google.visualization.PieChart(averageChartEl).draw(d, opt);
+      new google.visualization.PieChart(averageChartEl).draw(d, overallOpt);
     } else {
       averageChartEl.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データなし</p></div>';
     }
