@@ -1280,10 +1280,10 @@ async function prepareAndShowAnalysis(columnType) {
           <div id="int-chart" class="w-full flex-1"></div>
         </div>
       </div>
-      <div class="flex flex-col h-full justify-start" style="height: 80%;">
-        <p class="text-gray-600 text-left leading-tight mb-2" style="font-size: 12px;">スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>単語の色は品詞の種類で異なります。<br><span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span></p>
-        <div id="word-cloud-container" class="flex-1 border border-gray-200">
-          <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
+      <div class="flex flex-col justify-start" style="height: 80%;">
+        <p class="text-gray-600 text-left leading-tight" style="font-size: 12px; margin-bottom: 8px;">スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>単語の色は品詞の種類で異なります。<br><span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span></p>
+        <div id="word-cloud-container" class="border border-gray-200" style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; background: #ffffff;">
+          <canvas id="word-cloud-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
         </div>
         <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
       </div>
@@ -1354,8 +1354,8 @@ function drawAnalysisCharts(results) {
       const minDimension = Math.min(logicalWidth, logicalHeight);
       const options = {
         list: wl,
-        gridSize: Math.round(8 * minDimension / 1024),
-        weightFactor: s => Math.pow(s, 0.9) * minDimension / 150,
+        gridSize: Math.round(4 * minDimension / 1024),
+        weightFactor: s => Math.pow(s, 1.0) * minDimension / 100,
         fontFamily: 'Noto Sans JP,sans-serif',
         color: (w) => {
           const p = pm[w] || '不明';
