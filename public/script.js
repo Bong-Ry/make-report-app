@@ -649,9 +649,9 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     is3D: true,
     chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
     pieSliceText: 'percentage',
-    pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
-    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
-    tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
+    pieSliceTextStyle: { color: 'black', fontSize: 13, bold: true },
+    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 13 } },
+    tooltip: { showColorCode: true, textStyle: { fontSize: 13 }, trigger: 'focus' },
     backgroundColor: '#ffff95'
   };
   // 右側（全体平均）のグラフは背景色なし
@@ -1348,12 +1348,14 @@ function drawAnalysisCharts(results) {
       cv.width = rect.width * dpr;
       cv.height = rect.height * dpr;
       const ctx = cv.getContext('2d');
-      ctx.scale(dpr, dpr); 
-      const logicalWidth = rect.width; 
+      ctx.scale(dpr, dpr);
+      const logicalWidth = rect.width;
+      const logicalHeight = rect.height;
+      const minDimension = Math.min(logicalWidth, logicalHeight);
       const options = {
         list: wl,
-        gridSize: Math.round(16 * logicalWidth / 1024),
-        weightFactor: s => Math.pow(s, 0.8) * logicalWidth / 250,
+        gridSize: Math.round(16 * minDimension / 1024),
+        weightFactor: s => Math.pow(s, 0.8) * minDimension / 250,
         fontFamily: 'Noto Sans JP,sans-serif',
         color: (w) => {
           const p = pm[w] || '不明';
@@ -1367,7 +1369,10 @@ function drawAnalysisCharts(results) {
         },
         backgroundColor: 'transparent',
         clearCanvas: true,
-        rotateRatio: 0
+        rotateRatio: 0,
+        drawOutOfBound: false,
+        shrinkToFit: true,
+        origin: [logicalWidth / 2, logicalHeight / 2]
       };
       WordCloud(cv, options);
     } catch (wcError) {
