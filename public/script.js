@@ -817,10 +817,11 @@ function showCommentSubNav(reportType) {
   navContainer.innerHTML = '';
 
   let title = '';
-  let subTitle = 'データ一覧（1列20データずつ）';
+  let subTitle = '';
 
   if (reportType === 'nps') {
     title = 'アンケート結果　ーNPS推奨度 理由ー';
+    subTitle = 'データ一覧（1列20データずつ）';
     const groups = [
       { key: 'L_10', label: '10点' },
       { key: 'L_9', label: '9点' },
@@ -843,12 +844,7 @@ function showCommentSubNav(reportType) {
 
   document.getElementById('report-title').textContent = title;
   document.getElementById('report-subtitle').textContent = subTitle;
-  // サブタイトルを左寄せに変更
-  if (reportType === 'nps') {
-    document.getElementById('report-subtitle').style.textAlign = 'left';
-  } else {
-    document.getElementById('report-subtitle').style.textAlign = 'center';
-  }
+  document.getElementById('report-subtitle').style.textAlign = 'left';
 }
 
 // NPSコメントのサブタイトルを更新する関数
@@ -1286,7 +1282,7 @@ async function prepareAndShowAnalysis(columnType) {
       </div>
       <div class="flex flex-col h-full justify-start">
         <p class="text-gray-600 text-left leading-tight mb-0" style="font-size: 12px;">スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>単語の色は品詞の種類で異なります。<br><span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span></p>
-        <div id="word-cloud-container" class="border border-gray-200" style="width: 25%; height: 25%; margin-top: 4px;">
+        <div id="word-cloud-container" class="flex-1 border border-gray-200" style="margin-top: 4px;">
           <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
         </div>
         <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
