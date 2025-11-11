@@ -1266,7 +1266,7 @@ async function prepareAndShowAnalysis(columnType) {
   
   slideBody.innerHTML = `
     <div class="grid grid-cols-2 gap-2 h-full">
-      <div class="grid grid-cols-2 grid-rows-2 gap-1 chart-wc-left" style="height: 80%; align-self: center;">
+      <div class="grid grid-cols-2 grid-rows-2 gap-1 chart-wc-left" style="height: 80%;">
         <div id="noun-chart-container" class="chart-container h-full">
           <h3 class="font-bold text-center mb-0 text-blue-600 leading-none py-1" style="font-size: 12px;">名詞</h3>
           <div id="noun-chart" class="w-full flex-1"></div>
@@ -1284,9 +1284,9 @@ async function prepareAndShowAnalysis(columnType) {
           <div id="int-chart" class="w-full flex-1"></div>
         </div>
       </div>
-      <div class="flex flex-col h-full">
-        <p class="text-gray-600 text-left leading-tight mb-2" style="font-size: 12px;">スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>単語の色は品詞の種類で異なります。<br><span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span></p>
-        <div id="word-cloud-container" class="flex-1 border border-gray-200">
+      <div class="flex flex-col h-full justify-start">
+        <p class="text-gray-600 text-left leading-tight mb-0" style="font-size: 12px;">スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>単語の色は品詞の種類で異なります。<br><span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span></p>
+        <div id="word-cloud-container" class="border border-gray-200" style="width: 25%; height: 25%; margin-top: 4px;">
           <canvas id="word-cloud-canvas" class="!h-full !w-full"></canvas>
         </div>
         <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
