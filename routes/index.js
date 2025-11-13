@@ -1,11 +1,27 @@
 // bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/routes/index.js
 
 const express = require('express');
-const https = require('https');
+const { google } = require('googleapis');
 const reportController = require('../controllers/reportController');
 const analysisController = require('../controllers/analysisController');
 
 const router = express.Router();
+
+// Google Drive API初期化（画像プロキシ用）
+const KEYFILEPATH = '/etc/secrets/credentials.json';
+const SCOPES = [
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/drive',  // すべてのDriveファイルへの読み取りアクセス
+];
+let drive;
+
+try {
+  const auth = new google.auth.GoogleAuth({ keyFile: KEYFILEPATH, scopes: SCOPES });
+  drive = google.drive({ version: 'v3', auth });
+  console.log('Google Drive API client initialized for image proxy');
+} catch (err) {
+  console.error('Failed to initialize Google Drive API for images:', err);
+}
 
 // --- API Routes (レポート・データ関連) ---
 router.get('/api/getClinicList', reportController.getClinicList);
@@ -70,24 +86,43 @@ router.post('/api/updateCommentData', analysisController.updateCommentData);
 // =================================================================
 
 // Google Drive画像をプロキシして配信
-router.get('/image/:id', (req, res) => {
-  const imageId = req.params.id;
-  const imageUrl = `https://drive.google.com/uc?export=view&id=${imageId}`;
+router.get('/image/:id', async (req, res) => {
+  try {
+    const imageId = req.params.id;
 
-  https.get(imageUrl, (imageResponse) => {
-    if (imageResponse.statusCode !== 200) {
-      return res.status(404).send('Image not found');
+    if (!drive) {
+      return res.status(500).send('Google Drive API not initialized');
     }
 
-    const contentType = imageResponse.headers['content-type'] || 'image/png';
-    res.set('Content-Type', contentType);
+    // Google Drive APIでファイルのメタデータを取得
+    const fileMetadata = await drive.files.get({
+      fileId: imageId,
+      fields: 'mimeType'
+    });
+
+    // ファイルをストリームとして取得
+    const fileStream = await drive.files.get(
+      { fileId: imageId, alt: 'media' },
+      { responseType: 'stream' }
+    );
+
+    // Content-Typeヘッダーを設定
+    res.set('Content-Type', fileMetadata.data.mimeType || 'image/png');
     res.set('Cache-Control', 'public, max-age=86400'); // 24時間キャッシュ
 
-    imageResponse.pipe(res);
-  }).on('error', (error) => {
+    // ストリームをレスポンスにパイプ
+    fileStream.data.pipe(res);
+
+  } catch (error) {
     console.error('Image proxy error:', error);
-    res.status(500).send('Failed to fetch image');
-  });
+    if (error.code === 404) {
+      res.status(404).send('Image not found');
+    } else if (error.code === 403) {
+      res.status(403).send('Access denied - check file permissions');
+    } else {
+      res.status(500).send('Failed to fetch image');
+    }
+  }
 });
 
 module.exports = router;
