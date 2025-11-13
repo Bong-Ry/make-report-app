@@ -2091,31 +2091,26 @@ async function handlePdfExport() {
       { type: 'word_cloud', analysisKey: 'I' },  // WC-悪い点
       { type: 'word_cloud', analysisKey: 'J' },  // WC-スタッフ
       { type: 'word_cloud', analysisKey: 'M' },  // WC-お産
-      // AI分析（5種類 × 4タブ = 20ページ）
+      // AI分析（5種類 × 3タブ = 15ページ）
       // AI-NPS
-      { type: 'ai_analysis', analysisType: 'L', subtype: 'consideration' },
       { type: 'ai_analysis', analysisType: 'L', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'L', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'L', subtype: 'suggestions' },
       { type: 'ai_analysis', analysisType: 'L', subtype: 'overall' },
       // AI-悪い点
-      { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'consideration' },
       { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'suggestions' },
       { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'overall' },
       // AI-良い点
-      { type: 'ai_analysis', analysisType: 'I_good', subtype: 'consideration' },
       { type: 'ai_analysis', analysisType: 'I_good', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'I_good', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'I_good', subtype: 'suggestions' },
       { type: 'ai_analysis', analysisType: 'I_good', subtype: 'overall' },
       // AI-スタッフ
-      { type: 'ai_analysis', analysisType: 'J', subtype: 'consideration' },
       { type: 'ai_analysis', analysisType: 'J', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'J', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'J', subtype: 'suggestions' },
       { type: 'ai_analysis', analysisType: 'J', subtype: 'overall' },
       // AI-お産
-      { type: 'ai_analysis', analysisType: 'M', subtype: 'consideration' },
       { type: 'ai_analysis', analysisType: 'M', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'M', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'M', subtype: 'suggestions' },
       { type: 'ai_analysis', analysisType: 'M', subtype: 'overall' }
     ];
 
@@ -2139,6 +2134,8 @@ async function handlePdfExport() {
       if (typeof pageInfo === 'string') {
         // 通常のレポートページ
         await prepareAndShowReport(pageInfo);
+        // グラフの描画を待つ
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } else if (pageInfo.type === 'nps_comments') {
         // NPSコメントページ - 各カラムを取得して各ページを生成
         currentCommentType = 'nps';
@@ -2170,16 +2167,20 @@ async function handlePdfExport() {
         // ワードクラウドページ
         console.log(`[PDF Export] ワードクラウド: ${pageInfo.analysisKey}`);
         await prepareAndShowAnalysis(pageInfo.analysisKey);
+        // WCグラフの描画を待つ（グラフ描画は非同期）
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } else if (pageInfo.type === 'ai_analysis') {
         // AI分析ページ
         console.log(`[PDF Export] AI分析: ${pageInfo.analysisType} - ${pageInfo.subtype}`);
         await prepareAndShowDetailedAnalysis(pageInfo.analysisType);
         // タブを切り替えて表示
         await switchTab(pageInfo.subtype);
+        // AI分析コンテンツの描画を待つ
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
       // レンダリング完了を待つ
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // 現在表示されているコンテンツをクローン
       let printPage;
@@ -2247,12 +2248,8 @@ async function cloneCurrentPageForPrint() {
   // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
   const bodyClone = reportBody.cloneNode(true);
 
-  // クローンしたボディのスタイル調整
-  bodyClone.style.height = '100%';
-  bodyClone.style.display = 'flex';
-  bodyClone.style.flexDirection = 'column';
-  bodyClone.style.padding = '0';
-  bodyClone.style.boxSizing = 'border-box';
+  // クローンしたボディのスタイルは元のまま維持（CSSのスタイルを使用）
+  // padding: 40px 40px 20px 40px などは保持
 
   printPage.appendChild(bodyClone);
 
@@ -2280,12 +2277,8 @@ async function cloneAIAnalysisPageForPrint() {
   // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
   const bodyClone = reportBody.cloneNode(true);
 
-  // クローンしたボディのスタイル調整
-  bodyClone.style.height = '100%';
-  bodyClone.style.display = 'flex';
-  bodyClone.style.flexDirection = 'column';
-  bodyClone.style.padding = '0';
-  bodyClone.style.boxSizing = 'border-box';
+  // クローンしたボディのスタイルは元のまま維持（CSSのスタイルを使用）
+  // padding: 40px 40px 20px 40px などは保持
 
   printPage.appendChild(bodyClone);
 
