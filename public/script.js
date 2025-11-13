@@ -2086,35 +2086,45 @@ async function handlePdfExport() {
       { type: 'nps_comments', key: 'L_2' },
       { type: 'nps_comments', key: 'L_1' },
       { type: 'nps_comments', key: 'L_0' },
+      // ワードクラウド（4ページ）
+      { type: 'word_cloud', analysisKey: 'L' },  // WC-NPS
+      { type: 'word_cloud', analysisKey: 'I' },  // WC-悪い点
+      { type: 'word_cloud', analysisKey: 'J' },  // WC-スタッフ
+      { type: 'word_cloud', analysisKey: 'M' },  // WC-お産
       // AI分析（5種類 × 4タブ = 20ページ）
       // AI-NPS
-      { type: 'ai_analysis', analysisType: 'nps', subtype: 'consideration' },
-      { type: 'ai_analysis', analysisType: 'nps', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'nps', subtype: 'improvement' },
-      { type: 'ai_analysis', analysisType: 'nps', subtype: 'overall' },
+      { type: 'ai_analysis', analysisType: 'L', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'L', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'L', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'L', subtype: 'overall' },
       // AI-悪い点
-      { type: 'ai_analysis', analysisType: 'feedback_i', subtype: 'consideration' },
-      { type: 'ai_analysis', analysisType: 'feedback_i', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'feedback_i', subtype: 'improvement' },
-      { type: 'ai_analysis', analysisType: 'feedback_i', subtype: 'overall' },
+      { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'I_bad', subtype: 'overall' },
       // AI-良い点
-      { type: 'ai_analysis', analysisType: 'feedback_j', subtype: 'consideration' },
-      { type: 'ai_analysis', analysisType: 'feedback_j', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'feedback_j', subtype: 'improvement' },
-      { type: 'ai_analysis', analysisType: 'feedback_j', subtype: 'overall' },
+      { type: 'ai_analysis', analysisType: 'I_good', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'I_good', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'I_good', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'I_good', subtype: 'overall' },
       // AI-スタッフ
-      { type: 'ai_analysis', analysisType: 'wc_staff', subtype: 'consideration' },
-      { type: 'ai_analysis', analysisType: 'wc_staff', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'wc_staff', subtype: 'improvement' },
-      { type: 'ai_analysis', analysisType: 'wc_staff', subtype: 'overall' },
+      { type: 'ai_analysis', analysisType: 'J', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'J', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'J', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'J', subtype: 'overall' },
       // AI-お産
-      { type: 'ai_analysis', analysisType: 'wc_birth', subtype: 'consideration' },
-      { type: 'ai_analysis', analysisType: 'wc_birth', subtype: 'analysis' },
-      { type: 'ai_analysis', analysisType: 'wc_birth', subtype: 'improvement' },
-      { type: 'ai_analysis', analysisType: 'wc_birth', subtype: 'overall' }
+      { type: 'ai_analysis', analysisType: 'M', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'M', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'M', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'M', subtype: 'overall' }
     ];
 
     console.log('[PDF Export] 全', allPages.length, 'ページを生成します');
+
+    // 元の画面を非表示にしてバックグラウンドで処理
+    const appFrame = document.getElementById('app-frame');
+    appFrame.style.opacity = '0';
+    appFrame.style.pointerEvents = 'none';
 
     // 各ページを順番に表示してクローン
     for (let i = 0; i < allPages.length; i++) {
@@ -2122,17 +2132,44 @@ async function handlePdfExport() {
       const pageType = typeof pageInfo === 'string' ? pageInfo : pageInfo.type;
 
       console.log(`[PDF Export] ページ ${i + 1}/${allPages.length}: ${pageType}`);
-      showLoading(true, `ページを準備中... (${i + 1}/${allPages.length})`);
+      const progress = Math.round(((i + 1) / allPages.length) * 100);
+      showLoading(true, `PDF作成中... ${i + 1}/${allPages.length} (${progress}%)`);
 
       // ページを表示
       if (typeof pageInfo === 'string') {
         // 通常のレポートページ
         await prepareAndShowReport(pageInfo);
       } else if (pageInfo.type === 'nps_comments') {
-        // NPSコメントページ
+        // NPSコメントページ - 各カラムを取得して各ページを生成
         currentCommentType = 'nps';
         showCommentSubNav('nps');
         await fetchAndRenderCommentPage(pageInfo.key);
+
+        // 各カラム（ページ）を別々に出力
+        if (currentCommentData && currentCommentData.length > 0) {
+          // 最初のカラムは既に表示されているのでクローン
+          const firstPage = await cloneCurrentPageForPrint();
+          if (firstPage) {
+            printContainer.appendChild(firstPage);
+            console.log(`[PDF Export] ページ ${i + 1}-1 クローン完了`);
+          }
+
+          // 残りのカラムをループ
+          for (let colIndex = 1; colIndex < currentCommentData.length; colIndex++) {
+            renderCommentPage(colIndex);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const colPage = await cloneCurrentPageForPrint();
+            if (colPage) {
+              printContainer.appendChild(colPage);
+              console.log(`[PDF Export] ページ ${i + 1}-${colIndex + 1} クローン完了`);
+            }
+          }
+          continue; // forループの次の反復へ（下のクローン処理をスキップ）
+        }
+      } else if (pageInfo.type === 'word_cloud') {
+        // ワードクラウドページ
+        console.log(`[PDF Export] ワードクラウド: ${pageInfo.analysisKey}`);
+        await prepareAndShowAnalysis(pageInfo.analysisKey);
       } else if (pageInfo.type === 'ai_analysis') {
         // AI分析ページ
         console.log(`[PDF Export] AI分析: ${pageInfo.analysisType} - ${pageInfo.subtype}`);
@@ -2142,7 +2179,7 @@ async function handlePdfExport() {
       }
 
       // レンダリング完了を待つ
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // 現在表示されているコンテンツをクローン
       let printPage;
@@ -2161,6 +2198,10 @@ async function handlePdfExport() {
         console.warn(`[PDF Export] ページ ${i + 1} のクローンに失敗`);
       }
     }
+
+    // 元の画面を復元
+    appFrame.style.opacity = '1';
+    appFrame.style.pointerEvents = 'auto';
 
     console.log('[PDF Export] 全ページ生成完了');
 
@@ -2226,40 +2267,27 @@ async function cloneAIAnalysisPageForPrint() {
     return null;
   }
 
+  const reportBody = screen5.querySelector('.report-body');
+  if (!reportBody) {
+    console.error('[cloneAIAnalysisPageForPrint] report-bodyが見つかりません');
+    return null;
+  }
+
   // 印刷用ページを作成
   const printPage = document.createElement('div');
   printPage.className = 'print-page';
 
-  // screen5全体をクローン
-  const screen5Clone = screen5.cloneNode(true);
+  // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
+  const bodyClone = reportBody.cloneNode(true);
 
-  // クローンしたscreen5のスタイル調整
-  screen5Clone.style.height = '100%';
-  screen5Clone.style.display = 'flex';
-  screen5Clone.style.flexDirection = 'column';
-  screen5Clone.style.padding = '0';
-  screen5Clone.style.boxSizing = 'border-box';
-  screen5Clone.style.background = 'white';
+  // クローンしたボディのスタイル調整
+  bodyClone.style.height = '100%';
+  bodyClone.style.display = 'flex';
+  bodyClone.style.flexDirection = 'column';
+  bodyClone.style.padding = '0';
+  bodyClone.style.boxSizing = 'border-box';
 
-  // ヘッダーメニュー（ナビゲーションボタン）を削除
-  const navButtons = screen5Clone.querySelector('.flex.flex-wrap.gap-3.mb-6');
-  if (navButtons) {
-    navButtons.remove();
-  }
-
-  // タブナビゲーションを削除
-  const tabNav = screen5Clone.querySelector('#ai-tab-nav');
-  if (tabNav) {
-    tabNav.remove();
-  }
-
-  // 編集ボタンとAI再実行ボタンを削除
-  const actionButtons = screen5Clone.querySelector('.flex.justify-end.gap-3.mb-4');
-  if (actionButtons) {
-    actionButtons.remove();
-  }
-
-  printPage.appendChild(screen5Clone);
+  printPage.appendChild(bodyClone);
 
   return printPage;
 }
