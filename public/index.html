@@ -298,6 +298,20 @@
 
   </div><!-- /app-frame -->
 
+  <!-- 印刷モード用コンテナ -->
+  <div id="print-container" class="print-mode"></div>
+
+  <!-- PDF印刷完了ポップアップ -->
+  <div id="print-ready-popup" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md">
+      <h3 class="text-xl font-bold mb-4 text-gray-800">PDF出力の準備完了</h3>
+      <p class="text-gray-600 mb-6">
+        ブラウザの印刷→PDFで名前をつけて出力してください
+      </p>
+      <button id="close-print-popup" class="btn bg-gray-800 text-white hover:bg-gray-700 w-full">OK</button>
+    </div>
+  </div>
+
   <!-- 次ターンで script.js（差し替え描画・フォント自動フィット・グラフ既定・不明末尾・WC余白）を提供 -->
   <script src="script.js"></script>
 </body>

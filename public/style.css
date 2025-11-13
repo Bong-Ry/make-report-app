@@ -437,3 +437,69 @@ body{
 @media (max-width: 1024px){
     .chart-grid{ grid-template-columns: 1fr; }
 }
+
+/* 印刷モード用スタイル */
+.print-mode {
+    display: none;
+}
+
+.print-mode-active .print-mode {
+    display: block !important;
+}
+
+.print-mode-active #app-frame {
+    display: none !important;
+}
+
+.print-mode-active body {
+    background: white !important;
+}
+
+/* 印刷用ページレイアウト */
+@media print {
+    @page {
+        size: A4 landscape;
+        margin: 10mm;
+    }
+
+    body {
+        background: white !important;
+        margin: 0;
+        padding: 0;
+    }
+
+    .print-page {
+        page-break-after: always;
+        page-break-inside: avoid;
+        width: 100%;
+        height: 210mm;
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    .print-page:last-child {
+        page-break-after: auto;
+    }
+}
+
+/* 印刷プレビュー画面用 */
+.print-mode .print-page {
+    width: 297mm;
+    height: 210mm;
+    margin: 20px auto;
+    padding: 20px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.print-page-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}

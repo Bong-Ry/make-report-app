@@ -94,8 +94,14 @@ function setupEventListeners() {
   document.getElementById('save-detailed-analysis-btn').addEventListener('click', saveDetailedAnalysisEdits);
   document.getElementById('cancel-edit-detailed-analysis-btn').addEventListener('click', () => {
     if (confirm('編集内容を破棄しますか？')) {
-      toggleEditDetailedAnalysis(false); 
+      toggleEditDetailedAnalysis(false);
     }
+  });
+
+  // PDF出力ボタン
+  document.getElementById('pdf-export-btn').addEventListener('click', handlePdfExport);
+  document.getElementById('close-print-popup').addEventListener('click', () => {
+    document.getElementById('print-ready-popup').classList.add('hidden');
   });
 }
 
@@ -635,8 +641,8 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
         <div class="flex flex-col h-full">
           <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
           <div id="clinic-bar-chart" class="w-full ${chartHeightClass} border border-gray-200 flex items-center justify-center"></div>
-          <div class="w-full h-[200px] flex flex-col justify-center items-center mt-4">
-            <img src="${npsGraphImageUrl}" alt="NPS説明画像" class="w-full h-full object-contain" />
+          <div class="w-full flex-1 flex flex-col justify-start items-center mt-4 overflow-hidden">
+            <img src="${npsGraphImageUrl}" alt="NPS説明画像" class="w-full max-h-full object-contain" />
           </div>
         </div>
         <div class="flex flex-col h-full">
@@ -782,7 +788,7 @@ function drawNpsScoreCharts(clinicData, overallData) {
   const summaryArea = document.getElementById('nps-summary-area');
   if (summaryArea) {
     summaryArea.innerHTML = `
-      <div class="text-left text-3xl space-y-5 p-4 border rounded-lg bg-gray-50 shadow-inner w-48">
+      <div class="text-left text-3xl space-y-5 p-4 w-48">
         <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p>
         <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p>
       </div>
@@ -2035,6 +2041,302 @@ function showCopyrightFooter(show, screenId = 'screen3') {
     footer = document.querySelector('#screen5 .report-copyright');
   }
   if (footer) footer.style.display = show ? 'block' : 'none';
+}
+
+// --- PDF出力機能 ---
+async function handlePdfExport() {
+  showLoading('全ページを準備中...');
+
+  try {
+    // 全ページの種類を定義
+    const allPages = [
+      { type: 'cover', title: '表紙' },
+      { type: 'toc', title: '目次' },
+      { type: 'summary', title: '概要' },
+      { type: 'age', title: '年代' },
+      { type: 'children', title: 'お子様数' },
+      { type: 'income', title: '世帯年収' },
+      { type: 'municipality', title: '市区町村' },
+      { type: 'satisfaction_b', title: '満足度' },
+      { type: 'satisfaction_c', title: '施設' },
+      { type: 'satisfaction_d', title: 'アクセス' },
+      { type: 'satisfaction_e', title: '費用' },
+      { type: 'satisfaction_f', title: '雰囲気' },
+      { type: 'satisfaction_g', title: 'スタッフ' },
+      { type: 'satisfaction_h', title: '先生' },
+      { type: 'recommendation', title: 'おすすめ理由' },
+      { type: 'nps_score', title: 'NPS値' }
+    ];
+
+    const printContainer = document.getElementById('print-container');
+    printContainer.innerHTML = '';
+
+    // 各ページを生成
+    for (const page of allPages) {
+      await generatePrintPage(page, printContainer);
+      // グラフ描画のための待機
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    hideLoading();
+
+    // 印刷モードに切り替え
+    document.body.classList.add('print-mode-active');
+
+    // ポップアップ表示
+    document.getElementById('print-ready-popup').classList.remove('hidden');
+
+  } catch (error) {
+    hideLoading();
+    console.error('PDF生成エラー:', error);
+    alert('PDF出力の準備中にエラーが発生しました');
+  }
+}
+
+async function generatePrintPage(page, container) {
+  const pageDiv = document.createElement('div');
+  pageDiv.className = 'print-page';
+
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'print-page-content';
+
+  // タイトルとサブタイトル用のコンテナ
+  const headerDiv = document.createElement('div');
+  headerDiv.style.marginBottom = '20px';
+
+  const titleEl = document.createElement('h1');
+  titleEl.className = 'report-title';
+  titleEl.style.textAlign = 'center';
+  titleEl.style.fontSize = '24px';
+  titleEl.style.fontWeight = 'bold';
+  titleEl.style.marginBottom = '10px';
+
+  const subtitleEl = document.createElement('p');
+  subtitleEl.className = 'report-subtitle';
+  subtitleEl.style.textAlign = 'center';
+  subtitleEl.style.fontSize = '14px';
+  subtitleEl.style.color = '#666';
+  subtitleEl.style.marginBottom = '10px';
+
+  const separatorEl = document.createElement('hr');
+  separatorEl.style.borderTop = '2px dashed #ccc';
+  separatorEl.style.margin = '10px 0';
+
+  // ボディ用のコンテナ
+  const bodyDiv = document.createElement('div');
+  bodyDiv.style.flex = '1';
+  bodyDiv.style.overflow = 'hidden';
+
+  // ページタイプに応じてコンテンツを生成
+  await renderPageContent(page, titleEl, subtitleEl, separatorEl, bodyDiv);
+
+  headerDiv.appendChild(titleEl);
+  headerDiv.appendChild(subtitleEl);
+  headerDiv.appendChild(separatorEl);
+
+  contentDiv.appendChild(headerDiv);
+  contentDiv.appendChild(bodyDiv);
+
+  pageDiv.appendChild(contentDiv);
+  container.appendChild(pageDiv);
+
+  return pageDiv;
+}
+
+async function renderPageContent(page, titleEl, subtitleEl, separatorEl, bodyDiv) {
+  const reportType = page.type;
+
+  if (reportType === 'cover') {
+    titleEl.textContent = '';
+    subtitleEl.textContent = '';
+    separatorEl.style.display = 'none';
+
+    const bgImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1-a8Hw5h15t6wvAafU2zoxg5uLCOmjIt-/view?usp=drive_link');
+    const [sy, sm] = selectedPeriod.start.split('-').map(Number);
+    const [ey, em] = selectedPeriod.end.split('-').map(Number);
+    const startYearMonth = `${sy}年${sm}月`;
+    const endYearMonth = `${ey}年${em}月`;
+
+    bodyDiv.innerHTML = `
+      <div class="w-full h-full" style="background-image: url('${bgImageUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+        <div class="flex items-start justify-start h-full p-12">
+          <div class="text-left">
+            <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
+            <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (reportType === 'toc') {
+    titleEl.textContent = '目次';
+    titleEl.style.textAlign = 'left';
+    subtitleEl.textContent = '';
+    bodyDiv.innerHTML = `
+      <div class="flex justify-center h-full items-start pt-8">
+        <ul class="text-sm font-normal space-y-0 text-left">
+          <li>１．アンケート概要</li>
+          <li>２．アンケート結果</li>
+          <ul class="pl-8 space-y-0 font-normal">
+            <li>―１　顧客属性</li>
+            <li>―２　病院への満足度（施設・ハード面）</li>
+            <li>―３　病院への満足度（質・スタッフ面）</li>
+            <li>―４　NPS推奨度・理由</li>
+          </ul>
+          <li>３．アンケート結果からの考察</li>
+        </ul>
+      </div>
+    `;
+  } else {
+    // その他のページ
+    titleEl.textContent = page.title;
+    titleEl.style.textAlign = 'center';
+
+    // チャートIDを動的に生成
+    const chartId = `print-chart-${reportType}-${Date.now()}`;
+    bodyDiv.innerHTML = `<div id="${chartId}" class="w-full h-full"></div>`;
+
+    // チャートデータを取得して描画
+    try {
+      await drawReportChart(reportType, chartId);
+    } catch (error) {
+      console.error(`${reportType}の描画エラー:`, error);
+      bodyDiv.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データ読み込みエラー</p></div>';
+    }
+  }
+}
+
+async function drawReportChart(type, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  // 既存のチャート描画ロジックを再利用
+  if (type === 'summary') {
+    // サマリー用のコンテンツを描画
+    let overallCount = 0, clinicCount = 0;
+    try {
+      const overallData = await getReportDataForCurrentClinic("全体");
+      overallCount = overallData.npsScoreData.totalCount || 0;
+      const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
+      clinicCount = clinicData.npsScoreData.totalCount || 0;
+    } catch (e) {
+      console.error(e);
+    }
+
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center h-full space-y-8">
+        <div class="text-center">
+          <h2 class="text-2xl font-bold mb-4">アンケート回答数</h2>
+          <div class="grid grid-cols-2 gap-8 mt-6">
+            <div class="text-center">
+              <p class="text-gray-600 mb-2">全体</p>
+              <p class="text-4xl font-bold text-gray-800">${overallCount}</p>
+              <p class="text-sm text-gray-500 mt-1">件</p>
+            </div>
+            <div class="text-center">
+              <p class="text-gray-600 mb-2">貴院</p>
+              <p class="text-4xl font-bold text-red-600">${clinicCount}</p>
+              <p class="text-sm text-gray-500 mt-1">件</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (type === 'nps_score') {
+    // NPSスコア用の描画
+    const npsGraphImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1jAnKR5iG4BY2xTfcqnedvfiPpm-j-ZbX/view?usp=drive_link');
+    const npsBoxImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1QKO6nlee3DQQmoYUEzKyBZcqTmke_HVe/view?usp=drive_link');
+
+    const chartElId = `${containerId}-chart`;
+    container.innerHTML = `
+      <div class="grid grid-cols-2 gap-8 h-full">
+        <div class="flex flex-col">
+          <h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
+          <div id="${chartElId}" class="w-full h-[300px] border border-gray-200"></div>
+          <div class="w-full flex-1 flex items-center justify-center mt-4">
+            <img src="${npsGraphImageUrl}" alt="NPS説明画像" class="w-full max-h-full object-contain" />
+          </div>
+        </div>
+        <div class="flex flex-col items-center">
+          <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain mb-4" />
+          <div id="${containerId}-summary" class="flex flex-col items-center"></div>
+        </div>
+      </div>
+    `;
+
+    // NPSデータを取得して描画
+    try {
+      const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
+      const overallData = await getReportDataForCurrentClinic("全体");
+
+      // グラフ描画
+      const clinicNpsScore = calculateNps(clinicData.npsScoreData.counts, clinicData.npsScoreData.totalCount);
+      const overallNpsScore = calculateNps(overallData.npsScoreData.counts, overallData.npsScoreData.totalCount);
+
+      const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];
+      if (clinicData.npsScoreData.totalCount > 0) {
+        for (let i = 0; i <= 10; i++) {
+          const count = clinicData.npsScoreData.counts[i] || 0;
+          const percentage = (count / clinicData.npsScoreData.totalCount) * 100;
+          clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);
+        }
+      }
+
+      const opt = {
+        legend: { position: 'none' },
+        annotations: { textStyle: { fontSize: 12, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
+        vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle: { fontSize: 12 } },
+        hAxis: { title: '推奨度スコア (0〜10)', textStyle: { fontSize: 12 } },
+        bar: { groupWidth: '80%' },
+        chartArea: { height: '75%', width: '85%', left: '10%', top: '5%' },
+        backgroundColor: 'transparent',
+        colors: ['#DE5D83']
+      };
+
+      const chartEl = document.getElementById(chartElId);
+      if (chartEl && clinicData.npsScoreData.totalCount > 0) {
+        const dataVis = google.visualization.arrayToDataTable(clinicChartData);
+        const chart = new google.visualization.ColumnChart(chartEl);
+        chart.draw(dataVis, opt);
+      }
+
+      // スコア表示
+      const summaryEl = document.getElementById(`${containerId}-summary`);
+      if (summaryEl) {
+        summaryEl.innerHTML = `
+          <div class="text-left text-3xl space-y-5 p-4 w-48">
+            <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p>
+            <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('NPSデータ取得エラー:', error);
+    }
+  } else {
+    // その他のグラフタイプ
+    try {
+      const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
+      const overallData = await getReportDataForCurrentClinic("全体");
+
+      const chartElId = `${containerId}-chart`;
+      container.innerHTML = `
+        <div class="grid grid-cols-2 gap-8 h-full">
+          <div class="flex flex-col items-center">
+            <h3 class="font-bold text-lg mb-4">貴院の結果</h3>
+            <div id="${chartElId}-clinic" class="w-full h-[300px]"></div>
+          </div>
+          <div class="flex flex-col items-center">
+            <h3 class="font-bold text-lg mb-4">全体の結果</h3>
+            <div id="${chartElId}-overall" class="w-full h-[300px]"></div>
+          </div>
+        </div>
+      `;
+
+      await drawChartsForType(type, clinicData, overallData, `${chartElId}-clinic`, `${chartElId}-overall`);
+    } catch (error) {
+      console.error(`${type}のチャート描画エラー:`, error);
+    }
+  }
 }
 
 // --- 初期化 ---
