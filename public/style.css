@@ -475,8 +475,15 @@ body{
         height: 210mm;
         display: flex;
         flex-direction: column;
-        padding: 20px;
+        padding: 0;
         box-sizing: border-box;
+    }
+
+    .print-page .report-body {
+        min-height: auto;
+        max-height: 210mm;
+        height: 210mm;
+        margin: 0;
     }
 
     .print-page:last-child {

@@ -2183,19 +2183,23 @@ async function handlePdfExport() {
           continue; // forループの次の反復へ（下のクローン処理をスキップ）
         }
       } else if (pageInfo.type === 'word_cloud') {
-        // ワードクラウドページ
+        // ワードクラウドページ - 直接生成
         console.log(`[PDF Export] ワードクラウド: ${pageInfo.analysisKey}`);
-        await prepareAndShowAnalysis(pageInfo.analysisKey);
-        // WCグラフの描画を待つ（グラフ描画は非同期）
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const wcPage = await generateWordCloudPageForPrint(pageInfo.analysisKey);
+        if (wcPage) {
+          printContainer.appendChild(wcPage);
+          console.log(`[PDF Export] ページ ${i + 1} クローン完了`);
+        }
+        continue; // forループの次の反復へ
       } else if (pageInfo.type === 'ai_analysis') {
-        // AI分析ページ
+        // AI分析ページ - 直接生成
         console.log(`[PDF Export] AI分析: ${pageInfo.analysisType} - ${pageInfo.subtype}`);
-        await prepareAndShowDetailedAnalysis(pageInfo.analysisType);
-        // タブを切り替えて表示
-        await switchTab(pageInfo.subtype);
-        // AI分析コンテンツの描画を待つ
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const aiPage = await generateAIAnalysisPageForPrint(pageInfo.analysisType, pageInfo.subtype);
+        if (aiPage) {
+          printContainer.appendChild(aiPage);
+          console.log(`[PDF Export] ページ ${i + 1} クローン完了`);
+        }
+        continue; // forループの次の反復へ
       }
 
       // レンダリング完了を待つ
@@ -2302,6 +2306,344 @@ async function cloneAIAnalysisPageForPrint() {
   printPage.appendChild(bodyClone);
 
   return printPage;
+}
+
+// ワードクラウドページを直接生成（PDF出力専用）
+async function generateWordCloudPageForPrint(columnType) {
+  console.log(`[generateWordCloudPageForPrint] Generating: ${columnType}`);
+
+  // データ取得
+  let tl = [], td = 0;
+  try {
+    const cd = await getReportDataForCurrentClinic(currentClinicForModal);
+    switch (columnType) {
+      case 'L':
+        tl = cd.npsData.rawText || [];
+        td = cd.npsData.totalCount || 0;
+        break;
+      case 'I':
+        tl = cd.feedbackData.i_column.results || [];
+        td = cd.feedbackData.i_column.totalCount || 0;
+        break;
+      case 'J':
+        tl = cd.feedbackData.j_column.results || [];
+        td = cd.feedbackData.j_column.totalCount || 0;
+        break;
+      case 'M':
+        tl = cd.feedbackData.m_column.results || [];
+        td = cd.feedbackData.m_column.totalCount || 0;
+        break;
+      default:
+        console.error("Invalid column:", columnType);
+        return null;
+    }
+  } catch (e) {
+    console.error("Error accessing text data:", e);
+    return null;
+  }
+
+  if (tl.length === 0) {
+    console.warn("No text data for:", columnType);
+    return null;
+  }
+
+  // 分析実行
+  let analysisResults;
+  try {
+    const r = await fetch('/api/analyzeText', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ textList: tl })
+    });
+    if (!r.ok) {
+      throw new Error(`分析APIエラー(${r.status})`);
+    }
+    const ad = await r.json();
+    analysisResults = ad.results;
+  } catch (error) {
+    console.error('Analyze fail:', error);
+    return null;
+  }
+
+  // ページ作成
+  const printPage = document.createElement('div');
+  printPage.className = 'print-page';
+
+  const reportBody = document.createElement('div');
+  reportBody.className = 'report-body';
+
+  // タイトル
+  const title = document.createElement('h1');
+  title.className = 'report-title';
+  title.textContent = getAnalysisTitle(columnType, td);
+  reportBody.appendChild(title);
+
+  // サブタイトル
+  const subtitle = document.createElement('p');
+  subtitle.className = 'report-subtitle';
+  subtitle.textContent = '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。';
+  subtitle.style.textAlign = 'left';
+  reportBody.appendChild(subtitle);
+
+  // セパレータ
+  const separator = document.createElement('hr');
+  separator.className = 'report-separator';
+  reportBody.appendChild(separator);
+
+  // コンテンツエリア
+  const reportContent = document.createElement('div');
+  reportContent.className = 'report-content';
+
+  const slideBody = document.createElement('div');
+  slideBody.id = 'slide-body-temp';
+  slideBody.style.height = '100%';
+  slideBody.style.overflowY = 'hidden';
+  slideBody.innerHTML = `
+    <div class="grid grid-cols-2 gap-2 h-full">
+      <div class="grid grid-cols-2 grid-rows-2 gap-1 chart-wc-left" style="height: 80%;">
+        <div id="noun-chart-container-temp" class="chart-container h-full">
+          <h3 class="font-bold text-center mb-0 text-blue-600 leading-none py-1" style="font-size: 12px;">名詞</h3>
+          <div id="noun-chart-temp" class="w-full flex-1"></div>
+        </div>
+        <div id="verb-chart-container-temp" class="chart-container h-full">
+          <h3 class="font-bold text-center mb-0 text-red-600 leading-none py-1" style="font-size: 12px;">動詞</h3>
+          <div id="verb-chart-temp" class="w-full flex-1"></div>
+        </div>
+        <div id="adj-chart-container-temp" class="chart-container h-full">
+          <h3 class="font-bold text-center mb-0 text-green-600 leading-none py-1" style="font-size: 12px;">形容詞</h3>
+          <div id="adj-chart-temp" class="w-full flex-1"></div>
+        </div>
+        <div id="int-chart-container-temp" class="chart-container h-full">
+          <h3 class="font-bold text-center mb-0 text-gray-600 leading-none py-1" style="font-size: 12px;">感動詞</h3>
+          <div id="int-chart-temp" class="w-full flex-1"></div>
+        </div>
+      </div>
+      <div class="flex flex-col justify-start" style="height: 80%;">
+        <p class="text-gray-600 text-left leading-tight" style="font-size: 12px; margin-bottom: 8px;">スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>単語の色は品詞の種類で異なります。<br><span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span></p>
+        <div id="word-cloud-container-temp" class="border border-gray-200" style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; background: #ffffff;">
+          <canvas id="word-cloud-canvas-temp" style="width: 100%; height: 100%; display: block;"></canvas>
+        </div>
+      </div>
+    </div>
+  `;
+
+  reportContent.appendChild(slideBody);
+  reportBody.appendChild(reportContent);
+  printPage.appendChild(reportBody);
+
+  // DOMに追加（グラフ描画のため）
+  const tempContainer = document.createElement('div');
+  tempContainer.style.position = 'fixed';
+  tempContainer.style.left = '-9999px';
+  tempContainer.style.width = '1122px';
+  tempContainer.style.height = '793px';
+  tempContainer.appendChild(printPage);
+  document.body.appendChild(tempContainer);
+
+  // グラフ描画を待つ
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        drawAnalysisChartsTemp(analysisResults);
+        resolve();
+      }, 300);
+    });
+  });
+
+  // さらに描画完了を待つ
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // DOMから削除
+  document.body.removeChild(tempContainer);
+
+  return printPage;
+}
+
+// 一時的なグラフ描画関数
+function drawAnalysisChartsTemp(results) {
+  if (!results || results.length === 0) return;
+
+  const noun = [], verb = [], adj = [], intj = [];
+  results.forEach(w => {
+    if (w.pos === '名詞') noun.push([w.word, w.score]);
+    else if (w.pos === '動詞') verb.push([w.word, w.score]);
+    else if (w.pos === '形容詞') adj.push([w.word, w.score]);
+    else if (w.pos === '感動詞') intj.push([w.word, w.score]);
+  });
+
+  const opt = {
+    legend: 'none', backgroundColor: 'transparent', chartArea: { width: '95%', height: '90%' },
+    hAxis: { textStyle: { fontSize: 9 } }, vAxis: { textStyle: { fontSize: 9 } }
+  };
+
+  // 棒グラフ描画
+  if (noun.length > 0) {
+    const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...noun.slice(0, 10)]);
+    new google.visualization.BarChart(document.getElementById('noun-chart-temp')).draw(d, { ...opt, colors: ['#2563eb'] });
+  }
+  if (verb.length > 0) {
+    const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...verb.slice(0, 10)]);
+    new google.visualization.BarChart(document.getElementById('verb-chart-temp')).draw(d, { ...opt, colors: ['#dc2626'] });
+  }
+  if (adj.length > 0) {
+    const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...adj.slice(0, 10)]);
+    new google.visualization.BarChart(document.getElementById('adj-chart-temp')).draw(d, { ...opt, colors: ['#16a34a'] });
+  }
+  if (intj.length > 0) {
+    const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...intj.slice(0, 10)]);
+    new google.visualization.BarChart(document.getElementById('int-chart-temp')).draw(d, { ...opt, colors: ['#6b7280'] });
+  }
+
+  // ワードクラウド描画
+  const canvas = document.getElementById('word-cloud-canvas-temp');
+  if (!canvas) return;
+
+  const container = document.getElementById('word-cloud-container-temp');
+  const rect = container.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+
+  const ctx = canvas.getContext('2d');
+  const words = results.slice(0, 50).map(w => ({
+    text: w.word, size: Math.max(10, Math.min(60, w.score * 2)),
+    color: w.pos === '名詞' ? '#2563eb' : w.pos === '動詞' ? '#dc2626' : w.pos === '形容詞' ? '#16a34a' : '#6b7280'
+  }));
+
+  const positions = [];
+  words.forEach(word => {
+    let placed = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const x = Math.random() * (canvas.width - 100) + 50;
+      const y = Math.random() * (canvas.height - 50) + 25;
+      const overlap = positions.some(p =>
+        Math.abs(p.x - x) < word.size * 5 && Math.abs(p.y - y) < word.size
+      );
+      if (!overlap) {
+        ctx.font = `${word.size}px sans-serif`;
+        ctx.fillStyle = word.color;
+        ctx.fillText(word.text, x, y);
+        positions.push({ x, y });
+        placed = true;
+        break;
+      }
+    }
+  });
+}
+
+// AI分析ページを直接生成（PDF出力専用）
+async function generateAIAnalysisPageForPrint(analysisType, tabId) {
+  console.log(`[generateAIAnalysisPageForPrint] Generating: ${analysisType} - ${tabId}`);
+
+  // API呼び出してセルデータを取得
+  let content = '';
+  try {
+    const response = await fetch('/api/getSingleAnalysisCell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        centralSheetId: currentCentralSheetId,
+        clinicName: currentClinicForModal,
+        analysisType: analysisType,
+        tabId: tabId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    content = data.content || '';
+  } catch (error) {
+    console.error('[generateAIAnalysisPageForPrint] Error:', error);
+    content = 'データの取得に失敗しました';
+  }
+
+  // ページ作成
+  const printPage = document.createElement('div');
+  printPage.className = 'print-page';
+
+  const reportBody = document.createElement('div');
+  reportBody.className = 'report-body';
+
+  // タイトル
+  const title = document.createElement('h1');
+  title.className = 'report-title';
+  title.textContent = getDetailedAnalysisTitleFull(analysisType);
+  reportBody.appendChild(title);
+
+  // サブタイトル
+  const subtitle = document.createElement('p');
+  subtitle.className = 'report-subtitle';
+  subtitle.textContent = getSubtitleForItem(analysisType);
+  reportBody.appendChild(subtitle);
+
+  // セパレータ
+  const separator = document.createElement('hr');
+  separator.className = 'report-separator';
+  reportBody.appendChild(separator);
+
+  // コンテンツエリア
+  const reportContent = document.createElement('div');
+  reportContent.className = 'report-content';
+
+  const aiContainer = document.createElement('section');
+  aiContainer.className = 'ai-analysis-container';
+
+  // サイドバー（五角形）
+  const sidebar = document.createElement('div');
+  sidebar.className = 'ai-analysis-sidebar';
+  const shape = document.createElement('div');
+  shape.className = 'ai-analysis-shape';
+  shape.textContent = getTabLabel(tabId);
+  sidebar.appendChild(shape);
+  aiContainer.appendChild(sidebar);
+
+  // コンテンツ
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'ai-analysis-content';
+  contentDiv.textContent = content;
+  contentDiv.style.fontSize = '12pt';
+  contentDiv.style.lineHeight = '1.5';
+  aiContainer.appendChild(contentDiv);
+
+  reportContent.appendChild(aiContainer);
+  reportBody.appendChild(reportContent);
+  printPage.appendChild(reportBody);
+
+  // DOMに一時追加してフォントサイズ調整
+  const tempContainer = document.createElement('div');
+  tempContainer.style.position = 'fixed';
+  tempContainer.style.left = '-9999px';
+  tempContainer.style.width = '1122px';
+  tempContainer.style.height = '793px';
+  tempContainer.appendChild(printPage);
+  document.body.appendChild(tempContainer);
+
+  // フォントサイズ調整
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        adjustFontSize(contentDiv);
+        resolve();
+      }, 100);
+    });
+  });
+
+  // DOMから削除
+  document.body.removeChild(tempContainer);
+
+  return printPage;
+}
+
+// タブラベル取得
+function getTabLabel(tabId) {
+  switch (tabId) {
+    case 'analysis': return '分析と考察';
+    case 'suggestions': return '改善案';
+    case 'overall': return '総評';
+    default: return '';
+  }
 }
 
 // --- 初期化 ---
