@@ -1413,18 +1413,30 @@ function drawAnalysisCharts(results) {
       // データ数に応じてサイズを調整（少ないデータでも大きく表示）
       const dataCount = wl.length;
       let sizeFactor = 100;
-      if (dataCount <= 20) {
+      let minFontSize = 10;
+
+      if (dataCount <= 10) {
+        sizeFactor = 25;  // データが非常に少ない場合は4倍大きく
+        minFontSize = 24;
+      } else if (dataCount <= 20) {
+        sizeFactor = 35;  // データが少ない場合は3倍大きく
+        minFontSize = 18;
+      } else if (dataCount <= 30) {
         sizeFactor = 50;  // データが少ない場合は2倍大きく
-      } else if (dataCount <= 40) {
+        minFontSize = 14;
+      } else if (dataCount <= 50) {
         sizeFactor = 70;  // データが中程度の場合は1.4倍大きく
-      } else if (dataCount <= 60) {
+        minFontSize = 12;
+      } else if (dataCount <= 70) {
         sizeFactor = 85;
+        minFontSize = 10;
       }
 
       const options = {
         list: wl,
-        gridSize: Math.round(4 * minDimension / 1024),
+        gridSize: Math.round(3 * minDimension / 1024),
         weightFactor: s => Math.pow(s, 1.0) * minDimension / sizeFactor,
+        minSize: minFontSize,
         fontFamily: 'Noto Sans JP,sans-serif',
         color: (w) => {
           const p = pm[w] || '不明';
