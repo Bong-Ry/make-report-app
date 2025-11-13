@@ -563,10 +563,10 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
       <div class="flex justify-center h-full items-start pt-8">
-        <ul class="text-sm font-normal space-y-3 text-left">
+        <ul class="text-sm font-normal space-y-0 text-left">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
-          <ul class="pl-8 space-y-2 font-normal">
+          <ul class="pl-8 space-y-0 font-normal">
             <li>―１　顧客属性</li>
             <li>―２　病院への満足度（施設・ハード面）</li>
             <li>―３　病院への満足度（質・スタッフ面）</li>
@@ -2015,11 +2015,11 @@ function showLoading(isLoading, message = '') {
   }
 }
 
-// Google DriveのURLを直接表示可能なURLに変換
+// Google DriveのURLからIDを抽出して/image/${id}形式のURLに変換
 function convertGoogleDriveUrl(driveUrl) {
   const match = driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
   if (match && match[1]) {
-    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    return `/image/${match[1]}`;
   }
   return driveUrl;
 }

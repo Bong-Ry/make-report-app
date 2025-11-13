@@ -1,6 +1,7 @@
 // bong-ry/make-report-app/make-report-app-2d48cdbeaa4329b4b6cca765878faab9eaea94af/routes/index.js
 
 const express = require('express');
+const https = require('https');
 const reportController = require('../controllers/reportController');
 const analysisController = require('../controllers/analysisController');
 
@@ -64,5 +65,29 @@ router.post('/api/getCommentData', analysisController.getCommentData);
 // [変更なし] コメントシートのセルを更新する (コントローラー側で `sheetName` と `cell` を読むよう変更)
 router.post('/api/updateCommentData', analysisController.updateCommentData);
 
+// =================================================================
+// === ▼▼▼ 画像プロキシエンドポイント ▼▼▼ ===
+// =================================================================
+
+// Google Drive画像をプロキシして配信
+router.get('/image/:id', (req, res) => {
+  const imageId = req.params.id;
+  const imageUrl = `https://drive.google.com/uc?export=view&id=${imageId}`;
+
+  https.get(imageUrl, (imageResponse) => {
+    if (imageResponse.statusCode !== 200) {
+      return res.status(404).send('Image not found');
+    }
+
+    const contentType = imageResponse.headers['content-type'] || 'image/png';
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400'); // 24時間キャッシュ
+
+    imageResponse.pipe(res);
+  }).on('error', (error) => {
+    console.error('Image proxy error:', error);
+    res.status(500).send('Failed to fetch image');
+  });
+});
 
 module.exports = router;
