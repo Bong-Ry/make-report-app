@@ -2283,6 +2283,25 @@ async function cloneCurrentPageForPrint() {
     return null;
   }
 
+  // 画像の読み込みを待つ
+  const images = reportBody.querySelectorAll('img');
+  if (images.length > 0) {
+    console.log(`[cloneCurrentPageForPrint] ${images.length}個の画像の読み込みを待機中...`);
+    await Promise.all(
+      Array.from(images).map(img => {
+        if (img.complete) {
+          return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+          img.addEventListener('load', resolve);
+          img.addEventListener('error', resolve);
+          setTimeout(resolve, 5000);
+        });
+      })
+    );
+    console.log('[cloneCurrentPageForPrint] すべての画像の読み込み完了');
+  }
+
   // 印刷用ページを作成
   const printPage = document.createElement('div');
   printPage.className = 'print-page';
@@ -2557,43 +2576,107 @@ function drawWordCloudOnCanvas(results, onComplete) {
 
   const container = document.getElementById('word-cloud-container-temp');
   const rect = container.getBoundingClientRect();
-  canvas.width = rect.width;
-  canvas.height = rect.height;
+
+  const dpr = window.devicePixelRatio || 1;
+  const logicalWidth = rect.width;
+  const logicalHeight = rect.height;
+
+  canvas.width = logicalWidth * dpr;
+  canvas.height = logicalHeight * dpr;
+  canvas.style.width = logicalWidth + 'px';
+  canvas.style.height = logicalHeight + 'px';
 
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#ffff95';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.scale(dpr, dpr);
 
-  const words = results.slice(0, 50).map(w => ({
-    text: w.word, size: Math.max(10, Math.min(60, w.score * 2)),
-    color: w.pos === '名詞' ? '#2563eb' : w.pos === '動詞' ? '#dc2626' : w.pos === '形容詞' ? '#16a34a' : '#6b7280'
-  }));
+  if (!results || results.length === 0) {
+    if (onComplete) onComplete();
+    return;
+  }
 
-  const positions = [];
-  words.forEach(word => {
-    let placed = false;
-    for (let attempt = 0; attempt < 100; attempt++) {
-      const x = Math.random() * (canvas.width - 100) + 50;
-      const y = Math.random() * (canvas.height - 50) + 25;
-      const overlap = positions.some(p =>
-        Math.abs(p.x - x) < word.size * 5 && Math.abs(p.y - y) < word.size
-      );
-      if (!overlap) {
-        ctx.font = `${word.size}px sans-serif`;
-        ctx.fillStyle = word.color;
-        ctx.fillText(word.text, x, y);
-        positions.push({ x, y });
-        placed = true;
-        break;
-      }
-    }
-  });
+  const posMap = {};
+  results.forEach(w => { posMap[w.word] = w.pos; });
 
-  requestAnimationFrame(() => {
-    setTimeout(() => {
+  const scores = results.map(r => r.score);
+  const minScore = Math.min(...scores);
+  const maxScore = Math.max(...scores);
+  const scoreRange = maxScore - minScore || 1;
+
+  const wordList = results.slice(0, 50).map(r => [r.word, r.score]);
+
+  const dataCount = wordList.length;
+  let baseMaxSize = 80;
+  let baseMinSize = 20;
+
+  if (dataCount <= 15) {
+    baseMaxSize = 120;
+    baseMinSize = 40;
+  } else if (dataCount <= 25) {
+    baseMaxSize = 100;
+    baseMinSize = 32;
+  } else if (dataCount <= 35) {
+    baseMaxSize = 90;
+    baseMinSize = 28;
+  } else if (dataCount <= 50) {
+    baseMaxSize = 80;
+    baseMinSize = 24;
+  } else if (dataCount <= 70) {
+    baseMaxSize = 70;
+    baseMinSize = 20;
+  } else if (dataCount <= 90) {
+    baseMaxSize = 60;
+    baseMinSize = 16;
+  }
+
+  const minDimension = Math.min(logicalWidth, logicalHeight);
+
+  try {
+    const options = {
+      list: wordList,
+      gridSize: Math.round(2 * minDimension / 1024),
+      weightFactor: (score) => {
+        const normalizedScore = (score - minScore) / scoreRange;
+        return baseMinSize + (baseMaxSize - baseMinSize) * normalizedScore;
+      },
+      fontFamily: 'Noto Sans JP,sans-serif',
+      color: (word) => {
+        const pos = posMap[word] || '不明';
+        switch (pos) {
+          case '名詞': return '#3b82f6';
+          case '動詞': return '#ef4444';
+          case '形容詞': return '#22c55e';
+          case '感動詞': return '#6b7280';
+          default: return '#a8a29e';
+        }
+      },
+      backgroundColor: '#ffff95',
+      clearCanvas: true,
+      rotateRatio: 0,
+      drawOutOfBound: false,
+      shrinkToFit: false,
+      shuffle: true,
+      wait: 10,
+      abortThreshold: 1000,
+      abort: () => false,
+      origin: [logicalWidth / 2, logicalHeight / 2]
+    };
+
+    if (typeof WordCloud !== 'undefined') {
+      canvas.addEventListener('wordcloudstop', function handleStop() {
+        canvas.removeEventListener('wordcloudstop', handleStop);
+        setTimeout(() => {
+          if (onComplete) onComplete();
+        }, 100);
+      });
+      WordCloud(canvas, options);
+    } else {
+      console.error('WordCloud library not loaded');
       if (onComplete) onComplete();
-    }, 500);
-  });
+    }
+  } catch (error) {
+    console.error('Error drawing wordcloud:', error);
+    if (onComplete) onComplete();
+  }
 }
 
 // AI分析ページを直接生成（PDF出力専用）

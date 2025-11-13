@@ -485,6 +485,7 @@ body{
         height: 210mm;
         margin: 0;
         aspect-ratio: auto !important;
+        overflow: hidden !important;
     }
 
     /* 背景画像を印刷時に強制表示 */
@@ -492,6 +493,12 @@ body{
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color-adjust: exact !important;
+    }
+
+    /* 表紙ページのはみ出し防止 */
+    .print-page .cover-background img {
+        max-height: 210mm;
+        object-fit: cover;
     }
 
     .print-page:last-child {
