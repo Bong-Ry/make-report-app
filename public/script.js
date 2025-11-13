@@ -550,10 +550,12 @@ async function prepareAndShowIntroPages(reportType) {
     const endYearMonth = `${ey}年${em}月`;
 
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex items-center justify-center h-full" style="background-image: url('${bgImageUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-        <div class="text-center">
-          <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
-          <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
+      <div class="w-full h-full" style="background-image: url('${bgImageUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+        <div class="flex items-start justify-start h-full p-12">
+          <div class="text-left">
+            <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
+            <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
+          </div>
         </div>
       </div>
     `;
@@ -632,14 +634,14 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full">
         <div class="flex flex-col h-full">
           <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
-          <div id="clinic-bar-chart" class="w-full ${chartHeightClass} clinic-graph-bg-yellow border border-gray-200 flex items-center justify-center"></div>
-          <div class="w-full h-[150px] flex flex-col justify-center items-center mt-4">
+          <div id="clinic-bar-chart" class="w-full ${chartHeightClass} border border-gray-200 flex items-center justify-center"></div>
+          <div class="w-full h-[200px] flex flex-col justify-center items-center mt-4">
             <img src="${npsGraphImageUrl}" alt="NPS説明画像" class="w-full h-full object-contain" />
           </div>
         </div>
         <div class="flex flex-col h-full">
-          <div class="w-full flex justify-center mb-4">
-            <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-16 object-contain" />
+          <div class="w-full flex justify-center mb-2">
+            <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain" />
           </div>
           <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 h-full">
             <p class="text-gray-500">NPSスコア計算中...</p>
@@ -766,8 +768,8 @@ function drawNpsScoreCharts(clinicData, overallData) {
     hAxis: { title: '推奨度スコア (0〜10)', textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
     bar: { groupWidth: '80%' },
     isStacked: false,
-    chartArea: { height: '75%', width: '90%', left: '5%', top: '5%', backgroundColor: '#ffff95' },
-    backgroundColor: '#ffff95',
+    chartArea: { height: '75%', width: '90%', left: '5%', top: '5%' },
+    backgroundColor: 'transparent',
     colors: ['#DE5D83']
   };
   if (clinicData.totalCount > 0 && clinicChartData.length > 1) {
@@ -780,7 +782,7 @@ function drawNpsScoreCharts(clinicData, overallData) {
   const summaryArea = document.getElementById('nps-summary-area');
   if (summaryArea) {
     summaryArea.innerHTML = `
-      <div class="text-left text-3xl space-y-5 p-6 border rounded-lg bg-gray-50 shadow-inner w-full max-w-xs">
+      <div class="text-left text-3xl space-y-5 p-4 border rounded-lg bg-gray-50 shadow-inner w-48">
         <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p>
         <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p>
       </div>
