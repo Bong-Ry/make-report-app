@@ -1410,36 +1410,47 @@ function drawAnalysisCharts(results) {
       const logicalHeight = rect.height;
       const minDimension = Math.min(logicalWidth, logicalHeight);
 
-      // データ数に応じてサイズを調整（少ないデータでも大きく表示）
+      // スコアの最大値と最小値を取得
+      const scores = wl.map(item => item[1]);
+      const maxScore = Math.max(...scores);
+      const minScore = Math.min(...scores);
+      const scoreRange = maxScore - minScore || 1;
+
+      // データ数に応じて基本サイズを調整
       const dataCount = wl.length;
-      let sizeFactor = 100;
-      let minFontSize = 10;
+      let baseMaxSize = 80;  // 最大スコア時のフォントサイズ
+      let baseMinSize = 20;  // 最小スコア時のフォントサイズ
 
       if (dataCount <= 15) {
-        sizeFactor = 18;  // データが非常に少ない場合は5.5倍大きく
-        minFontSize = 32;
+        baseMaxSize = 120;
+        baseMinSize = 40;
       } else if (dataCount <= 25) {
-        sizeFactor = 22;  // データが少ない場合は4.5倍大きく
-        minFontSize = 26;
+        baseMaxSize = 100;
+        baseMinSize = 32;
       } else if (dataCount <= 35) {
-        sizeFactor = 28;  // データが少ない場合は3.5倍大きく
-        minFontSize = 20;
+        baseMaxSize = 90;
+        baseMinSize = 28;
       } else if (dataCount <= 50) {
-        sizeFactor = 40;  // データが中程度の場合は2.5倍大きく
-        minFontSize = 16;
+        baseMaxSize = 80;
+        baseMinSize = 24;
       } else if (dataCount <= 70) {
-        sizeFactor = 60;
-        minFontSize = 12;
+        baseMaxSize = 70;
+        baseMinSize = 20;
       } else if (dataCount <= 90) {
-        sizeFactor = 80;
-        minFontSize = 10;
+        baseMaxSize = 60;
+        baseMinSize = 16;
       }
 
+      // スコアの割合に基づいてサイズを計算
       const options = {
         list: wl,
         gridSize: Math.round(2 * minDimension / 1024),
-        weightFactor: s => Math.pow(s, 1.1) * minDimension / sizeFactor,
-        minSize: minFontSize,
+        weightFactor: (score) => {
+          // スコアを0-1の範囲に正規化
+          const normalizedScore = (score - minScore) / scoreRange;
+          // 最小サイズと最大サイズの間で線形補間
+          return baseMinSize + (baseMaxSize - baseMinSize) * normalizedScore;
+        },
         fontFamily: 'Noto Sans JP,sans-serif',
         color: (w) => {
           const p = pm[w] || '不明';
@@ -1455,7 +1466,11 @@ function drawAnalysisCharts(results) {
         clearCanvas: true,
         rotateRatio: 0,
         drawOutOfBound: false,
-        shrinkToFit: true,
+        shrinkToFit: false,
+        shuffle: true,
+        wait: 10,
+        abortThreshold: 1000,
+        abort: () => false,
         origin: [logicalWidth / 2, logicalHeight / 2]
       };
       WordCloud(cv, options);
