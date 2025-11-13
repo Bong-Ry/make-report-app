@@ -559,8 +559,9 @@ async function prepareAndShowIntroPages(reportType) {
     const endYearMonth = `${ey}年${em}月`;
 
     document.getElementById('slide-body').innerHTML = `
-      <div class="w-full h-full" style="background-image: url('${bgImageUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-        <div class="flex items-start justify-start h-full p-12">
+      <div class="w-full h-full cover-background" style="position: relative;">
+        <img src="${bgImageUrl}" alt="表紙背景" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
+        <div class="flex items-start justify-start h-full p-12" style="position: relative; z-index: 1;">
           <div class="text-left">
             <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
             <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
@@ -2476,15 +2477,9 @@ async function generateWordCloudPageForPrint(columnType) {
   // グラフ描画を待つ
   await new Promise(resolve => {
     requestAnimationFrame(() => {
-      setTimeout(() => {
-        drawAnalysisChartsTemp(analysisResults);
-        resolve();
-      }, 300);
+      drawAnalysisChartsTemp(analysisResults, resolve);
     });
   });
-
-  // さらに描画完了を待つ
-  await new Promise(resolve => setTimeout(resolve, 1000));
 
   // DOMから削除
   document.body.removeChild(tempContainer);
@@ -2493,8 +2488,11 @@ async function generateWordCloudPageForPrint(columnType) {
 }
 
 // 一時的なグラフ描画関数
-function drawAnalysisChartsTemp(results) {
-  if (!results || results.length === 0) return;
+function drawAnalysisChartsTemp(results, onComplete) {
+  if (!results || results.length === 0) {
+    if (onComplete) onComplete();
+    return;
+  }
 
   const noun = [], verb = [], adj = [], intj = [];
   results.forEach(w => {
@@ -2509,27 +2507,53 @@ function drawAnalysisChartsTemp(results) {
     hAxis: { textStyle: { fontSize: 9 } }, vAxis: { textStyle: { fontSize: 9 } }
   };
 
+  let chartsDrawn = 0;
+  const totalCharts = [noun, verb, adj, intj].filter(arr => arr.length > 0).length;
+
+  const checkComplete = () => {
+    chartsDrawn++;
+    if (chartsDrawn >= totalCharts) {
+      drawWordCloudOnCanvas(results, onComplete);
+    }
+  };
+
   // 棒グラフ描画
   if (noun.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...noun.slice(0, 10)]);
-    new google.visualization.BarChart(document.getElementById('noun-chart-temp')).draw(d, { ...opt, colors: ['#2563eb'] });
+    const chart = new google.visualization.BarChart(document.getElementById('noun-chart-temp'));
+    google.visualization.events.addListener(chart, 'ready', checkComplete);
+    chart.draw(d, { ...opt, colors: ['#2563eb'] });
   }
   if (verb.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...verb.slice(0, 10)]);
-    new google.visualization.BarChart(document.getElementById('verb-chart-temp')).draw(d, { ...opt, colors: ['#dc2626'] });
+    const chart = new google.visualization.BarChart(document.getElementById('verb-chart-temp'));
+    google.visualization.events.addListener(chart, 'ready', checkComplete);
+    chart.draw(d, { ...opt, colors: ['#dc2626'] });
   }
   if (adj.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...adj.slice(0, 10)]);
-    new google.visualization.BarChart(document.getElementById('adj-chart-temp')).draw(d, { ...opt, colors: ['#16a34a'] });
+    const chart = new google.visualization.BarChart(document.getElementById('adj-chart-temp'));
+    google.visualization.events.addListener(chart, 'ready', checkComplete);
+    chart.draw(d, { ...opt, colors: ['#16a34a'] });
   }
   if (intj.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...intj.slice(0, 10)]);
-    new google.visualization.BarChart(document.getElementById('int-chart-temp')).draw(d, { ...opt, colors: ['#6b7280'] });
+    const chart = new google.visualization.BarChart(document.getElementById('int-chart-temp'));
+    google.visualization.events.addListener(chart, 'ready', checkComplete);
+    chart.draw(d, { ...opt, colors: ['#6b7280'] });
   }
 
-  // ワードクラウド描画
+  if (totalCharts === 0) {
+    drawWordCloudOnCanvas(results, onComplete);
+  }
+}
+
+function drawWordCloudOnCanvas(results, onComplete) {
   const canvas = document.getElementById('word-cloud-canvas-temp');
-  if (!canvas) return;
+  if (!canvas) {
+    if (onComplete) onComplete();
+    return;
+  }
 
   const container = document.getElementById('word-cloud-container-temp');
   const rect = container.getBoundingClientRect();
@@ -2537,6 +2561,9 @@ function drawAnalysisChartsTemp(results) {
   canvas.height = rect.height;
 
   const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffff95';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   const words = results.slice(0, 50).map(w => ({
     text: w.word, size: Math.max(10, Math.min(60, w.score * 2)),
     color: w.pos === '名詞' ? '#2563eb' : w.pos === '動詞' ? '#dc2626' : w.pos === '形容詞' ? '#16a34a' : '#6b7280'
@@ -2560,6 +2587,12 @@ function drawAnalysisChartsTemp(results) {
         break;
       }
     }
+  });
+
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      if (onComplete) onComplete();
+    }, 500);
   });
 }
 

@@ -480,10 +480,18 @@ body{
     }
 
     .print-page .report-body {
-        min-height: auto;
+        min-height: auto !important;
         max-height: 210mm;
         height: 210mm;
         margin: 0;
+        aspect-ratio: auto !important;
+    }
+
+    /* 背景画像を印刷時に強制表示 */
+    .print-page .cover-background {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
     }
 
     .print-page:last-child {
