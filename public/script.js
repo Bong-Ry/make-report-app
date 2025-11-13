@@ -559,9 +559,9 @@ async function prepareAndShowIntroPages(reportType) {
     const endYearMonth = `${ey}年${em}月`;
 
     document.getElementById('slide-body').innerHTML = `
-      <div class="w-full h-full cover-background" style="position: relative;">
-        <img src="${bgImageUrl}" alt="表紙背景" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
-        <div class="flex items-start justify-start h-full p-12" style="position: relative; z-index: 1;">
+      <div class="w-full h-full cover-background" style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <img src="${bgImageUrl}" alt="表紙背景" style="width: 95%; height: 95%; object-fit: cover; z-index: 0;">
+        <div class="flex items-start justify-start h-full p-12" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;">
           <div class="text-left">
             <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
             <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
@@ -1429,6 +1429,121 @@ async function prepareAndShowAnalysis(columnType) {
   }
 }
 
+// PDF出力専用：ローディングを表示しないバージョン
+async function prepareAndShowAnalysisForPrint(columnType) {
+  showScreen('screen3');
+  clearAnalysisCharts();
+  updateNavActiveState(null, columnType, null);
+  showCopyrightFooter(true);
+
+  let tl = [], td = 0;
+
+  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, 0);
+  document.getElementById('report-subtitle').textContent =
+    '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。';
+  document.getElementById('report-subtitle').style.textAlign = 'left';
+  document.getElementById('report-separator').style.display = 'block';
+
+  const subNav = document.getElementById('comment-sub-nav');
+  const controls = document.getElementById('comment-controls');
+  if (subNav) subNav.innerHTML = '';
+  if (controls) controls.innerHTML = '';
+
+  const slideBody = document.getElementById('slide-body');
+  slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
+  slideBody.style.overflowY = 'hidden';
+
+  try {
+    const cd = await getReportDataForCurrentClinic(currentClinicForModal);
+    switch (columnType) {
+      case 'L':
+        tl = cd.npsData.rawText || [];
+        td = cd.npsData.totalCount || 0;
+        break;
+      case 'I':
+        tl = cd.feedbackData.i_column.results || [];
+        td = cd.feedbackData.i_column.totalCount || 0;
+        break;
+      case 'J':
+        tl = cd.feedbackData.j_column.results || [];
+        td = cd.feedbackData.j_column.totalCount || 0;
+        break;
+      case 'M':
+        tl = cd.feedbackData.m_column.results || [];
+        td = cd.feedbackData.m_column.totalCount || 0;
+        break;
+      default:
+        console.error("Invalid column:", columnType);
+        return;
+    }
+  } catch (e) {
+    console.error("Error accessing text data:", e);
+    slideBody.innerHTML = `<p class="text-center text-red-500 py-16">レポートデータアクセスエラー</p>`;
+    return;
+  }
+
+  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, td);
+
+  if (tl.length === 0) {
+    slideBody.innerHTML = `<p class="text-center text-red-500 py-16">分析対象テキストなし</p>`;
+    return;
+  }
+
+  slideBody.innerHTML = `
+    <div class="grid grid-cols-2 gap-2 h-full">
+      <div class="grid grid-cols-2 grid-rows-2 gap-1 chart-wc-left" style="height: 80%;">
+        <div id="noun-chart-container" class="chart-container h-full">
+          <h3 class="font-bold text-center mb-0 text-blue-600 leading-none py-1" style="font-size: 12px;">名詞</h3>
+          <div id="noun-chart" class="w-full flex-1"></div>
+        </div>
+        <div id="verb-chart-container" class="chart-container h-full">
+          <h3 class="font-bold text-center mb-0 text-red-600 leading-none py-1" style="font-size: 12px;">動詞</h3>
+          <div id="verb-chart" class="w-full flex-1"></div>
+        </div>
+        <div id="adj-chart-container" class="chart-container h-full">
+          <h3 class="font-bold text-center mb-0 text-green-600 leading-none py-1" style="font-size: 12px;">形容詞</h3>
+          <div id="adj-chart" class="w-full flex-1"></div>
+        </div>
+        <div id="int-chart-container" class="chart-container h-full">
+          <h3 class="font-bold text-center mb-0 text-gray-600 leading-none py-1" style="font-size: 12px;">感動詞</h3>
+          <div id="int-chart" class="w-full flex-1"></div>
+        </div>
+      </div>
+      <div class="flex flex-col justify-start" style="height: 80%;">
+        <p class="text-gray-600 text-left leading-tight" style="font-size: 12px; margin-bottom: 8px;">スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>単語の色は品詞の種類で異なります。<br><span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span></p>
+        <div id="word-cloud-container" class="border border-gray-200" style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; background: #ffffff;">
+          <canvas id="word-cloud-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+        </div>
+        <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const r = await fetch('/api/analyzeText', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ textList: tl })
+    });
+    if (!r.ok) {
+      throw new Error(`分析APIエラー(${r.status})`);
+    }
+    const ad = await r.json();
+    wcAnalysisCache[columnType] = {
+      analysisResults: ad.results,
+      title: getAnalysisTitle(columnType, td),
+      subtitle: '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。'
+    };
+    requestAnimationFrame(() => {
+      setTimeout(() => drawAnalysisCharts(ad.results), 200);
+    });
+  } catch (error) {
+    console.error('!!! Analyze fail:', error);
+    document.getElementById('analysis-error').textContent = `分析失敗: ${error.message}`;
+    document.getElementById('analysis-error').classList.remove('hidden');
+  }
+}
+
 function drawAnalysisCharts(results) { 
   if (!results || results.length === 0) {
     console.log("No analysis results.");
@@ -1593,6 +1708,80 @@ function getColumnName(columnType) {
 }
 
 // --- ▼▼▼ AI詳細分析 (Screen 5) ▼▼▼
+
+// PDF出力専用：ローディングを表示しないバージョン
+async function prepareAndShowAIAnalysisForPrint(analysisType, tabId) {
+  console.log(`[PDF] Prepare AI analysis: ${analysisType} - ${tabId}`);
+  const clinicName = currentClinicForModal;
+
+  showScreen('screen5');
+  updateNavActiveState(null, null, analysisType);
+  toggleEditDetailedAnalysis(false);
+  showCopyrightFooter(true, 'screen5');
+
+  const errorDiv = document.getElementById('detailed-analysis-error');
+  errorDiv.classList.add('hidden');
+  errorDiv.textContent = '';
+
+  document.getElementById('detailed-analysis-title').textContent = getDetailedAnalysisTitleFull(analysisType);
+  document.getElementById('detailed-analysis-subtitle').textContent = getSubtitleForItem(analysisType);
+
+  clearDetailedAnalysisDisplay();
+
+  // 指定されたタブをアクティブに
+  document.querySelectorAll('#ai-tab-nav .tab-button').forEach(button => {
+    const isActive = button.dataset.tabId === tabId;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+
+  // タブをロード（ローディング表示なし）
+  try {
+    const response = await fetch('/api/getSingleAnalysisCell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        centralSheetId: currentCentralSheetId,
+        clinicName: clinicName,
+        columnType: analysisType,
+        tabId: tabId
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    const data = await response.json();
+
+    const content = data.content || '（データがありません）';
+    const pentagonText = data.pentagonText || getTabLabel(tabId);
+
+    // 表示を更新
+    const displayElement = document.getElementById(`display-${tabId}`);
+    const textareaElement = document.getElementById(`textarea-${tabId}`);
+
+    if (displayElement) {
+      displayElement.textContent = content;
+      adjustFontSize(displayElement);
+    }
+    if (textareaElement) {
+      textareaElement.value = content;
+    }
+
+    // 五角形を更新
+    const shapeElement = document.querySelector('.ai-analysis-shape');
+    if (shapeElement) {
+      shapeElement.textContent = pentagonText;
+    }
+
+    // サブタイトルを更新
+    const subtitleElement = document.getElementById('detailed-analysis-subtitle');
+    if (subtitleElement && data.subtitle) {
+      subtitleElement.textContent = data.subtitle;
+    }
+  } catch (error) {
+    console.error('[PDF] Error loading AI analysis:', error);
+  }
+}
 
 // =================================================================
 // === ▼▼▼ [置き換え 1/2] prepareAndShowDetailedAnalysis ▼▼▼ ===
@@ -2202,18 +2391,23 @@ async function handlePdfExport() {
           continue; // forループの次の反復へ（下のクローン処理をスキップ）
         }
       } else if (pageInfo.type === 'word_cloud') {
-        // ワードクラウドページ - 直接生成
+        // ワードクラウドページ - 実際の画面を表示してからクローン
         console.log(`[PDF Export] ワードクラウド: ${pageInfo.analysisKey}`);
-        const wcPage = await generateWordCloudPageForPrint(pageInfo.analysisKey);
+        await prepareAndShowAnalysisForPrint(pageInfo.analysisKey);
+        // グラフとワードクラウドの描画を待つ
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const wcPage = await cloneCurrentPageForPrint();
         if (wcPage) {
           printContainer.appendChild(wcPage);
           console.log(`[PDF Export] ページ ${i + 1} クローン完了`);
         }
         continue; // forループの次の反復へ
       } else if (pageInfo.type === 'ai_analysis') {
-        // AI分析ページ - 直接生成
+        // AI分析ページ - 実際の画面を表示してからクローン
         console.log(`[PDF Export] AI分析: ${pageInfo.analysisType} - ${pageInfo.subtype}`);
-        const aiPage = await generateAIAnalysisPageForPrint(pageInfo.analysisType, pageInfo.subtype);
+        await prepareAndShowAIAnalysisForPrint(pageInfo.analysisType, pageInfo.subtype);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const aiPage = await cloneAIAnalysisPageForPrint();
         if (aiPage) {
           printContainer.appendChild(aiPage);
           console.log(`[PDF Export] ページ ${i + 1} クローン完了`);
