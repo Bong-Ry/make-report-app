@@ -2045,7 +2045,7 @@ function showCopyrightFooter(show, screenId = 'screen3') {
 
 // --- PDF出力機能 ---
 async function handlePdfExport() {
-  showLoading('全ページを準備中...');
+  showLoading('データを取得中...');
 
   try {
     // 全ページの種類を定義
@@ -2068,15 +2068,36 @@ async function handlePdfExport() {
       { type: 'nps_score', title: 'NPS値' }
     ];
 
+    // データを事前に一括取得（キャッシュ活用）
+    showLoading('データを準備中...');
+    let clinicData, overallData;
+    if (clinicDataCache && overallDataCache) {
+      clinicData = clinicDataCache;
+      overallData = overallDataCache;
+    } else {
+      clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
+      overallData = await getReportDataForCurrentClinic("全体");
+      clinicDataCache = clinicData;
+      overallDataCache = overallData;
+    }
+
     const printContainer = document.getElementById('print-container');
     printContainer.innerHTML = '';
 
-    // 各ページを生成
-    for (const page of allPages) {
-      await generatePrintPage(page, printContainer);
-      // グラフ描画のための待機
-      await new Promise(resolve => setTimeout(resolve, 500));
+    // ページを順次生成（進捗表示付き）
+    for (let i = 0; i < allPages.length; i++) {
+      showLoading(`ページを生成中... (${i + 1}/${allPages.length})`);
+      await generatePrintPage(allPages[i], printContainer, clinicData, overallData);
+
+      // UIの更新を確実にするため短い待機
+      if (i < allPages.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
+
+    // グラフの描画完了を待つ
+    showLoading('グラフを描画中...');
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     hideLoading();
 
@@ -2089,11 +2110,11 @@ async function handlePdfExport() {
   } catch (error) {
     hideLoading();
     console.error('PDF生成エラー:', error);
-    alert('PDF出力の準備中にエラーが発生しました');
+    alert('PDF出力の準備中にエラーが発生しました: ' + error.message);
   }
 }
 
-async function generatePrintPage(page, container) {
+async function generatePrintPage(page, container, clinicData, overallData) {
   const pageDiv = document.createElement('div');
   pageDiv.className = 'print-page';
 
@@ -2128,7 +2149,7 @@ async function generatePrintPage(page, container) {
   bodyDiv.style.overflow = 'hidden';
 
   // ページタイプに応じてコンテンツを生成
-  await renderPageContent(page, titleEl, subtitleEl, separatorEl, bodyDiv);
+  await renderPageContent(page, titleEl, subtitleEl, separatorEl, bodyDiv, clinicData, overallData);
 
   headerDiv.appendChild(titleEl);
   headerDiv.appendChild(subtitleEl);
@@ -2143,7 +2164,7 @@ async function generatePrintPage(page, container) {
   return pageDiv;
 }
 
-async function renderPageContent(page, titleEl, subtitleEl, separatorEl, bodyDiv) {
+async function renderPageContent(page, titleEl, subtitleEl, separatorEl, bodyDiv, clinicData, overallData) {
   const reportType = page.type;
 
   if (reportType === 'cover') {
@@ -2195,9 +2216,9 @@ async function renderPageContent(page, titleEl, subtitleEl, separatorEl, bodyDiv
     const chartId = `print-chart-${reportType}-${Date.now()}`;
     bodyDiv.innerHTML = `<div id="${chartId}" class="w-full h-full"></div>`;
 
-    // チャートデータを取得して描画
+    // チャートデータを取得して描画（事前取得したデータを使用）
     try {
-      await drawReportChart(reportType, chartId);
+      await drawReportChart(reportType, chartId, clinicData, overallData);
     } catch (error) {
       console.error(`${reportType}の描画エラー:`, error);
       bodyDiv.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-gray-500">データ読み込みエラー</p></div>';
@@ -2205,22 +2226,15 @@ async function renderPageContent(page, titleEl, subtitleEl, separatorEl, bodyDiv
   }
 }
 
-async function drawReportChart(type, containerId) {
+async function drawReportChart(type, containerId, clinicData, overallData) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  // 既存のチャート描画ロジックを再利用
+  // 既存のチャート描画ロジックを再利用（事前取得したデータを使用）
   if (type === 'summary') {
     // サマリー用のコンテンツを描画
-    let overallCount = 0, clinicCount = 0;
-    try {
-      const overallData = await getReportDataForCurrentClinic("全体");
-      overallCount = overallData.npsScoreData.totalCount || 0;
-      const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
-      clinicCount = clinicData.npsScoreData.totalCount || 0;
-    } catch (e) {
-      console.error(e);
-    }
+    const overallCount = overallData?.npsScoreData?.totalCount || 0;
+    const clinicCount = clinicData?.npsScoreData?.totalCount || 0;
 
     container.innerHTML = `
       <div class="flex flex-col items-center justify-center h-full space-y-8">
@@ -2263,11 +2277,8 @@ async function drawReportChart(type, containerId) {
       </div>
     `;
 
-    // NPSデータを取得して描画
+    // NPSデータを描画（事前取得したデータを使用）
     try {
-      const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
-      const overallData = await getReportDataForCurrentClinic("全体");
-
       // グラフ描画
       const clinicNpsScore = calculateNps(clinicData.npsScoreData.counts, clinicData.npsScoreData.totalCount);
       const overallNpsScore = calculateNps(overallData.npsScoreData.counts, overallData.npsScoreData.totalCount);
@@ -2313,11 +2324,8 @@ async function drawReportChart(type, containerId) {
       console.error('NPSデータ取得エラー:', error);
     }
   } else {
-    // その他のグラフタイプ
+    // その他のグラフタイプ（事前取得したデータを使用）
     try {
-      const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
-      const overallData = await getReportDataForCurrentClinic("全体");
-
       const chartElId = `${containerId}-chart`;
       container.innerHTML = `
         <div class="grid grid-cols-2 gap-8 h-full">
