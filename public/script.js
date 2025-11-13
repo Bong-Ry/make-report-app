@@ -1406,7 +1406,10 @@ async function prepareAndShowAnalysis(columnType) {
       throw new Error(`分析APIエラー(${r.status}): ${et}`);
     }
     const ad = await r.json();
-    setTimeout(() => drawAnalysisCharts(ad.results), 50);
+    // レイアウト計算を確実に待つため、requestAnimationFrameとsetTimeoutを併用
+    requestAnimationFrame(() => {
+      setTimeout(() => drawAnalysisCharts(ad.results), 200);
+    });
   } catch (error) {
     console.error('!!! Analyze fail:', error);
     document.getElementById('analysis-error').textContent = `分析失敗: ${error.message}`;
@@ -1744,15 +1747,31 @@ function isOverflown(element) {
 function adjustFontSize(element) {
   if (!element) return;
   const initialFontSizePt = 12;
-  const minFontSizePt = 7;
+  const minFontSizePt = 5;  // 7pt → 5pt に変更
   const step = 0.5;
   let currentSize = initialFontSizePt;
+
+  // 初期状態に戻す
   element.style.fontSize = currentSize + 'pt';
+  element.style.lineHeight = '1.5';
+
+  // フォントサイズを縮小
   for (let i = 0; i < 100; i++) {
     if (!isOverflown(element)) return;
     currentSize -= step;
     element.style.fontSize = currentSize + 'pt';
-    if (currentSize <= minFontSizePt) return;
+    if (currentSize <= minFontSizePt) break;
+  }
+
+  // フォントサイズを最小にしても収まらない場合は行間を調整
+  if (isOverflown(element)) {
+    element.style.lineHeight = '1.3';
+    if (isOverflown(element)) {
+      element.style.lineHeight = '1.2';
+      if (isOverflown(element)) {
+        element.style.lineHeight = '1.1';
+      }
+    }
   }
 }
 // =================================================================
