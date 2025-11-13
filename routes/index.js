@@ -23,6 +23,16 @@ try {
   console.error('Failed to initialize Google Drive API for images:', err);
 }
 
+// --- Health Check ---
+router.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    nodeVersion: process.version
+  });
+});
+
 // --- API Routes (レポート・データ関連) ---
 router.get('/api/getClinicList', reportController.getClinicList);
 // router.post('/generate-pdf', reportController.generatePdf); // [修正] PDF生成ルートを削除

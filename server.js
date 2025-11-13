@@ -16,12 +16,23 @@ app.use('/', routes);
 // サーバー起動関数
 async function startServer() {
     try {
+        console.log('=== Server Startup ===');
+        console.log('Node version:', process.version);
+        console.log('Working directory:', process.cwd());
+        console.log('__dirname:', __dirname);
+        console.log('PORT:', PORT);
+
+        console.log('Initializing Kuromoji...');
         await initializeKuromoji(); // Kuromojiの辞書読み込みを待つ
-        app.listen(PORT, () => {
-            console.log(`Server listening on port ${PORT}`);
+        console.log('Kuromoji initialized successfully.');
+
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`✓ Server listening on 0.0.0.0:${PORT}`);
+            console.log('=== Server Ready ===');
         });
     } catch (error) {
-        console.error('Failed to initialize server:', error);
+        console.error('✗ Failed to initialize server:', error);
+        console.error('Error stack:', error.stack);
         process.exit(1); // 初期化失敗時は終了
     }
 }

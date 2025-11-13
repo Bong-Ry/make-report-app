@@ -12,10 +12,22 @@ exports.initializeKuromoji = () => {
             return resolve();
         }
         console.log('Initializing Kuromoji tokenizer...');
-        kuromoji.builder({ dicPath: path.join(__dirname, '..', 'node_modules', 'kuromoji', 'dict') })
+
+        // 辞書パスを複数試行
+        const possiblePaths = [
+            path.join(__dirname, '..', 'node_modules', 'kuromoji', 'dict'),
+            path.join(process.cwd(), 'node_modules', 'kuromoji', 'dict'),
+            path.join('/opt/render/project/src', 'node_modules', 'kuromoji', 'dict')
+        ];
+
+        let dictPath = possiblePaths[0];
+        console.log(`Trying dictionary path: ${dictPath}`);
+
+        kuromoji.builder({ dicPath: dictPath })
             .build((err, _tokenizer) => {
                 if (err) {
                     console.error('Failed to build kuromoji tokenizer:', err);
+                    console.error('Tried paths:', possiblePaths);
                     reject(err);
                 } else {
                     tokenizer = _tokenizer;
