@@ -2072,7 +2072,7 @@ async function handlePdfExport() {
     await generateAllPrintPages(printContainer, clinicData, overallData);
     console.log('[PDF Export] ページ生成完了');
 
-    hideLoading();
+    showLoading(false);
     console.log('[PDF Export] ローディング非表示完了');
 
     // 印刷モードに切り替え
@@ -2086,7 +2086,7 @@ async function handlePdfExport() {
     }, 200);
 
   } catch (error) {
-    hideLoading();
+    showLoading(false);
     console.error('[PDF Export] エラー発生:', error);
     console.error('[PDF Export] エラースタック:', error.stack);
     alert('PDF出力の準備中にエラーが発生しました: ' + error.message);
@@ -2307,20 +2307,58 @@ function createChartPage(title, type, clinicData, overallData) {
 
 // おすすめ理由ページ
 function createRecommendationPage(clinicData) {
+  console.log('[createRecommendationPage] 開始');
+  console.log('[createRecommendationPage] clinicData.recommendationData:', clinicData.recommendationData);
+
   const page = document.createElement('div');
   page.className = 'print-page';
 
-  const recommendations = clinicData.recommendationData || [];
-  const displayRecommendations = recommendations.slice(0, 20);
+  // recommendationDataは { fixedCounts, otherList, fixedKeys } の構造
+  const recommendationData = clinicData.recommendationData || { fixedCounts: {}, otherList: [], fixedKeys: [] };
+  const { fixedCounts, otherList, fixedKeys } = recommendationData;
+
+  console.log('[createRecommendationPage] fixedCounts:', fixedCounts);
+  console.log('[createRecommendationPage] otherList:', otherList);
+  console.log('[createRecommendationPage] fixedKeys:', fixedKeys);
+
+  // 固定選択肢と自由記述を結合
+  const allRecommendations = [];
+
+  // 固定選択肢（件数が多い順）
+  const sortedFixedKeys = fixedKeys.sort((a, b) => (fixedCounts[b] || 0) - (fixedCounts[a] || 0));
+  sortedFixedKeys.forEach(key => {
+    const count = fixedCounts[key] || 0;
+    if (count > 0) {
+      allRecommendations.push({ text: `${key} (${count}件)`, count });
+    }
+  });
+
+  // 自由記述
+  if (otherList && Array.isArray(otherList)) {
+    otherList.forEach(text => {
+      if (text && text.trim()) {
+        allRecommendations.push({ text: text.trim(), count: 0 });
+      }
+    });
+  }
+
+  console.log('[createRecommendationPage] allRecommendations:', allRecommendations);
+
+  // 上位20件を表示
+  const displayRecommendations = allRecommendations.slice(0, 20);
 
   let recommendationHtml = '';
-  displayRecommendations.forEach((rec, index) => {
-    recommendationHtml += `
-      <div class="p-3 bg-white rounded border border-gray-200 text-sm">
-        ${rec.text}
-      </div>
-    `;
-  });
+  if (displayRecommendations.length === 0) {
+    recommendationHtml = '<p class="text-gray-500 text-center">データがありません</p>';
+  } else {
+    displayRecommendations.forEach((rec) => {
+      recommendationHtml += `
+        <div class="p-3 bg-white rounded border border-gray-200 text-sm">
+          ${rec.text}
+        </div>
+      `;
+    });
+  }
 
   page.innerHTML = `
     <div class="p-12">
