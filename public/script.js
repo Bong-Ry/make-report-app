@@ -2045,90 +2045,147 @@ function showCopyrightFooter(show, screenId = 'screen3') {
 
 // --- PDF出力機能 ---
 async function handlePdfExport() {
+  console.log('[PDF Export] 開始');
   showLoading('データを取得中...');
 
   try {
+    console.log('[PDF Export] クリニック名:', currentClinicForModal);
+    console.log('[PDF Export] シートID:', currentCentralSheetId);
+
     // データを一度に取得
+    console.log('[PDF Export] クリニックデータ取得開始...');
     const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
+    console.log('[PDF Export] クリニックデータ取得完了:', clinicData);
+
+    console.log('[PDF Export] 全体データ取得開始...');
     const overallData = await getReportDataForCurrentClinic("全体");
+    console.log('[PDF Export] 全体データ取得完了:', overallData);
 
     showLoading('印刷プレビューを生成中...');
 
     const printContainer = document.getElementById('print-container');
+    console.log('[PDF Export] printContainer:', printContainer);
     printContainer.innerHTML = '';
 
     // 全ページを一気に生成
+    console.log('[PDF Export] ページ生成開始...');
     await generateAllPrintPages(printContainer, clinicData, overallData);
+    console.log('[PDF Export] ページ生成完了');
 
     hideLoading();
+    console.log('[PDF Export] ローディング非表示完了');
 
     // 印刷モードに切り替え
     document.body.classList.add('print-mode-active');
+    console.log('[PDF Export] 印刷モード切り替え完了');
 
     // ポップアップ表示
     setTimeout(() => {
       document.getElementById('print-ready-popup').classList.remove('hidden');
+      console.log('[PDF Export] ポップアップ表示完了');
     }, 200);
 
   } catch (error) {
     hideLoading();
-    console.error('PDF生成エラー:', error);
+    console.error('[PDF Export] エラー発生:', error);
+    console.error('[PDF Export] エラースタック:', error.stack);
     alert('PDF出力の準備中にエラーが発生しました: ' + error.message);
   }
 }
 
 // 全ページを一括生成
 async function generateAllPrintPages(container, clinicData, overallData) {
-  // 表紙
-  container.appendChild(createCoverPage());
+  console.log('[generateAllPrintPages] 開始');
 
-  // 目次
-  container.appendChild(createTocPage());
+  try {
+    // 表紙
+    console.log('[generateAllPrintPages] 表紙生成中...');
+    container.appendChild(createCoverPage());
+    console.log('[generateAllPrintPages] 表紙完了');
 
-  // 概要
-  container.appendChild(createSummaryPage(clinicData, overallData));
+    // 目次
+    console.log('[generateAllPrintPages] 目次生成中...');
+    container.appendChild(createTocPage());
+    console.log('[generateAllPrintPages] 目次完了');
 
-  // 年代
-  container.appendChild(await createChartPage('年代', 'age', clinicData, overallData));
+    // 概要
+    console.log('[generateAllPrintPages] 概要生成中...');
+    container.appendChild(createSummaryPage(clinicData, overallData));
+    console.log('[generateAllPrintPages] 概要完了');
 
-  // お子様数
-  container.appendChild(await createChartPage('お子様数', 'children', clinicData, overallData));
+    // 年代
+    console.log('[generateAllPrintPages] 年代生成中...');
+    container.appendChild(createChartPage('年代', 'age', clinicData, overallData));
+    console.log('[generateAllPrintPages] 年代完了');
 
-  // 世帯年収
-  container.appendChild(await createChartPage('世帯年収', 'income', clinicData, overallData));
+    // お子様数
+    console.log('[generateAllPrintPages] お子様数生成中...');
+    container.appendChild(createChartPage('お子様数', 'children', clinicData, overallData));
+    console.log('[generateAllPrintPages] お子様数完了');
 
-  // 市区町村
-  container.appendChild(await createChartPage('市区町村', 'municipality', clinicData, overallData));
+    // 世帯年収
+    console.log('[generateAllPrintPages] 世帯年収生成中...');
+    container.appendChild(createChartPage('世帯年収', 'income', clinicData, overallData));
+    console.log('[generateAllPrintPages] 世帯年収完了');
 
-  // 満足度
-  container.appendChild(await createChartPage('満足度', 'satisfaction_b', clinicData, overallData));
+    // 市区町村
+    console.log('[generateAllPrintPages] 市区町村生成中...');
+    container.appendChild(createChartPage('市区町村', 'municipality', clinicData, overallData));
+    console.log('[generateAllPrintPages] 市区町村完了');
 
-  // 施設
-  container.appendChild(await createChartPage('施設', 'satisfaction_c', clinicData, overallData));
+    // 満足度
+    console.log('[generateAllPrintPages] 満足度生成中...');
+    container.appendChild(createChartPage('満足度', 'satisfaction_b', clinicData, overallData));
+    console.log('[generateAllPrintPages] 満足度完了');
 
-  // アクセス
-  container.appendChild(await createChartPage('アクセス', 'satisfaction_d', clinicData, overallData));
+    // 施設
+    console.log('[generateAllPrintPages] 施設生成中...');
+    container.appendChild(createChartPage('施設', 'satisfaction_c', clinicData, overallData));
+    console.log('[generateAllPrintPages] 施設完了');
 
-  // 費用
-  container.appendChild(await createChartPage('費用', 'satisfaction_e', clinicData, overallData));
+    // アクセス
+    console.log('[generateAllPrintPages] アクセス生成中...');
+    container.appendChild(createChartPage('アクセス', 'satisfaction_d', clinicData, overallData));
+    console.log('[generateAllPrintPages] アクセス完了');
 
-  // 雰囲気
-  container.appendChild(await createChartPage('雰囲気', 'satisfaction_f', clinicData, overallData));
+    // 費用
+    console.log('[generateAllPrintPages] 費用生成中...');
+    container.appendChild(createChartPage('費用', 'satisfaction_e', clinicData, overallData));
+    console.log('[generateAllPrintPages] 費用完了');
 
-  // スタッフ
-  container.appendChild(await createChartPage('スタッフ', 'satisfaction_g', clinicData, overallData));
+    // 雰囲気
+    console.log('[generateAllPrintPages] 雰囲気生成中...');
+    container.appendChild(createChartPage('雰囲気', 'satisfaction_f', clinicData, overallData));
+    console.log('[generateAllPrintPages] 雰囲気完了');
 
-  // 先生
-  container.appendChild(await createChartPage('先生', 'satisfaction_h', clinicData, overallData));
+    // スタッフ
+    console.log('[generateAllPrintPages] スタッフ生成中...');
+    container.appendChild(createChartPage('スタッフ', 'satisfaction_g', clinicData, overallData));
+    console.log('[generateAllPrintPages] スタッフ完了');
 
-  // おすすめ理由
-  container.appendChild(await createRecommendationPage(clinicData));
+    // 先生
+    console.log('[generateAllPrintPages] 先生生成中...');
+    container.appendChild(createChartPage('先生', 'satisfaction_h', clinicData, overallData));
+    console.log('[generateAllPrintPages] 先生完了');
 
-  // NPS値
-  container.appendChild(await createNpsPage(clinicData, overallData));
+    // おすすめ理由
+    console.log('[generateAllPrintPages] おすすめ理由生成中...');
+    container.appendChild(createRecommendationPage(clinicData));
+    console.log('[generateAllPrintPages] おすすめ理由完了');
 
-  // グラフ描画完了を待つ
-  await new Promise(resolve => setTimeout(resolve, 1000));
+    // NPS値
+    console.log('[generateAllPrintPages] NPS値生成中...');
+    container.appendChild(createNpsPage(clinicData, overallData));
+    console.log('[generateAllPrintPages] NPS値完了');
+
+    // グラフ描画完了を待つ
+    console.log('[generateAllPrintPages] グラフ描画待機中...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('[generateAllPrintPages] 完了');
+  } catch (error) {
+    console.error('[generateAllPrintPages] エラー:', error);
+    throw error;
+  }
 }
 
 // 表紙ページ
@@ -2218,7 +2275,7 @@ function createSummaryPage(clinicData, overallData) {
 }
 
 // チャートページ（汎用）
-async function createChartPage(title, type, clinicData, overallData) {
+function createChartPage(title, type, clinicData, overallData) {
   const page = document.createElement('div');
   page.className = 'print-page';
 
@@ -2249,7 +2306,7 @@ async function createChartPage(title, type, clinicData, overallData) {
 }
 
 // おすすめ理由ページ
-async function createRecommendationPage(clinicData) {
+function createRecommendationPage(clinicData) {
   const page = document.createElement('div');
   page.className = 'print-page';
 
@@ -2278,7 +2335,7 @@ async function createRecommendationPage(clinicData) {
 }
 
 // NPSページ
-async function createNpsPage(clinicData, overallData) {
+function createNpsPage(clinicData, overallData) {
   const page = document.createElement('div');
   page.className = 'print-page';
 
