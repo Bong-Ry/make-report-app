@@ -2086,11 +2086,32 @@ async function handlePdfExport() {
       { type: 'nps_comments', key: 'L_2' },
       { type: 'nps_comments', key: 'L_1' },
       { type: 'nps_comments', key: 'L_0' },
-      // AI分析（4ページ）
-      { type: 'ai_analysis', subtype: 'consideration' },
-      { type: 'ai_analysis', subtype: 'analysis' },
-      { type: 'ai_analysis', subtype: 'improvement' },
-      { type: 'ai_analysis', subtype: 'overall' }
+      // AI分析（5種類 × 4タブ = 20ページ）
+      // AI-NPS
+      { type: 'ai_analysis', analysisType: 'nps', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'nps', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'nps', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'nps', subtype: 'overall' },
+      // AI-悪い点
+      { type: 'ai_analysis', analysisType: 'feedback_i', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'feedback_i', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'feedback_i', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'feedback_i', subtype: 'overall' },
+      // AI-良い点
+      { type: 'ai_analysis', analysisType: 'feedback_j', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'feedback_j', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'feedback_j', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'feedback_j', subtype: 'overall' },
+      // AI-スタッフ
+      { type: 'ai_analysis', analysisType: 'wc_staff', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'wc_staff', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'wc_staff', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'wc_staff', subtype: 'overall' },
+      // AI-お産
+      { type: 'ai_analysis', analysisType: 'wc_birth', subtype: 'consideration' },
+      { type: 'ai_analysis', analysisType: 'wc_birth', subtype: 'analysis' },
+      { type: 'ai_analysis', analysisType: 'wc_birth', subtype: 'improvement' },
+      { type: 'ai_analysis', analysisType: 'wc_birth', subtype: 'overall' }
     ];
 
     console.log('[PDF Export] 全', allPages.length, 'ページを生成します');
@@ -2114,17 +2135,10 @@ async function handlePdfExport() {
         await fetchAndRenderCommentPage(pageInfo.key);
       } else if (pageInfo.type === 'ai_analysis') {
         // AI分析ページ
-        await prepareAndShowDetailedAnalysis('nps');
+        console.log(`[PDF Export] AI分析: ${pageInfo.analysisType} - ${pageInfo.subtype}`);
+        await prepareAndShowDetailedAnalysis(pageInfo.analysisType);
         // タブを切り替えて表示
-        if (pageInfo.subtype === 'consideration') {
-          await switchTab('consideration');
-        } else if (pageInfo.subtype === 'analysis') {
-          await switchTab('analysis');
-        } else if (pageInfo.subtype === 'improvement') {
-          await switchTab('improvement');
-        } else if (pageInfo.subtype === 'overall') {
-          await switchTab('overall');
-        }
+        await switchTab(pageInfo.subtype);
       }
 
       // レンダリング完了を待つ
@@ -2196,7 +2210,7 @@ async function cloneCurrentPageForPrint() {
   bodyClone.style.height = '100%';
   bodyClone.style.display = 'flex';
   bodyClone.style.flexDirection = 'column';
-  bodyClone.style.padding = '40px';
+  bodyClone.style.padding = '0';
   bodyClone.style.boxSizing = 'border-box';
 
   printPage.appendChild(bodyClone);
@@ -2223,19 +2237,27 @@ async function cloneAIAnalysisPageForPrint() {
   screen5Clone.style.height = '100%';
   screen5Clone.style.display = 'flex';
   screen5Clone.style.flexDirection = 'column';
-  screen5Clone.style.padding = '40px';
+  screen5Clone.style.padding = '0';
   screen5Clone.style.boxSizing = 'border-box';
   screen5Clone.style.background = 'white';
 
-  // タブナビゲーションを非表示にする
-  const tabNav = screen5Clone.querySelector('#ai-tab-nav');
-  if (tabNav) {
-    tabNav.style.display = 'none';
+  // ヘッダーメニュー（ナビゲーションボタン）を削除
+  const navButtons = screen5Clone.querySelector('.flex.flex-wrap.gap-3.mb-6');
+  if (navButtons) {
+    navButtons.remove();
   }
 
-  // 編集ボタンを非表示にする
-  const editButtons = screen5Clone.querySelectorAll('.edit-button, .save-button, .cancel-button');
-  editButtons.forEach(btn => btn.style.display = 'none');
+  // タブナビゲーションを削除
+  const tabNav = screen5Clone.querySelector('#ai-tab-nav');
+  if (tabNav) {
+    tabNav.remove();
+  }
+
+  // 編集ボタンとAI再実行ボタンを削除
+  const actionButtons = screen5Clone.querySelector('.flex.justify-end.gap-3.mb-4');
+  if (actionButtons) {
+    actionButtons.remove();
+  }
 
   printPage.appendChild(screen5Clone);
 
