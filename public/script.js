@@ -2046,31 +2046,109 @@ function showCopyrightFooter(show, screenId = 'screen3') {
 // --- PDF出力機能 ---
 async function handlePdfExport() {
   console.log('[PDF Export] 開始');
-  showLoading('データを取得中...');
+  showLoading(true, '印刷プレビューを準備中...');
 
   try {
     console.log('[PDF Export] クリニック名:', currentClinicForModal);
     console.log('[PDF Export] シートID:', currentCentralSheetId);
 
-    // データを一度に取得
-    console.log('[PDF Export] クリニックデータ取得開始...');
-    const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
-    console.log('[PDF Export] クリニックデータ取得完了:', clinicData);
-
-    console.log('[PDF Export] 全体データ取得開始...');
-    const overallData = await getReportDataForCurrentClinic("全体");
-    console.log('[PDF Export] 全体データ取得完了:', overallData);
-
-    showLoading('印刷プレビューを生成中...');
-
     const printContainer = document.getElementById('print-container');
     console.log('[PDF Export] printContainer:', printContainer);
     printContainer.innerHTML = '';
 
-    // 全ページを一気に生成
-    console.log('[PDF Export] ページ生成開始...');
-    await generateAllPrintPages(printContainer, clinicData, overallData);
-    console.log('[PDF Export] ページ生成完了');
+    // 全ページタイプを定義
+    const allPages = [
+      'cover',
+      'toc',
+      'summary',
+      'age',
+      'children',
+      'income',
+      'municipality',
+      'satisfaction_b',
+      'satisfaction_c',
+      'satisfaction_d',
+      'satisfaction_e',
+      'satisfaction_f',
+      'satisfaction_g',
+      'satisfaction_h',
+      'recommendation',
+      'nps_score',
+      // NPSコメント一覧（全11ページ）
+      { type: 'nps_comments', key: 'L_10' },
+      { type: 'nps_comments', key: 'L_9' },
+      { type: 'nps_comments', key: 'L_8' },
+      { type: 'nps_comments', key: 'L_7' },
+      { type: 'nps_comments', key: 'L_6' },
+      { type: 'nps_comments', key: 'L_5' },
+      { type: 'nps_comments', key: 'L_4' },
+      { type: 'nps_comments', key: 'L_3' },
+      { type: 'nps_comments', key: 'L_2' },
+      { type: 'nps_comments', key: 'L_1' },
+      { type: 'nps_comments', key: 'L_0' },
+      // AI分析（4ページ）
+      { type: 'ai_analysis', subtype: 'consideration' },
+      { type: 'ai_analysis', subtype: 'analysis' },
+      { type: 'ai_analysis', subtype: 'improvement' },
+      { type: 'ai_analysis', subtype: 'overall' }
+    ];
+
+    console.log('[PDF Export] 全', allPages.length, 'ページを生成します');
+
+    // 各ページを順番に表示してクローン
+    for (let i = 0; i < allPages.length; i++) {
+      const pageInfo = allPages[i];
+      const pageType = typeof pageInfo === 'string' ? pageInfo : pageInfo.type;
+
+      console.log(`[PDF Export] ページ ${i + 1}/${allPages.length}: ${pageType}`);
+      showLoading(true, `ページを準備中... (${i + 1}/${allPages.length})`);
+
+      // ページを表示
+      if (typeof pageInfo === 'string') {
+        // 通常のレポートページ
+        await prepareAndShowReport(pageInfo);
+      } else if (pageInfo.type === 'nps_comments') {
+        // NPSコメントページ
+        currentCommentType = 'nps';
+        showCommentSubNav('nps');
+        await fetchAndRenderCommentPage(pageInfo.key);
+      } else if (pageInfo.type === 'ai_analysis') {
+        // AI分析ページ
+        await prepareAndShowDetailedAnalysis('nps');
+        // タブを切り替えて表示
+        if (pageInfo.subtype === 'consideration') {
+          await switchTab('consideration');
+        } else if (pageInfo.subtype === 'analysis') {
+          await switchTab('analysis');
+        } else if (pageInfo.subtype === 'improvement') {
+          await switchTab('improvement');
+        } else if (pageInfo.subtype === 'overall') {
+          await switchTab('overall');
+        }
+      }
+
+      // レンダリング完了を待つ
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // 現在表示されているコンテンツをクローン
+      let printPage;
+      if (pageInfo.type === 'ai_analysis') {
+        // AI分析ページは screen5 からクローン
+        printPage = await cloneAIAnalysisPageForPrint();
+      } else {
+        // 通常ページは screen3 からクローン
+        printPage = await cloneCurrentPageForPrint();
+      }
+
+      if (printPage) {
+        printContainer.appendChild(printPage);
+        console.log(`[PDF Export] ページ ${i + 1} クローン完了`);
+      } else {
+        console.warn(`[PDF Export] ページ ${i + 1} のクローンに失敗`);
+      }
+    }
+
+    console.log('[PDF Export] 全ページ生成完了');
 
     showLoading(false);
     console.log('[PDF Export] ローディング非表示完了');
@@ -2093,353 +2171,76 @@ async function handlePdfExport() {
   }
 }
 
-// 全ページを一括生成
-async function generateAllPrintPages(container, clinicData, overallData) {
-  console.log('[generateAllPrintPages] 開始');
-
-  try {
-    // 表紙
-    console.log('[generateAllPrintPages] 表紙生成中...');
-    container.appendChild(createCoverPage());
-    console.log('[generateAllPrintPages] 表紙完了');
-
-    // 目次
-    console.log('[generateAllPrintPages] 目次生成中...');
-    container.appendChild(createTocPage());
-    console.log('[generateAllPrintPages] 目次完了');
-
-    // 概要
-    console.log('[generateAllPrintPages] 概要生成中...');
-    container.appendChild(createSummaryPage(clinicData, overallData));
-    console.log('[generateAllPrintPages] 概要完了');
-
-    // 年代
-    console.log('[generateAllPrintPages] 年代生成中...');
-    container.appendChild(createChartPage('年代', 'age', clinicData, overallData));
-    console.log('[generateAllPrintPages] 年代完了');
-
-    // お子様数
-    console.log('[generateAllPrintPages] お子様数生成中...');
-    container.appendChild(createChartPage('お子様数', 'children', clinicData, overallData));
-    console.log('[generateAllPrintPages] お子様数完了');
-
-    // 世帯年収
-    console.log('[generateAllPrintPages] 世帯年収生成中...');
-    container.appendChild(createChartPage('世帯年収', 'income', clinicData, overallData));
-    console.log('[generateAllPrintPages] 世帯年収完了');
-
-    // 市区町村
-    console.log('[generateAllPrintPages] 市区町村生成中...');
-    container.appendChild(createChartPage('市区町村', 'municipality', clinicData, overallData));
-    console.log('[generateAllPrintPages] 市区町村完了');
-
-    // 満足度
-    console.log('[generateAllPrintPages] 満足度生成中...');
-    container.appendChild(createChartPage('満足度', 'satisfaction_b', clinicData, overallData));
-    console.log('[generateAllPrintPages] 満足度完了');
-
-    // 施設
-    console.log('[generateAllPrintPages] 施設生成中...');
-    container.appendChild(createChartPage('施設', 'satisfaction_c', clinicData, overallData));
-    console.log('[generateAllPrintPages] 施設完了');
-
-    // アクセス
-    console.log('[generateAllPrintPages] アクセス生成中...');
-    container.appendChild(createChartPage('アクセス', 'satisfaction_d', clinicData, overallData));
-    console.log('[generateAllPrintPages] アクセス完了');
-
-    // 費用
-    console.log('[generateAllPrintPages] 費用生成中...');
-    container.appendChild(createChartPage('費用', 'satisfaction_e', clinicData, overallData));
-    console.log('[generateAllPrintPages] 費用完了');
-
-    // 雰囲気
-    console.log('[generateAllPrintPages] 雰囲気生成中...');
-    container.appendChild(createChartPage('雰囲気', 'satisfaction_f', clinicData, overallData));
-    console.log('[generateAllPrintPages] 雰囲気完了');
-
-    // スタッフ
-    console.log('[generateAllPrintPages] スタッフ生成中...');
-    container.appendChild(createChartPage('スタッフ', 'satisfaction_g', clinicData, overallData));
-    console.log('[generateAllPrintPages] スタッフ完了');
-
-    // 先生
-    console.log('[generateAllPrintPages] 先生生成中...');
-    container.appendChild(createChartPage('先生', 'satisfaction_h', clinicData, overallData));
-    console.log('[generateAllPrintPages] 先生完了');
-
-    // おすすめ理由
-    console.log('[generateAllPrintPages] おすすめ理由生成中...');
-    container.appendChild(createRecommendationPage(clinicData));
-    console.log('[generateAllPrintPages] おすすめ理由完了');
-
-    // NPS値
-    console.log('[generateAllPrintPages] NPS値生成中...');
-    container.appendChild(createNpsPage(clinicData, overallData));
-    console.log('[generateAllPrintPages] NPS値完了');
-
-    // グラフ描画完了を待つ
-    console.log('[generateAllPrintPages] グラフ描画待機中...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('[generateAllPrintPages] 完了');
-  } catch (error) {
-    console.error('[generateAllPrintPages] エラー:', error);
-    throw error;
-  }
-}
-
-// 表紙ページ
-function createCoverPage() {
-  const page = document.createElement('div');
-  page.className = 'print-page';
-
-  const bgImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1-a8Hw5h15t6wvAafU2zoxg5uLCOmjIt-/view?usp=drive_link');
-  const [sy, sm] = selectedPeriod.start.split('-').map(Number);
-  const [ey, em] = selectedPeriod.end.split('-').map(Number);
-  const startYearMonth = `${sy}年${sm}月`;
-  const endYearMonth = `${ey}年${em}月`;
-
-  page.innerHTML = `
-    <div class="w-full h-full" style="background-image: url('${bgImageUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-      <div class="flex items-start justify-start h-full p-12">
-        <div class="text-left">
-          <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
-          <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
-        </div>
-      </div>
-    </div>
-  `;
-
-  return page;
-}
-
-// 目次ページ
-function createTocPage() {
-  const page = document.createElement('div');
-  page.className = 'print-page';
-
-  page.innerHTML = `
-    <div class="p-12">
-      <h1 class="text-2xl font-bold mb-8">目次</h1>
-      <div class="flex justify-center h-full items-start pt-8">
-        <ul class="text-sm font-normal space-y-0 text-left">
-          <li>１．アンケート概要</li>
-          <li>２．アンケート結果</li>
-          <ul class="pl-8 space-y-0 font-normal">
-            <li>―１　顧客属性</li>
-            <li>―２　病院への満足度（施設・ハード面）</li>
-            <li>―３　病院への満足度（質・スタッフ面）</li>
-            <li>―４　NPS推奨度・理由</li>
-          </ul>
-          <li>３．アンケート結果からの考察</li>
-        </ul>
-      </div>
-    </div>
-  `;
-
-  return page;
-}
-
-// 概要ページ
-function createSummaryPage(clinicData, overallData) {
-  const page = document.createElement('div');
-  page.className = 'print-page';
-
-  const overallCount = overallData?.npsScoreData?.totalCount || 0;
-  const clinicCount = clinicData?.npsScoreData?.totalCount || 0;
-
-  page.innerHTML = `
-    <div class="p-12">
-      <h1 class="text-2xl font-bold mb-8 text-center">アンケート概要</h1>
-      <div class="flex flex-col items-center justify-center h-full space-y-8">
-        <div class="text-center">
-          <h2 class="text-2xl font-bold mb-4">アンケート回答数</h2>
-          <div class="grid grid-cols-2 gap-8 mt-6">
-            <div class="text-center">
-              <p class="text-gray-600 mb-2">全体</p>
-              <p class="text-4xl font-bold text-gray-800">${overallCount}</p>
-              <p class="text-sm text-gray-500 mt-1">件</p>
-            </div>
-            <div class="text-center">
-              <p class="text-gray-600 mb-2">貴院</p>
-              <p class="text-4xl font-bold text-red-600">${clinicCount}</p>
-              <p class="text-sm text-gray-500 mt-1">件</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  return page;
-}
-
-// チャートページ（汎用）
-function createChartPage(title, type, clinicData, overallData) {
-  const page = document.createElement('div');
-  page.className = 'print-page';
-
-  const chartId = `print-chart-${type}-${Date.now()}`;
-
-  page.innerHTML = `
-    <div class="p-12">
-      <h1 class="text-2xl font-bold mb-8 text-center">${title}</h1>
-      <div class="grid grid-cols-2 gap-8 h-full">
-        <div class="flex flex-col items-center">
-          <h3 class="font-bold text-lg mb-4">貴院の結果</h3>
-          <div id="${chartId}-clinic" class="w-full h-[400px]"></div>
-        </div>
-        <div class="flex flex-col items-center">
-          <h3 class="font-bold text-lg mb-4">全体の結果</h3>
-          <div id="${chartId}-overall" class="w-full h-[400px]"></div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // チャート描画（非同期）
-  setTimeout(async () => {
-    await drawChartsForType(type, clinicData, overallData, `${chartId}-clinic`, `${chartId}-overall`);
-  }, 100);
-
-  return page;
-}
-
-// おすすめ理由ページ
-function createRecommendationPage(clinicData) {
-  console.log('[createRecommendationPage] 開始');
-  console.log('[createRecommendationPage] clinicData.recommendationData:', clinicData.recommendationData);
-
-  const page = document.createElement('div');
-  page.className = 'print-page';
-
-  // recommendationDataは { fixedCounts, otherList, fixedKeys } の構造
-  const recommendationData = clinicData.recommendationData || { fixedCounts: {}, otherList: [], fixedKeys: [] };
-  const { fixedCounts, otherList, fixedKeys } = recommendationData;
-
-  console.log('[createRecommendationPage] fixedCounts:', fixedCounts);
-  console.log('[createRecommendationPage] otherList:', otherList);
-  console.log('[createRecommendationPage] fixedKeys:', fixedKeys);
-
-  // 固定選択肢と自由記述を結合
-  const allRecommendations = [];
-
-  // 固定選択肢（件数が多い順）
-  const sortedFixedKeys = fixedKeys.sort((a, b) => (fixedCounts[b] || 0) - (fixedCounts[a] || 0));
-  sortedFixedKeys.forEach(key => {
-    const count = fixedCounts[key] || 0;
-    if (count > 0) {
-      allRecommendations.push({ text: `${key} (${count}件)`, count });
-    }
-  });
-
-  // 自由記述
-  if (otherList && Array.isArray(otherList)) {
-    otherList.forEach(text => {
-      if (text && text.trim()) {
-        allRecommendations.push({ text: text.trim(), count: 0 });
-      }
-    });
+// 現在表示中のページをクローン（screen3用）
+async function cloneCurrentPageForPrint() {
+  const screen3 = document.getElementById('screen3');
+  if (!screen3) {
+    console.error('[cloneCurrentPageForPrint] screen3が見つかりません');
+    return null;
   }
 
-  console.log('[createRecommendationPage] allRecommendations:', allRecommendations);
-
-  // 上位20件を表示
-  const displayRecommendations = allRecommendations.slice(0, 20);
-
-  let recommendationHtml = '';
-  if (displayRecommendations.length === 0) {
-    recommendationHtml = '<p class="text-gray-500 text-center">データがありません</p>';
-  } else {
-    displayRecommendations.forEach((rec) => {
-      recommendationHtml += `
-        <div class="p-3 bg-white rounded border border-gray-200 text-sm">
-          ${rec.text}
-        </div>
-      `;
-    });
+  const reportBody = screen3.querySelector('.report-body');
+  if (!reportBody) {
+    console.error('[cloneCurrentPageForPrint] report-bodyが見つかりません');
+    return null;
   }
 
-  page.innerHTML = `
-    <div class="p-12">
-      <h1 class="text-2xl font-bold mb-8 text-center">おすすめ理由（上位20件）</h1>
-      <div class="grid grid-cols-2 gap-4">
-        ${recommendationHtml}
-      </div>
-    </div>
-  `;
+  // 印刷用ページを作成
+  const printPage = document.createElement('div');
+  printPage.className = 'print-page';
 
-  return page;
+  // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
+  const bodyClone = reportBody.cloneNode(true);
+
+  // クローンしたボディのスタイル調整
+  bodyClone.style.height = '100%';
+  bodyClone.style.display = 'flex';
+  bodyClone.style.flexDirection = 'column';
+  bodyClone.style.padding = '40px';
+  bodyClone.style.boxSizing = 'border-box';
+
+  printPage.appendChild(bodyClone);
+
+  return printPage;
 }
 
-// NPSページ
-function createNpsPage(clinicData, overallData) {
-  const page = document.createElement('div');
-  page.className = 'print-page';
+// AI分析ページをクローン（screen5用）
+async function cloneAIAnalysisPageForPrint() {
+  const screen5 = document.getElementById('screen5');
+  if (!screen5) {
+    console.error('[cloneAIAnalysisPageForPrint] screen5が見つかりません');
+    return null;
+  }
 
-  const npsGraphImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1jAnKR5iG4BY2xTfcqnedvfiPpm-j-ZbX/view?usp=drive_link');
-  const npsBoxImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1QKO6nlee3DQQmoYUEzKyBZcqTmke_HVe/view?usp=drive_link');
+  // 印刷用ページを作成
+  const printPage = document.createElement('div');
+  printPage.className = 'print-page';
 
-  const chartId = `print-nps-chart-${Date.now()}`;
+  // screen5全体をクローン
+  const screen5Clone = screen5.cloneNode(true);
 
-  const clinicNpsScore = calculateNps(clinicData.npsScoreData.counts, clinicData.npsScoreData.totalCount);
-  const overallNpsScore = calculateNps(overallData.npsScoreData.counts, overallData.npsScoreData.totalCount);
+  // クローンしたscreen5のスタイル調整
+  screen5Clone.style.height = '100%';
+  screen5Clone.style.display = 'flex';
+  screen5Clone.style.flexDirection = 'column';
+  screen5Clone.style.padding = '40px';
+  screen5Clone.style.boxSizing = 'border-box';
+  screen5Clone.style.background = 'white';
 
-  page.innerHTML = `
-    <div class="p-12">
-      <h1 class="text-2xl font-bold mb-8 text-center">NPS値</h1>
-      <div class="grid grid-cols-2 gap-8 h-full">
-        <div class="flex flex-col">
-          <h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
-          <div id="${chartId}" class="w-full h-[300px] border border-gray-200"></div>
-          <div class="w-full flex-1 flex items-center justify-center mt-4">
-            <img src="${npsGraphImageUrl}" alt="NPS説明画像" class="w-full max-h-full object-contain" />
-          </div>
-        </div>
-        <div class="flex flex-col items-center">
-          <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain mb-4" />
-          <div class="text-left text-3xl space-y-5 p-4 w-48">
-            <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p>
-            <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+  // タブナビゲーションを非表示にする
+  const tabNav = screen5Clone.querySelector('#ai-tab-nav');
+  if (tabNav) {
+    tabNav.style.display = 'none';
+  }
 
-  // NPSチャート描画（非同期）
-  setTimeout(() => {
-    const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];
-    if (clinicData.npsScoreData.totalCount > 0) {
-      for (let i = 0; i <= 10; i++) {
-        const count = clinicData.npsScoreData.counts[i] || 0;
-        const percentage = (count / clinicData.npsScoreData.totalCount) * 100;
-        clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);
-      }
-    }
+  // 編集ボタンを非表示にする
+  const editButtons = screen5Clone.querySelectorAll('.edit-button, .save-button, .cancel-button');
+  editButtons.forEach(btn => btn.style.display = 'none');
 
-    const opt = {
-      legend: { position: 'none' },
-      annotations: { textStyle: { fontSize: 12, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
-      vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle: { fontSize: 12 } },
-      hAxis: { title: '推奨度スコア (0〜10)', textStyle: { fontSize: 12 } },
-      bar: { groupWidth: '80%' },
-      chartArea: { height: '75%', width: '85%', left: '10%', top: '5%' },
-      backgroundColor: 'transparent',
-      colors: ['#DE5D83']
-    };
+  printPage.appendChild(screen5Clone);
 
-    const chartEl = document.getElementById(chartId);
-    if (chartEl && clinicData.npsScoreData.totalCount > 0) {
-      const dataVis = google.visualization.arrayToDataTable(clinicChartData);
-      const chart = new google.visualization.ColumnChart(chartEl);
-      chart.draw(dataVis, opt);
-    }
-  }, 100);
-
-  return page;
+  return printPage;
 }
-
 
 // --- 初期化 ---
 (async () => {
@@ -2454,4 +2255,4 @@ function createNpsPage(clinicData, overallData) {
   }
   setupEventListeners();
   console.log('Listeners setup.');
-})(); // 即時実行関数で全体をラップ
+})();
