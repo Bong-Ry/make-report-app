@@ -8,9 +8,12 @@ let currentDetailedAnalysisType = 'L';
 let isEditingDetailedAnalysis = false; 
 let currentCentralSheetId = null; 
 let currentPeriodText = ""; 
-let currentAiCompletionStatus = {}; 
-let overallDataCache = null; 
-let clinicDataCache = null; 
+let currentAiCompletionStatus = {};
+let overallDataCache = null;
+let clinicDataCache = null;
+// WCグラフとAI分析のキャッシュ（PDF出力用）
+let wcAnalysisCache = {}; // { 'L': { html, analysisResults }, 'I': {...}, ... }
+let aiAnalysisCache = {}; // { 'L': { analysis: '...', suggestions: '...', overall: '...' }, ... } 
 
 /** @type {string | null} 'nps' | 'feedback_i' | 'feedback_j' | 'feedback_m' */
 let currentCommentType = null;
@@ -1406,6 +1409,12 @@ async function prepareAndShowAnalysis(columnType) {
       throw new Error(`分析APIエラー(${r.status}): ${et}`);
     }
     const ad = await r.json();
+    // キャッシュに保存（PDF出力用）
+    wcAnalysisCache[columnType] = {
+      analysisResults: ad.results,
+      title: getAnalysisTitle(columnType, td),
+      subtitle: '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。'
+    };
     // レイアウト計算を確実に待つため、requestAnimationFrameとsetTimeoutを併用
     requestAnimationFrame(() => {
       setTimeout(() => drawAnalysisCharts(ad.results), 200);
@@ -1816,6 +1825,15 @@ async function switchTab(tabId) {
     const data = await response.json();
     content = data.content;
     pentagonText = data.pentagonText;
+
+    // キャッシュに保存（PDF出力用）
+    if (!aiAnalysisCache[currentDetailedAnalysisType]) {
+      aiAnalysisCache[currentDetailedAnalysisType] = {};
+    }
+    aiAnalysisCache[currentDetailedAnalysisType][tabId] = {
+      content: content,
+      pentagonText: pentagonText
+    };
 
   } catch (err) {
     console.error('Failed to fetch single analysis cell:', err);
@@ -2312,58 +2330,16 @@ async function cloneAIAnalysisPageForPrint() {
 async function generateWordCloudPageForPrint(columnType) {
   console.log(`[generateWordCloudPageForPrint] Generating: ${columnType}`);
 
-  // データ取得
-  let tl = [], td = 0;
-  try {
-    const cd = await getReportDataForCurrentClinic(currentClinicForModal);
-    switch (columnType) {
-      case 'L':
-        tl = cd.npsData.rawText || [];
-        td = cd.npsData.totalCount || 0;
-        break;
-      case 'I':
-        tl = cd.feedbackData.i_column.results || [];
-        td = cd.feedbackData.i_column.totalCount || 0;
-        break;
-      case 'J':
-        tl = cd.feedbackData.j_column.results || [];
-        td = cd.feedbackData.j_column.totalCount || 0;
-        break;
-      case 'M':
-        tl = cd.feedbackData.m_column.results || [];
-        td = cd.feedbackData.m_column.totalCount || 0;
-        break;
-      default:
-        console.error("Invalid column:", columnType);
-        return null;
-    }
-  } catch (e) {
-    console.error("Error accessing text data:", e);
+  // キャッシュから取得
+  const cached = wcAnalysisCache[columnType];
+  if (!cached || !cached.analysisResults) {
+    console.error(`[generateWordCloudPageForPrint] No cache for: ${columnType}`);
     return null;
   }
 
-  if (tl.length === 0) {
-    console.warn("No text data for:", columnType);
-    return null;
-  }
-
-  // 分析実行
-  let analysisResults;
-  try {
-    const r = await fetch('/api/analyzeText', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ textList: tl })
-    });
-    if (!r.ok) {
-      throw new Error(`分析APIエラー(${r.status})`);
-    }
-    const ad = await r.json();
-    analysisResults = ad.results;
-  } catch (error) {
-    console.error('Analyze fail:', error);
-    return null;
-  }
+  const analysisResults = cached.analysisResults;
+  const title = cached.title;
+  const subtitle = cached.subtitle;
 
   // ページ作成
   const printPage = document.createElement('div');
@@ -2373,17 +2349,17 @@ async function generateWordCloudPageForPrint(columnType) {
   reportBody.className = 'report-body';
 
   // タイトル
-  const title = document.createElement('h1');
-  title.className = 'report-title';
-  title.textContent = getAnalysisTitle(columnType, td);
-  reportBody.appendChild(title);
+  const titleElem = document.createElement('h1');
+  titleElem.className = 'report-title';
+  titleElem.textContent = title;
+  reportBody.appendChild(titleElem);
 
   // サブタイトル
-  const subtitle = document.createElement('p');
-  subtitle.className = 'report-subtitle';
-  subtitle.textContent = '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。';
-  subtitle.style.textAlign = 'left';
-  reportBody.appendChild(subtitle);
+  const subtitleElem = document.createElement('p');
+  subtitleElem.className = 'report-subtitle';
+  subtitleElem.textContent = subtitle;
+  subtitleElem.style.textAlign = 'left';
+  reportBody.appendChild(subtitleElem);
 
   // セパレータ
   const separator = document.createElement('hr');
@@ -2534,30 +2510,15 @@ function drawAnalysisChartsTemp(results) {
 async function generateAIAnalysisPageForPrint(analysisType, tabId) {
   console.log(`[generateAIAnalysisPageForPrint] Generating: ${analysisType} - ${tabId}`);
 
-  // API呼び出してセルデータを取得
-  let content = '';
-  try {
-    const response = await fetch('/api/getSingleAnalysisCell', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        centralSheetId: currentCentralSheetId,
-        clinicName: currentClinicForModal,
-        analysisType: analysisType,
-        tabId: tabId
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    content = data.content || '';
-  } catch (error) {
-    console.error('[generateAIAnalysisPageForPrint] Error:', error);
-    content = 'データの取得に失敗しました';
+  // キャッシュから取得
+  const cached = aiAnalysisCache[analysisType];
+  if (!cached || !cached[tabId]) {
+    console.error(`[generateAIAnalysisPageForPrint] No cache for: ${analysisType} - ${tabId}`);
+    return null;
   }
+
+  const content = cached[tabId].content || '';
+  const pentagonText = cached[tabId].pentagonText || getTabLabel(tabId);
 
   // ページ作成
   const printPage = document.createElement('div');
@@ -2595,7 +2556,7 @@ async function generateAIAnalysisPageForPrint(analysisType, tabId) {
   sidebar.className = 'ai-analysis-sidebar';
   const shape = document.createElement('div');
   shape.className = 'ai-analysis-shape';
-  shape.textContent = getTabLabel(tabId);
+  shape.textContent = pentagonText;
   sidebar.appendChild(shape);
   aiContainer.appendChild(sidebar);
 
