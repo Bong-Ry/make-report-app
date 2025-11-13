@@ -535,17 +535,35 @@ async function prepareAndShowIntroPages(reportType) {
   document.getElementById('slide-body').classList.remove('flex', 'items-center', 'justify-center', 'text-center');
 
   if (reportType === 'cover') {
-    document.getElementById('report-title').textContent = currentClinicForModal;
-    document.getElementById('report-title').style.textAlign = 'center'; 
-    document.getElementById('slide-body').innerHTML = '<div class="flex items-center justify-center h-full"><h2 class="text-4xl font-bold">アンケートレポート</h2></div>';
+    // 表紙：タイトル・サブタイトル・点線を非表示
+    document.getElementById('report-title').textContent = '';
     document.getElementById('report-subtitle').textContent = '';
+    document.getElementById('report-title').style.textAlign = 'center';
+
+    // 背景画像URL
+    const bgImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1-a8Hw5h15t6wvAafU2zoxg5uLCOmjIt-/view?usp=drive_link');
+
+    // 表紙の内容
+    const [sy, sm] = selectedPeriod.start.split('-').map(Number);
+    const [ey, em] = selectedPeriod.end.split('-').map(Number);
+    const startYearMonth = `${sy}年${sm}月`;
+    const endYearMonth = `${ey}年${em}月`;
+
+    document.getElementById('slide-body').innerHTML = `
+      <div class="flex items-center justify-center h-full" style="background-image: url('${bgImageUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+        <div class="text-center">
+          <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
+          <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
+        </div>
+      </div>
+    `;
   } else if (reportType === 'toc') {
     document.getElementById('report-title').textContent = '目次';
     document.getElementById('report-title').style.textAlign = 'left';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
       <div class="flex justify-center h-full items-start pt-8">
-        <ul class="text-2xl font-semibold space-y-4 text-left">
+        <ul class="text-sm font-normal space-y-3 text-left">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
           <ul class="pl-8 space-y-2 font-normal">
@@ -607,20 +625,25 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
   const chartHeightClass = 'h-[320px]';
 
   if (type === 'nps_score') {
+    const npsGraphImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1jAnKR5iG4BY2xTfcqnedvfiPpm-j-ZbX/view?usp=drive_link');
+    const npsBoxImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1QKO6nlee3DQQmoYUEzKyBZcqTmke_HVe/view?usp=drive_link');
+
     htmlContent = `
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full">
         <div class="flex flex-col h-full">
           <h3 id="clinic-chart-header" class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
           <div id="clinic-bar-chart" class="w-full ${chartHeightClass} clinic-graph-bg-yellow border border-gray-200 flex items-center justify-center"></div>
           <div class="w-full h-[150px] flex flex-col justify-center items-center mt-4">
-            <p class="text-sm text-gray-500 mb-2">【画像入力エリア】</p>
-            <div class="w-full h-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400">
-              [画像を入力する]
-            </div>
+            <img src="${npsGraphImageUrl}" alt="NPS説明画像" class="w-full h-full object-contain" />
           </div>
         </div>
-        <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 pt-12 h-full">
-          <p class="text-gray-500">NPSスコア計算中...</p>
+        <div class="flex flex-col h-full">
+          <div class="w-full flex justify-center mb-4">
+            <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-16 object-contain" />
+          </div>
+          <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 h-full">
+            <p class="text-gray-500">NPSスコア計算中...</p>
+          </div>
         </div>
       </div>
     `;
@@ -859,10 +882,27 @@ function updateCommentSubtitle(commentKey, totalCount) {
     'L_6_under': 'NPS6以下'
   };
 
+  // 象のアイコンURL設定
+  const elephantIconMap = {
+    'L_10': convertGoogleDriveUrl('https://drive.google.com/file/d/1W2SGYDfVR0_0NgVeibKP4wXctHyDMNvy/view?usp=drive_link'),
+    'L_9': convertGoogleDriveUrl('https://drive.google.com/file/d/1W2SGYDfVR0_0NgVeibKP4wXctHyDMNvy/view?usp=drive_link'),
+    'L_8': convertGoogleDriveUrl('https://drive.google.com/file/d/1S-vNIRLbS2UAcZmkGE2cb_upnyaOAZfG/view?usp=drive_link'),
+    'L_7': convertGoogleDriveUrl('https://drive.google.com/file/d/1S-vNIRLbS2UAcZmkGE2cb_upnyaOAZfG/view?usp=drive_link'),
+    'L_6_under': convertGoogleDriveUrl('https://drive.google.com/file/d/1YnKxwWx6tEpssmSavl6-cww-YmnqlQDF/view?usp=drive_link')
+  };
+
   const label = labelMap[commentKey] || commentKey;
-  const subtitle = `${label}　${totalCount}人`;
-  document.getElementById('report-subtitle').textContent = subtitle;
-  document.getElementById('report-subtitle').style.textAlign = 'left';
+  const elephantIcon = elephantIconMap[commentKey];
+
+  const subtitleEl = document.getElementById('report-subtitle');
+  subtitleEl.style.textAlign = 'left';
+
+  // 象アイコンとテキストを組み合わせ
+  if (elephantIcon) {
+    subtitleEl.innerHTML = `<img src="${elephantIcon}" alt="象アイコン" style="display: inline-block; height: 1.5em; vertical-align: middle; margin-right: 0.5em;" /><span style="vertical-align: middle;">${label}　${totalCount}人</span>`;
+  } else {
+    subtitleEl.textContent = `${label}　${totalCount}人`;
+  }
 }
 
 async function fetchAndRenderCommentPage(commentKey) {
@@ -1973,6 +2013,15 @@ function showLoading(isLoading, message = '') {
     o.classList.add('hidden');
     m.textContent = '';
   }
+}
+
+// Google DriveのURLを直接表示可能なURLに変換
+function convertGoogleDriveUrl(driveUrl) {
+  const match = driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) {
+    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+  }
+  return driveUrl;
 }
 
 // ▼▼▼ フッター表示切替 ▼▼▼
