@@ -878,6 +878,9 @@ async function fetchAndRenderCommentPage(commentKey) {
   showLoading(true, `コメントシート (${currentCommentSheetName}) を読み込み中...`);
   document.getElementById('slide-body').innerHTML = '';
 
+  // 編集モードをリセット
+  window.commentEditMode = false;
+
   const controlsContainer = document.getElementById('comment-controls');
   if (controlsContainer) {
     controlsContainer.innerHTML = '';
@@ -935,17 +938,26 @@ function renderCommentPage(pageIndex) {
   if (columnData.length === 0 && currentCommentData.length > 0) {
     bodyEl.innerHTML = '<p class="text-center text-gray-500 py-16">(このページは空です)</p>';
   } else {
-    const fragment = document.createDocumentFragment();
-    columnData.forEach(comment => {
-      const p = document.createElement('p');
-      p.className = 'comment-display-item';
-      p.textContent = comment;
-      fragment.appendChild(p);
-    });
-    bodyEl.appendChild(fragment);
+    // 編集モードでない場合のみフォントサイズ調整
+    if (!window.commentEditMode) {
+      const fragment = document.createDocumentFragment();
+      columnData.forEach(comment => {
+        const p = document.createElement('p');
+        p.className = 'comment-display-item';
+        p.textContent = comment;
+        fragment.appendChild(p);
+      });
+      bodyEl.appendChild(fragment);
 
-    // コメント表示後にフォントサイズを調整
-    adjustCommentFontSizes(bodyEl);
+      // コメント表示後にフォントサイズを調整
+      adjustCommentFontSizes(bodyEl);
+    } else {
+      // 編集モード
+      const textarea = document.createElement('textarea');
+      textarea.className = 'edit-textarea';
+      textarea.value = columnData.join('\n');
+      bodyEl.appendChild(textarea);
+    }
   }
 
   renderCommentControls();
@@ -989,23 +1001,68 @@ function renderCommentControls() {
     return;
   }
   controlsContainer.innerHTML = '';
-    
+
   if (!currentCommentData) return;
 
-  const totalPages = Math.max(1, currentCommentData.length); 
+  const totalPages = Math.max(1, currentCommentData.length);
   const currentPage = currentCommentPageIndex + 1;
   const currentCol = getExcelColumnName(currentCommentPageIndex);
-    
+
   const prevDisabled = currentCommentPageIndex === 0;
   const nextDisabled = currentCommentPageIndex >= totalPages - 1;
   const prevCol = prevDisabled ? '' : getExcelColumnName(currentCommentPageIndex - 1);
   const nextCol = nextDisabled ? '' : getExcelColumnName(currentCommentPageIndex + 1);
 
+  const isEditMode = window.commentEditMode;
+
   controlsContainer.innerHTML = `
-    <button id="comment-prev" class="btn" ${prevDisabled ? 'disabled' : ''}>&lt; ${prevCol}</button>
+    <button id="comment-prev" class="btn" ${prevDisabled || isEditMode ? 'disabled' : ''}>&lt; ${prevCol}</button>
     <span>${currentCol}列 (${currentPage} / ${totalPages})</span>
-    <button id="comment-next" class="btn" ${nextDisabled ? 'disabled' : ''}>${nextCol} &gt;</button>
+    <button id="comment-next" class="btn" ${nextDisabled || isEditMode ? 'disabled' : ''}>${nextCol} &gt;</button>
+    ${isEditMode ?
+      '<button id="comment-save-btn" class="btn comment-save-btn">保存</button>' :
+      '<button id="comment-edit-btn" class="btn">編集</button>'
+    }
   `;
+
+  // イベントリスナーを追加
+  const prevBtn = document.getElementById('comment-prev');
+  const nextBtn = document.getElementById('comment-next');
+  const editBtn = document.getElementById('comment-edit-btn');
+  const saveBtn = document.getElementById('comment-save-btn');
+
+  if (prevBtn && !prevDisabled && !isEditMode) {
+    prevBtn.addEventListener('click', () => renderCommentPage(currentCommentPageIndex - 1));
+  }
+  if (nextBtn && !nextDisabled && !isEditMode) {
+    nextBtn.addEventListener('click', () => renderCommentPage(currentCommentPageIndex + 1));
+  }
+  if (editBtn) {
+    editBtn.addEventListener('click', enterCommentEditMode);
+  }
+  if (saveBtn) {
+    saveBtn.addEventListener('click', saveCommentEdit);
+  }
+}
+
+function enterCommentEditMode() {
+  window.commentEditMode = true;
+  renderCommentPage(currentCommentPageIndex);
+}
+
+function saveCommentEdit() {
+  const textarea = document.querySelector('.edit-textarea');
+  if (!textarea) return;
+
+  const newContent = textarea.value;
+  const lines = newContent.split('\n').filter(line => line.trim() !== '');
+
+  // データを更新
+  currentCommentData[currentCommentPageIndex] = lines;
+
+  // 編集モードを終了
+  window.commentEditMode = false;
+  renderCommentPage(currentCommentPageIndex);
 }
 
 // ▼▼▼ 市区町村 (テーブルはスクロール許可) ▼▼▼
@@ -1340,7 +1397,7 @@ function drawAnalysisCharts(results) {
   const wl = results.map(r => [r.word, r.score]).slice(0, 100);
   const pm = results.reduce((map, item) => { map[item.word] = item.pos; return map; }, {});
   const cv = document.getElementById('word-cloud-canvas');
-    
+
   if (WordCloud.isSupported && cv) {
     try {
       const dpr = window.devicePixelRatio || 1;
@@ -1352,10 +1409,22 @@ function drawAnalysisCharts(results) {
       const logicalWidth = rect.width;
       const logicalHeight = rect.height;
       const minDimension = Math.min(logicalWidth, logicalHeight);
+
+      // データ数に応じてサイズを調整（少ないデータでも大きく表示）
+      const dataCount = wl.length;
+      let sizeFactor = 100;
+      if (dataCount <= 20) {
+        sizeFactor = 50;  // データが少ない場合は2倍大きく
+      } else if (dataCount <= 40) {
+        sizeFactor = 70;  // データが中程度の場合は1.4倍大きく
+      } else if (dataCount <= 60) {
+        sizeFactor = 85;
+      }
+
       const options = {
         list: wl,
         gridSize: Math.round(4 * minDimension / 1024),
-        weightFactor: s => Math.pow(s, 1.0) * minDimension / 100,
+        weightFactor: s => Math.pow(s, 1.0) * minDimension / sizeFactor,
         fontFamily: 'Noto Sans JP,sans-serif',
         color: (w) => {
           const p = pm[w] || '不明';
