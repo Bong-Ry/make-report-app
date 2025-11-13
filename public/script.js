@@ -2045,65 +2045,20 @@ function showCopyrightFooter(show, screenId = 'screen3') {
 
 // --- PDF出力機能 ---
 async function handlePdfExport() {
-  showLoading('印刷プレビューを準備中...');
+  showLoading('データを取得中...');
 
   try {
-    // 全ページの種類を定義
-    const allPages = [
-      'cover',
-      'toc',
-      'summary',
-      'age',
-      'children',
-      'income',
-      'municipality',
-      'satisfaction_b',
-      'satisfaction_c',
-      'satisfaction_d',
-      'satisfaction_e',
-      'satisfaction_f',
-      'satisfaction_g',
-      'satisfaction_h',
-      'recommendation',
-      'nps_score'
-    ];
+    // データを一度に取得
+    const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
+    const overallData = await getReportDataForCurrentClinic("全体");
+
+    showLoading('印刷プレビューを生成中...');
 
     const printContainer = document.getElementById('print-container');
     printContainer.innerHTML = '';
 
-    // 各ページを順番に表示してクローン
-    for (let i = 0; i < allPages.length; i++) {
-      showLoading(`ページを準備中... (${i + 1}/${allPages.length})`);
-
-      // ページを表示
-      await prepareAndShowReport(allPages[i]);
-
-      // レンダリング完了を待つ
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // 現在のscreen3全体をクローン
-      const screen3 = document.getElementById('screen3');
-      const reportBody = screen3.querySelector('.report-body');
-
-      if (reportBody) {
-        // 印刷用ページを作成
-        const printPage = document.createElement('div');
-        printPage.className = 'print-page';
-
-        // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
-        const bodyClone = reportBody.cloneNode(true);
-
-        // クローンしたボディのスタイル調整
-        bodyClone.style.height = '100%';
-        bodyClone.style.display = 'flex';
-        bodyClone.style.flexDirection = 'column';
-        bodyClone.style.padding = '40px';
-        bodyClone.style.boxSizing = 'border-box';
-
-        printPage.appendChild(bodyClone);
-        printContainer.appendChild(printPage);
-      }
-    }
+    // 全ページを一気に生成
+    await generateAllPrintPages(printContainer, clinicData, overallData);
 
     hideLoading();
 
@@ -2120,6 +2075,274 @@ async function handlePdfExport() {
     console.error('PDF生成エラー:', error);
     alert('PDF出力の準備中にエラーが発生しました: ' + error.message);
   }
+}
+
+// 全ページを一括生成
+async function generateAllPrintPages(container, clinicData, overallData) {
+  // 表紙
+  container.appendChild(createCoverPage());
+
+  // 目次
+  container.appendChild(createTocPage());
+
+  // 概要
+  container.appendChild(createSummaryPage(clinicData, overallData));
+
+  // 年代
+  container.appendChild(await createChartPage('年代', 'age', clinicData, overallData));
+
+  // お子様数
+  container.appendChild(await createChartPage('お子様数', 'children', clinicData, overallData));
+
+  // 世帯年収
+  container.appendChild(await createChartPage('世帯年収', 'income', clinicData, overallData));
+
+  // 市区町村
+  container.appendChild(await createChartPage('市区町村', 'municipality', clinicData, overallData));
+
+  // 満足度
+  container.appendChild(await createChartPage('満足度', 'satisfaction_b', clinicData, overallData));
+
+  // 施設
+  container.appendChild(await createChartPage('施設', 'satisfaction_c', clinicData, overallData));
+
+  // アクセス
+  container.appendChild(await createChartPage('アクセス', 'satisfaction_d', clinicData, overallData));
+
+  // 費用
+  container.appendChild(await createChartPage('費用', 'satisfaction_e', clinicData, overallData));
+
+  // 雰囲気
+  container.appendChild(await createChartPage('雰囲気', 'satisfaction_f', clinicData, overallData));
+
+  // スタッフ
+  container.appendChild(await createChartPage('スタッフ', 'satisfaction_g', clinicData, overallData));
+
+  // 先生
+  container.appendChild(await createChartPage('先生', 'satisfaction_h', clinicData, overallData));
+
+  // おすすめ理由
+  container.appendChild(await createRecommendationPage(clinicData));
+
+  // NPS値
+  container.appendChild(await createNpsPage(clinicData, overallData));
+
+  // グラフ描画完了を待つ
+  await new Promise(resolve => setTimeout(resolve, 1000));
+}
+
+// 表紙ページ
+function createCoverPage() {
+  const page = document.createElement('div');
+  page.className = 'print-page';
+
+  const bgImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1-a8Hw5h15t6wvAafU2zoxg5uLCOmjIt-/view?usp=drive_link');
+  const [sy, sm] = selectedPeriod.start.split('-').map(Number);
+  const [ey, em] = selectedPeriod.end.split('-').map(Number);
+  const startYearMonth = `${sy}年${sm}月`;
+  const endYearMonth = `${ey}年${em}月`;
+
+  page.innerHTML = `
+    <div class="w-full h-full" style="background-image: url('${bgImageUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+      <div class="flex items-start justify-start h-full p-12">
+        <div class="text-left">
+          <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
+          <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return page;
+}
+
+// 目次ページ
+function createTocPage() {
+  const page = document.createElement('div');
+  page.className = 'print-page';
+
+  page.innerHTML = `
+    <div class="p-12">
+      <h1 class="text-2xl font-bold mb-8">目次</h1>
+      <div class="flex justify-center h-full items-start pt-8">
+        <ul class="text-sm font-normal space-y-0 text-left">
+          <li>１．アンケート概要</li>
+          <li>２．アンケート結果</li>
+          <ul class="pl-8 space-y-0 font-normal">
+            <li>―１　顧客属性</li>
+            <li>―２　病院への満足度（施設・ハード面）</li>
+            <li>―３　病院への満足度（質・スタッフ面）</li>
+            <li>―４　NPS推奨度・理由</li>
+          </ul>
+          <li>３．アンケート結果からの考察</li>
+        </ul>
+      </div>
+    </div>
+  `;
+
+  return page;
+}
+
+// 概要ページ
+function createSummaryPage(clinicData, overallData) {
+  const page = document.createElement('div');
+  page.className = 'print-page';
+
+  const overallCount = overallData?.npsScoreData?.totalCount || 0;
+  const clinicCount = clinicData?.npsScoreData?.totalCount || 0;
+
+  page.innerHTML = `
+    <div class="p-12">
+      <h1 class="text-2xl font-bold mb-8 text-center">アンケート概要</h1>
+      <div class="flex flex-col items-center justify-center h-full space-y-8">
+        <div class="text-center">
+          <h2 class="text-2xl font-bold mb-4">アンケート回答数</h2>
+          <div class="grid grid-cols-2 gap-8 mt-6">
+            <div class="text-center">
+              <p class="text-gray-600 mb-2">全体</p>
+              <p class="text-4xl font-bold text-gray-800">${overallCount}</p>
+              <p class="text-sm text-gray-500 mt-1">件</p>
+            </div>
+            <div class="text-center">
+              <p class="text-gray-600 mb-2">貴院</p>
+              <p class="text-4xl font-bold text-red-600">${clinicCount}</p>
+              <p class="text-sm text-gray-500 mt-1">件</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return page;
+}
+
+// チャートページ（汎用）
+async function createChartPage(title, type, clinicData, overallData) {
+  const page = document.createElement('div');
+  page.className = 'print-page';
+
+  const chartId = `print-chart-${type}-${Date.now()}`;
+
+  page.innerHTML = `
+    <div class="p-12">
+      <h1 class="text-2xl font-bold mb-8 text-center">${title}</h1>
+      <div class="grid grid-cols-2 gap-8 h-full">
+        <div class="flex flex-col items-center">
+          <h3 class="font-bold text-lg mb-4">貴院の結果</h3>
+          <div id="${chartId}-clinic" class="w-full h-[400px]"></div>
+        </div>
+        <div class="flex flex-col items-center">
+          <h3 class="font-bold text-lg mb-4">全体の結果</h3>
+          <div id="${chartId}-overall" class="w-full h-[400px]"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // チャート描画（非同期）
+  setTimeout(async () => {
+    await drawChartsForType(type, clinicData, overallData, `${chartId}-clinic`, `${chartId}-overall`);
+  }, 100);
+
+  return page;
+}
+
+// おすすめ理由ページ
+async function createRecommendationPage(clinicData) {
+  const page = document.createElement('div');
+  page.className = 'print-page';
+
+  const recommendations = clinicData.recommendationData || [];
+  const displayRecommendations = recommendations.slice(0, 20);
+
+  let recommendationHtml = '';
+  displayRecommendations.forEach((rec, index) => {
+    recommendationHtml += `
+      <div class="p-3 bg-white rounded border border-gray-200 text-sm">
+        ${rec.text}
+      </div>
+    `;
+  });
+
+  page.innerHTML = `
+    <div class="p-12">
+      <h1 class="text-2xl font-bold mb-8 text-center">おすすめ理由（上位20件）</h1>
+      <div class="grid grid-cols-2 gap-4">
+        ${recommendationHtml}
+      </div>
+    </div>
+  `;
+
+  return page;
+}
+
+// NPSページ
+async function createNpsPage(clinicData, overallData) {
+  const page = document.createElement('div');
+  page.className = 'print-page';
+
+  const npsGraphImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1jAnKR5iG4BY2xTfcqnedvfiPpm-j-ZbX/view?usp=drive_link');
+  const npsBoxImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1QKO6nlee3DQQmoYUEzKyBZcqTmke_HVe/view?usp=drive_link');
+
+  const chartId = `print-nps-chart-${Date.now()}`;
+
+  const clinicNpsScore = calculateNps(clinicData.npsScoreData.counts, clinicData.npsScoreData.totalCount);
+  const overallNpsScore = calculateNps(overallData.npsScoreData.counts, overallData.npsScoreData.totalCount);
+
+  page.innerHTML = `
+    <div class="p-12">
+      <h1 class="text-2xl font-bold mb-8 text-center">NPS値</h1>
+      <div class="grid grid-cols-2 gap-8 h-full">
+        <div class="flex flex-col">
+          <h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
+          <div id="${chartId}" class="w-full h-[300px] border border-gray-200"></div>
+          <div class="w-full flex-1 flex items-center justify-center mt-4">
+            <img src="${npsGraphImageUrl}" alt="NPS説明画像" class="w-full max-h-full object-contain" />
+          </div>
+        </div>
+        <div class="flex flex-col items-center">
+          <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain mb-4" />
+          <div class="text-left text-3xl space-y-5 p-4 w-48">
+            <p>全体：<span class="font-bold text-gray-800">${overallNpsScore.toFixed(1)}</span></p>
+            <p>貴院：<span class="font-bold text-red-600">${clinicNpsScore.toFixed(1)}</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // NPSチャート描画（非同期）
+  setTimeout(() => {
+    const clinicChartData = [['スコア', '割合', { role: 'annotation' }]];
+    if (clinicData.npsScoreData.totalCount > 0) {
+      for (let i = 0; i <= 10; i++) {
+        const count = clinicData.npsScoreData.counts[i] || 0;
+        const percentage = (count / clinicData.npsScoreData.totalCount) * 100;
+        clinicChartData.push([String(i), percentage, `${Math.round(percentage)}%`]);
+      }
+    }
+
+    const opt = {
+      legend: { position: 'none' },
+      annotations: { textStyle: { fontSize: 12, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
+      vAxis: { format: "#.##'%'", title: '割合(%)', viewWindow: { min: 0 }, textStyle: { fontSize: 12 } },
+      hAxis: { title: '推奨度スコア (0〜10)', textStyle: { fontSize: 12 } },
+      bar: { groupWidth: '80%' },
+      chartArea: { height: '75%', width: '85%', left: '10%', top: '5%' },
+      backgroundColor: 'transparent',
+      colors: ['#DE5D83']
+    };
+
+    const chartEl = document.getElementById(chartId);
+    if (chartEl && clinicData.npsScoreData.totalCount > 0) {
+      const dataVis = google.visualization.arrayToDataTable(clinicChartData);
+      const chart = new google.visualization.ColumnChart(chartEl);
+      chart.draw(dataVis, opt);
+    }
+  }, 100);
+
+  return page;
 }
 
 
