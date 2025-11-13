@@ -2050,36 +2050,59 @@ async function handlePdfExport() {
   try {
     // 全ページの種類を定義
     const allPages = [
-      { type: 'cover', title: '表紙' },
-      { type: 'toc', title: '目次' },
-      { type: 'summary', title: '概要' },
-      { type: 'age', title: '年代' },
-      { type: 'children', title: 'お子様数' },
-      { type: 'income', title: '世帯年収' },
-      { type: 'municipality', title: '市区町村' },
-      { type: 'satisfaction_b', title: '満足度' },
-      { type: 'satisfaction_c', title: '施設' },
-      { type: 'satisfaction_d', title: 'アクセス' },
-      { type: 'satisfaction_e', title: '費用' },
-      { type: 'satisfaction_f', title: '雰囲気' },
-      { type: 'satisfaction_g', title: 'スタッフ' },
-      { type: 'satisfaction_h', title: '先生' },
-      { type: 'recommendation', title: 'おすすめ理由' },
-      { type: 'nps_score', title: 'NPS値' }
+      'cover',
+      'toc',
+      'summary',
+      'age',
+      'children',
+      'income',
+      'municipality',
+      'satisfaction_b',
+      'satisfaction_c',
+      'satisfaction_d',
+      'satisfaction_e',
+      'satisfaction_f',
+      'satisfaction_g',
+      'satisfaction_h',
+      'recommendation',
+      'nps_score'
     ];
 
     const printContainer = document.getElementById('print-container');
     printContainer.innerHTML = '';
 
-    // 現在表示されているレポート本体をコピーして印刷用に整形
+    // 各ページを順番に表示してクローン
     for (let i = 0; i < allPages.length; i++) {
-      const page = allPages[i];
+      showLoading(`ページを準備中... (${i + 1}/${allPages.length})`);
 
-      // 各ページを生成
-      await generatePrintPageFromCurrent(page, printContainer);
+      // ページを表示
+      await prepareAndShowReport(allPages[i]);
 
-      // 短い待機でUI更新
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // レンダリング完了を待つ
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 現在のscreen3全体をクローン
+      const screen3 = document.getElementById('screen3');
+      const reportBody = screen3.querySelector('.report-body');
+
+      if (reportBody) {
+        // 印刷用ページを作成
+        const printPage = document.createElement('div');
+        printPage.className = 'print-page';
+
+        // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
+        const bodyClone = reportBody.cloneNode(true);
+
+        // クローンしたボディのスタイル調整
+        bodyClone.style.height = '100%';
+        bodyClone.style.display = 'flex';
+        bodyClone.style.flexDirection = 'column';
+        bodyClone.style.padding = '40px';
+        bodyClone.style.boxSizing = 'border-box';
+
+        printPage.appendChild(bodyClone);
+        printContainer.appendChild(printPage);
+      }
     }
 
     hideLoading();
@@ -2087,10 +2110,10 @@ async function handlePdfExport() {
     // 印刷モードに切り替え
     document.body.classList.add('print-mode-active');
 
-    // 少し待ってからポップアップ表示（レンダリング完了待ち）
+    // ポップアップ表示
     setTimeout(() => {
       document.getElementById('print-ready-popup').classList.remove('hidden');
-    }, 100);
+    }, 200);
 
   } catch (error) {
     hideLoading();
@@ -2099,68 +2122,6 @@ async function handlePdfExport() {
   }
 }
 
-// 現在のレポート画面から印刷ページを生成
-async function generatePrintPageFromCurrent(page, container) {
-  // そのページタイプのレポートを一時的に表示してコピー
-  await prepareAndShowReport(page.type);
-
-  // 少し待ってレンダリング完了を待つ
-  await new Promise(resolve => setTimeout(resolve, 300));
-
-  // 現在のレポート本体をクローン
-  const reportTitle = document.getElementById('report-title');
-  const reportSubtitle = document.getElementById('report-subtitle');
-  const reportSeparator = document.getElementById('report-separator');
-  const slideBody = document.getElementById('slide-body');
-
-  // 印刷用ページを作成
-  const pageDiv = document.createElement('div');
-  pageDiv.className = 'print-page';
-
-  const contentDiv = document.createElement('div');
-  contentDiv.className = 'print-page-content';
-
-  // タイトルセクション
-  const headerDiv = document.createElement('div');
-  headerDiv.style.marginBottom = '20px';
-
-  if (reportTitle && reportTitle.textContent) {
-    const titleClone = reportTitle.cloneNode(true);
-    titleClone.style.fontSize = '24px';
-    titleClone.style.fontWeight = 'bold';
-    titleClone.style.marginBottom = '10px';
-    headerDiv.appendChild(titleClone);
-  }
-
-  if (reportSubtitle && reportSubtitle.textContent) {
-    const subtitleClone = reportSubtitle.cloneNode(true);
-    subtitleClone.style.fontSize = '14px';
-    subtitleClone.style.color = '#666';
-    subtitleClone.style.marginBottom = '10px';
-    headerDiv.appendChild(subtitleClone);
-  }
-
-  if (reportSeparator && reportSeparator.style.display !== 'none') {
-    const separatorClone = reportSeparator.cloneNode(true);
-    headerDiv.appendChild(separatorClone);
-  }
-
-  // ボディコンテンツ
-  const bodyDiv = document.createElement('div');
-  bodyDiv.style.flex = '1';
-  bodyDiv.style.overflow = 'hidden';
-
-  if (slideBody) {
-    const bodyClone = slideBody.cloneNode(true);
-    bodyClone.style.height = '100%';
-    bodyDiv.appendChild(bodyClone);
-  }
-
-  contentDiv.appendChild(headerDiv);
-  contentDiv.appendChild(bodyDiv);
-  pageDiv.appendChild(contentDiv);
-  container.appendChild(pageDiv);
-}
 
 // --- 初期化 ---
 (async () => {
