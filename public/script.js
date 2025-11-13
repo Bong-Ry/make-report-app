@@ -2330,16 +2330,73 @@ async function cloneAIAnalysisPageForPrint() {
 async function generateWordCloudPageForPrint(columnType) {
   console.log(`[generateWordCloudPageForPrint] Generating: ${columnType}`);
 
-  // キャッシュから取得
-  const cached = wcAnalysisCache[columnType];
-  if (!cached || !cached.analysisResults) {
-    console.error(`[generateWordCloudPageForPrint] No cache for: ${columnType}`);
-    return null;
-  }
+  let analysisResults, title, subtitle;
 
-  const analysisResults = cached.analysisResults;
-  const title = cached.title;
-  const subtitle = cached.subtitle;
+  // キャッシュから取得を試みる
+  const cached = wcAnalysisCache[columnType];
+  if (cached && cached.analysisResults) {
+    console.log(`[generateWordCloudPageForPrint] Using cache for: ${columnType}`);
+    analysisResults = cached.analysisResults;
+    title = cached.title;
+    subtitle = cached.subtitle;
+  } else {
+    // キャッシュがない場合はAPIから取得
+    console.log(`[generateWordCloudPageForPrint] No cache, fetching from API: ${columnType}`);
+
+    // データ取得
+    let tl = [], td = 0;
+    try {
+      const cd = await getReportDataForCurrentClinic(currentClinicForModal);
+      switch (columnType) {
+        case 'L':
+          tl = cd.npsData.rawText || [];
+          td = cd.npsData.totalCount || 0;
+          break;
+        case 'I':
+          tl = cd.feedbackData.i_column.results || [];
+          td = cd.feedbackData.i_column.totalCount || 0;
+          break;
+        case 'J':
+          tl = cd.feedbackData.j_column.results || [];
+          td = cd.feedbackData.j_column.totalCount || 0;
+          break;
+        case 'M':
+          tl = cd.feedbackData.m_column.results || [];
+          td = cd.feedbackData.m_column.totalCount || 0;
+          break;
+        default:
+          console.error("Invalid column:", columnType);
+          return null;
+      }
+    } catch (e) {
+      console.error("Error accessing text data:", e);
+      return null;
+    }
+
+    if (tl.length === 0) {
+      console.warn("No text data for:", columnType);
+      return null;
+    }
+
+    // 分析実行
+    try {
+      const r = await fetch('/api/analyzeText', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ textList: tl })
+      });
+      if (!r.ok) {
+        throw new Error(`分析APIエラー(${r.status})`);
+      }
+      const ad = await r.json();
+      analysisResults = ad.results;
+      title = getAnalysisTitle(columnType, td);
+      subtitle = '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。';
+    } catch (error) {
+      console.error('Analyze fail:', error);
+      return null;
+    }
+  }
 
   // ページ作成
   const printPage = document.createElement('div');
@@ -2510,15 +2567,43 @@ function drawAnalysisChartsTemp(results) {
 async function generateAIAnalysisPageForPrint(analysisType, tabId) {
   console.log(`[generateAIAnalysisPageForPrint] Generating: ${analysisType} - ${tabId}`);
 
-  // キャッシュから取得
-  const cached = aiAnalysisCache[analysisType];
-  if (!cached || !cached[tabId]) {
-    console.error(`[generateAIAnalysisPageForPrint] No cache for: ${analysisType} - ${tabId}`);
-    return null;
-  }
+  let content = '';
+  let pentagonText = getTabLabel(tabId);
 
-  const content = cached[tabId].content || '';
-  const pentagonText = cached[tabId].pentagonText || getTabLabel(tabId);
+  // キャッシュから取得を試みる
+  const cached = aiAnalysisCache[analysisType];
+  if (cached && cached[tabId]) {
+    console.log(`[generateAIAnalysisPageForPrint] Using cache for: ${analysisType} - ${tabId}`);
+    content = cached[tabId].content || '';
+    pentagonText = cached[tabId].pentagonText || getTabLabel(tabId);
+  } else {
+    // キャッシュがない場合はAPIから取得
+    console.log(`[generateAIAnalysisPageForPrint] No cache, fetching from API: ${analysisType} - ${tabId}`);
+
+    try {
+      const response = await fetch('/api/getSingleAnalysisCell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          centralSheetId: currentCentralSheetId,
+          clinicName: currentClinicForModal,
+          columnType: analysisType,
+          tabId: tabId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      content = data.content || '';
+      pentagonText = data.pentagonText || getTabLabel(tabId);
+    } catch (error) {
+      console.error('[generateAIAnalysisPageForPrint] Error:', error);
+      content = 'データの取得に失敗しました';
+    }
+  }
 
   // ページ作成
   const printPage = document.createElement('div');
