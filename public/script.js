@@ -2302,18 +2302,12 @@ async function handlePdfExport() {
       'satisfaction_h',
       'recommendation',
       'nps_score',
-      // NPSコメント一覧（全11ページ）
+      // NPSコメント一覧（5ページ）
       { type: 'nps_comments', key: 'L_10' },
       { type: 'nps_comments', key: 'L_9' },
       { type: 'nps_comments', key: 'L_8' },
       { type: 'nps_comments', key: 'L_7' },
-      { type: 'nps_comments', key: 'L_6' },
-      { type: 'nps_comments', key: 'L_5' },
-      { type: 'nps_comments', key: 'L_4' },
-      { type: 'nps_comments', key: 'L_3' },
-      { type: 'nps_comments', key: 'L_2' },
-      { type: 'nps_comments', key: 'L_1' },
-      { type: 'nps_comments', key: 'L_0' },
+      { type: 'nps_comments', key: 'L_6_under' },
       // フィードバックコメント一覧（3種類）
       { type: 'nps_comments', key: 'I' },  // 良かった点・悪かった点
       { type: 'nps_comments', key: 'J' },  // 印象スタッフ
@@ -2385,6 +2379,8 @@ async function handlePdfExport() {
           showCommentSubNav('nps');
         }
         await fetchAndRenderCommentPage(pageInfo.key);
+        // データ取得とレンダリングを待つ
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // 各カラム（ページ）を別々に出力
         if (currentCommentData && currentCommentData.length > 0) {
@@ -2411,8 +2407,8 @@ async function handlePdfExport() {
         // ワードクラウドページ - 実際の画面を表示してからクローン
         console.log(`[PDF Export] ワードクラウド: ${pageInfo.analysisKey}`);
         await prepareAndShowAnalysisForPrint(pageInfo.analysisKey);
-        // グラフとワードクラウドの描画を待つ
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // グラフとワードクラウドの描画を十分に待つ（API呼び出し + レンダリング）
+        await new Promise(resolve => setTimeout(resolve, 5000));
         const wcPage = await cloneCurrentPageForPrint();
         if (wcPage) {
           printContainer.appendChild(wcPage);
@@ -2423,7 +2419,8 @@ async function handlePdfExport() {
         // AI分析ページ - 実際の画面を表示してからクローン
         console.log(`[PDF Export] AI分析: ${pageInfo.analysisType} - ${pageInfo.subtype}`);
         await prepareAndShowAIAnalysisForPrint(pageInfo.analysisType, pageInfo.subtype);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // AI分析データの取得とレンダリングを十分に待つ
+        await new Promise(resolve => setTimeout(resolve, 3000));
         const aiPage = await cloneAIAnalysisPageForPrint();
         if (aiPage) {
           printContainer.appendChild(aiPage);
