@@ -1776,8 +1776,9 @@ async function prepareAndShowAIAnalysisForPrint(analysisType, tabId) {
       textareaElement.value = content;
     }
 
-    // 五角形を更新
-    const shapeElement = document.querySelector('.ai-analysis-shape');
+    // 五角形を更新（アクティブなタブ内のみ）
+    const activePanel = document.querySelector(`#content-${tabId}`);
+    const shapeElement = activePanel ? activePanel.querySelector('.ai-analysis-shape') : null;
     if (shapeElement) {
       shapeElement.textContent = pentagonText;
     }
