@@ -875,6 +875,7 @@ function showCommentSubNav(reportType) {
   } else {
     const titleMap = { 'feedback_i': '良かった点や悪かった点など', 'feedback_j': '印象に残ったスタッフへのコメント', 'feedback_m': 'お産にかかわるご意見・ご感想' };
     title = `アンケート結果　ー${titleMap[reportType]}ー`;
+    subTitle = 'データ一覧（1列20データずつ）';
   }
 
   document.getElementById('report-title').textContent = title;
@@ -2313,6 +2314,10 @@ async function handlePdfExport() {
       { type: 'nps_comments', key: 'L_2' },
       { type: 'nps_comments', key: 'L_1' },
       { type: 'nps_comments', key: 'L_0' },
+      // フィードバックコメント一覧（3種類）
+      { type: 'nps_comments', key: 'I' },  // 良かった点・悪かった点
+      { type: 'nps_comments', key: 'J' },  // 印象スタッフ
+      { type: 'nps_comments', key: 'M' },  // お産意見
       // ワードクラウド（4ページ）
       { type: 'word_cloud', analysisKey: 'L' },  // WC-NPS
       { type: 'word_cloud', analysisKey: 'I' },  // WC-悪い点
@@ -2364,9 +2369,21 @@ async function handlePdfExport() {
         // グラフの描画を待つ
         await new Promise(resolve => setTimeout(resolve, 1500));
       } else if (pageInfo.type === 'nps_comments') {
-        // NPSコメントページ - 各カラムを取得して各ページを生成
-        currentCommentType = 'nps';
-        showCommentSubNav('nps');
+        // コメントページ - 各カラムを取得して各ページを生成
+        // keyに応じてcommentTypeを設定
+        if (pageInfo.key === 'I') {
+          currentCommentType = 'feedback_i';
+          showCommentSubNav('feedback_i');
+        } else if (pageInfo.key === 'J') {
+          currentCommentType = 'feedback_j';
+          showCommentSubNav('feedback_j');
+        } else if (pageInfo.key === 'M') {
+          currentCommentType = 'feedback_m';
+          showCommentSubNav('feedback_m');
+        } else {
+          currentCommentType = 'nps';
+          showCommentSubNav('nps');
+        }
         await fetchAndRenderCommentPage(pageInfo.key);
 
         // 各カラム（ページ）を別々に出力
