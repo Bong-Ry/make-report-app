@@ -2394,7 +2394,7 @@ async function handlePdfExport() {
           // 残りのカラムをループ
           for (let colIndex = 1; colIndex < currentCommentData.length; colIndex++) {
             renderCommentPage(colIndex);
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 1000));
             const colPage = await cloneCurrentPageForPrint();
             if (colPage) {
               printContainer.appendChild(colPage);
