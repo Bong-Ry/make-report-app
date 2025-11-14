@@ -1736,6 +1736,14 @@ async function prepareAndShowAIAnalysisForPrint(analysisType, tabId) {
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
 
+  // タブコンテンツエリアの表示切り替え
+  document.querySelectorAll('.ai-panel').forEach(panel => {
+    const panelId = panel.id;
+    const isActive = panelId === `content-${tabId}`;
+    panel.classList.toggle('is-active', isActive);
+    panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+  });
+
   // タブをロード（ローディング表示なし）
   try {
     const response = await fetch('/api/getSingleAnalysisCell', {
@@ -2239,6 +2247,8 @@ function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
   document.getElementById(screenId).classList.remove('hidden');
 }
+let isPdfGenerating = false; // PDF生成中フラグ
+
 function showLoading(isLoading, message = '') {
   const o = document.getElementById('loading-overlay');
   const m = document.getElementById('loading-message');
@@ -2246,6 +2256,11 @@ function showLoading(isLoading, message = '') {
     m.textContent = message;
     o.classList.remove('hidden');
   } else {
+    // PDF生成中は非表示にしない
+    if (isPdfGenerating) {
+      console.log('[showLoading] PDF生成中のため、ローディングを非表示にしません');
+      return;
+    }
     o.classList.add('hidden');
     m.textContent = '';
   }
@@ -2274,6 +2289,7 @@ function showCopyrightFooter(show, screenId = 'screen3') {
 // --- PDF出力機能 ---
 async function handlePdfExport() {
   console.log('[PDF Export] 開始');
+  isPdfGenerating = true; // PDF生成開始
   showLoading(true, '印刷プレビューを準備中...');
 
   try {
@@ -2456,6 +2472,7 @@ async function handlePdfExport() {
 
     console.log('[PDF Export] 全ページ生成完了');
 
+    isPdfGenerating = false; // PDF生成完了
     showLoading(false);
     console.log('[PDF Export] ローディング非表示完了');
 
@@ -2470,6 +2487,7 @@ async function handlePdfExport() {
     }, 200);
 
   } catch (error) {
+    isPdfGenerating = false; // PDF生成エラー終了
     showLoading(false);
     console.error('[PDF Export] エラー発生:', error);
     console.error('[PDF Export] エラースタック:', error.stack);
@@ -2517,6 +2535,21 @@ async function cloneCurrentPageForPrint() {
   // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
   const bodyClone = reportBody.cloneNode(true);
 
+  // Canvas要素の描画内容をコピー
+  const originalCanvases = reportBody.querySelectorAll('canvas');
+  const clonedCanvases = bodyClone.querySelectorAll('canvas');
+  originalCanvases.forEach((originalCanvas, index) => {
+    if (clonedCanvases[index]) {
+      const clonedCanvas = clonedCanvases[index];
+      const context = clonedCanvas.getContext('2d');
+      // 元のcanvasのサイズを設定
+      clonedCanvas.width = originalCanvas.width;
+      clonedCanvas.height = originalCanvas.height;
+      // 元のcanvasの描画内容をコピー
+      context.drawImage(originalCanvas, 0, 0);
+    }
+  });
+
   // クローンしたボディのスタイルは元のまま維持（CSSのスタイルを使用）
   // padding: 40px 40px 20px 40px などは保持
 
@@ -2545,6 +2578,21 @@ async function cloneAIAnalysisPageForPrint() {
 
   // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
   const bodyClone = reportBody.cloneNode(true);
+
+  // Canvas要素の描画内容をコピー
+  const originalCanvases = reportBody.querySelectorAll('canvas');
+  const clonedCanvases = bodyClone.querySelectorAll('canvas');
+  originalCanvases.forEach((originalCanvas, index) => {
+    if (clonedCanvases[index]) {
+      const clonedCanvas = clonedCanvases[index];
+      const context = clonedCanvas.getContext('2d');
+      // 元のcanvasのサイズを設定
+      clonedCanvas.width = originalCanvas.width;
+      clonedCanvas.height = originalCanvas.height;
+      // 元のcanvasの描画内容をコピー
+      context.drawImage(originalCanvas, 0, 0);
+    }
+  });
 
   // クローンしたボディのスタイルは元のまま維持（CSSのスタイルを使用）
   // padding: 40px 40px 20px 40px などは保持
