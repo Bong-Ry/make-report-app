@@ -1600,40 +1600,48 @@ function drawAnalysisCharts(results) {
       const minScore = Math.min(...scores);
       const scoreRange = maxScore - minScore || 1;
 
-      // データ数に応じて基本サイズを調整
+      // データ数に応じて基本サイズを調整（より保守的なサイズ設定）
       const dataCount = wl.length;
-      let baseMaxSize = 80;  // 最大スコア時のフォントサイズ
-      let baseMinSize = 20;  // 最小スコア時のフォントサイズ
+      let baseMaxSize = 60;  // 最大スコア時のフォントサイズ
+      let baseMinSize = 14;  // 最小スコア時のフォントサイズ
 
-      if (dataCount <= 15) {
-        baseMaxSize = 120;
-        baseMinSize = 40;
-      } else if (dataCount <= 25) {
+      if (dataCount <= 10) {
         baseMaxSize = 100;
-        baseMinSize = 32;
-      } else if (dataCount <= 35) {
-        baseMaxSize = 90;
-        baseMinSize = 28;
-      } else if (dataCount <= 50) {
+        baseMinSize = 35;
+      } else if (dataCount <= 20) {
         baseMaxSize = 80;
-        baseMinSize = 24;
-      } else if (dataCount <= 70) {
+        baseMinSize = 28;
+      } else if (dataCount <= 30) {
         baseMaxSize = 70;
+        baseMinSize = 24;
+      } else if (dataCount <= 40) {
+        baseMaxSize = 65;
         baseMinSize = 20;
-      } else if (dataCount <= 90) {
+      } else if (dataCount <= 50) {
         baseMaxSize = 60;
+        baseMinSize = 18;
+      } else if (dataCount <= 70) {
+        baseMaxSize = 55;
         baseMinSize = 16;
+      } else if (dataCount <= 90) {
+        baseMaxSize = 50;
+        baseMinSize = 14;
       }
+
+      // キャンバスサイズに基づいてスケーリング係数を計算
+      const sizeScale = Math.min(logicalWidth, logicalHeight) / 500;
+      const scaledMaxSize = baseMaxSize * sizeScale;
+      const scaledMinSize = baseMinSize * sizeScale;
 
       // スコアの割合に基づいてサイズを計算
       const options = {
         list: wl,
-        gridSize: Math.round(2 * minDimension / 1024),
+        gridSize: Math.max(1, Math.round(minDimension / 200)),
         weightFactor: (score) => {
           // スコアを0-1の範囲に正規化
           const normalizedScore = (score - minScore) / scoreRange;
           // 最小サイズと最大サイズの間で線形補間
-          return baseMinSize + (baseMaxSize - baseMinSize) * normalizedScore;
+          return scaledMinSize + (scaledMaxSize - scaledMinSize) * normalizedScore;
         },
         fontFamily: 'Noto Sans JP,sans-serif',
         color: (w) => {
@@ -1651,9 +1659,10 @@ function drawAnalysisCharts(results) {
         rotateRatio: 0,
         drawOutOfBound: false,
         shrinkToFit: true,
+        minSize: scaledMinSize * 0.3,
         shuffle: true,
-        wait: 10,
-        abortThreshold: 1000,
+        wait: 5,
+        abortThreshold: 2000,
         abort: () => false,
         origin: [logicalWidth / 2, logicalHeight / 2]
       };
@@ -2866,41 +2875,47 @@ function drawWordCloudOnCanvas(results, onComplete) {
   const maxScore = Math.max(...scores);
   const scoreRange = maxScore - minScore || 1;
 
-  const wordList = results.slice(0, 50).map(r => [r.word, r.score]);
+  const wordList = results.slice(0, 100).map(r => [r.word, r.score]);
 
   const dataCount = wordList.length;
-  let baseMaxSize = 80;
-  let baseMinSize = 20;
+  let baseMaxSize = 60;
+  let baseMinSize = 14;
 
-  if (dataCount <= 15) {
-    baseMaxSize = 120;
-    baseMinSize = 40;
-  } else if (dataCount <= 25) {
+  if (dataCount <= 10) {
     baseMaxSize = 100;
-    baseMinSize = 32;
-  } else if (dataCount <= 35) {
-    baseMaxSize = 90;
-    baseMinSize = 28;
-  } else if (dataCount <= 50) {
+    baseMinSize = 35;
+  } else if (dataCount <= 20) {
     baseMaxSize = 80;
-    baseMinSize = 24;
-  } else if (dataCount <= 70) {
+    baseMinSize = 28;
+  } else if (dataCount <= 30) {
     baseMaxSize = 70;
+    baseMinSize = 24;
+  } else if (dataCount <= 40) {
+    baseMaxSize = 65;
     baseMinSize = 20;
-  } else if (dataCount <= 90) {
+  } else if (dataCount <= 50) {
     baseMaxSize = 60;
+    baseMinSize = 18;
+  } else if (dataCount <= 70) {
+    baseMaxSize = 55;
     baseMinSize = 16;
+  } else if (dataCount <= 90) {
+    baseMaxSize = 50;
+    baseMinSize = 14;
   }
 
   const minDimension = Math.min(logicalWidth, logicalHeight);
+  const sizeScale = Math.min(logicalWidth, logicalHeight) / 500;
+  const scaledMaxSize = baseMaxSize * sizeScale;
+  const scaledMinSize = baseMinSize * sizeScale;
 
   try {
     const options = {
       list: wordList,
-      gridSize: Math.round(2 * minDimension / 1024),
+      gridSize: Math.max(1, Math.round(minDimension / 200)),
       weightFactor: (score) => {
         const normalizedScore = (score - minScore) / scoreRange;
-        return baseMinSize + (baseMaxSize - baseMinSize) * normalizedScore;
+        return scaledMinSize + (scaledMaxSize - scaledMinSize) * normalizedScore;
       },
       fontFamily: 'Noto Sans JP,sans-serif',
       color: (word) => {
@@ -2917,10 +2932,11 @@ function drawWordCloudOnCanvas(results, onComplete) {
       clearCanvas: true,
       rotateRatio: 0,
       drawOutOfBound: false,
-      shrinkToFit: false,
+      shrinkToFit: true,
+      minSize: scaledMinSize * 0.3,
       shuffle: true,
-      wait: 10,
-      abortThreshold: 1000,
+      wait: 5,
+      abortThreshold: 2000,
       abort: () => false,
       origin: [logicalWidth / 2, logicalHeight / 2]
     };
