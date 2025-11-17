@@ -490,7 +490,7 @@ async function prepareAndShowReport(reportType) {
     prepareChartPage('アンケート結果　ー費用ー','ご出産された産婦人科医院への費用について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満','satisfaction_e');
     isChart = true;
   } else if (reportType === 'satisfaction_f') {
-    prepareChartPage('アンケート結果_ー病院の雰囲気ー','ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満','satisfaction_f');
+    prepareChartPage('アンケート結果 ー病院の雰囲気ー','ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満','satisfaction_f');
     isChart = true;
   } else if (reportType === 'satisfaction_g') {
     prepareChartPage('アンケート結果　ースタッフの対応ー','ご出産された産婦人科医院へのスタッフの対応について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満','satisfaction_g');
@@ -561,7 +561,7 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('slide-body').innerHTML = `
       <div class="w-full h-full cover-background" style="position: relative; display: flex; align-items: center; justify-content: center;">
         <img src="${bgImageUrl}" alt="表紙背景" style="width: 95%; height: 95%; object-fit: cover; z-index: 0;">
-        <div class="flex items-start justify-start h-full p-12" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;">
+        <div class="flex items-start justify-start h-full p-12" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; padding-top: 120px;">
           <div class="text-left">
             <h2 class="text-[31px] font-bold mb-6">${currentClinicForModal}様<br>満足度調査結果報告書</h2>
             <p class="text-base mt-4">調査期間：${startYearMonth}〜${endYearMonth}</p>
@@ -684,9 +684,9 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     is3D: true,
     chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
     pieSliceText: 'percentage',
-    pieSliceTextStyle: { color: 'black', fontSize: 13, bold: true },
-    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 13 } },
-    tooltip: { showColorCode: true, textStyle: { fontSize: 13 }, trigger: 'focus' },
+    pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
+    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
+    tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
     backgroundColor: '#ffff95'
   };
   // 右側（全体平均）のグラフは背景色なし
@@ -875,7 +875,7 @@ function showCommentSubNav(reportType) {
   } else {
     const titleMap = { 'feedback_i': '良かった点や悪かった点など', 'feedback_j': '印象に残ったスタッフへのコメント', 'feedback_m': 'お産にかかわるご意見・ご感想' };
     title = `アンケート結果　ー${titleMap[reportType]}ー`;
-    subTitle = 'データ一覧（1列20データずつ）';
+    subTitle = '';
   }
 
   document.getElementById('report-title').textContent = title;
@@ -963,11 +963,18 @@ async function fetchAndRenderCommentPage(commentKey) {
       updateCommentSubtitle(commentKey, 0);
       renderCommentControls();
     } else {
-      currentCommentData = data;
+      // 全コメントを1つの配列に統合
+      const allComments = data.flat();
+      // 16件ずつに分割
+      const chunkedData = [];
+      for (let i = 0; i < allComments.length; i += 16) {
+        chunkedData.push(allComments.slice(i, i + 16));
+      }
+      currentCommentData = chunkedData;
       // 全コメント数をカウント
-      const totalCount = data.reduce((sum, col) => sum + col.length, 0);
+      const totalCount = allComments.length;
       updateCommentSubtitle(commentKey, totalCount);
-      renderCommentPage(0); // 最初のページ (A列) を描画
+      renderCommentPage(0); // 最初のページを描画
     }
 
   } catch (e) {
@@ -1643,7 +1650,7 @@ function drawAnalysisCharts(results) {
         clearCanvas: true,
         rotateRatio: 0,
         drawOutOfBound: false,
-        shrinkToFit: false,
+        shrinkToFit: true,
         shuffle: true,
         wait: 10,
         abortThreshold: 1000,

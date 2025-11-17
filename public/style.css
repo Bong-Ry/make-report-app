@@ -197,7 +197,7 @@ body{
     flex-shrink: 0;
 }
 .report-subtitle {
-    font-size: 12pt;
+    font-size: 14px;
     color: #6b7280;
     margin-bottom: 16px;
     white-space: pre-wrap;
@@ -396,6 +396,7 @@ body{
 /* ④ グラフの“中央配置”を徹底する補助 */
 .center-charts{      /* [追加] スライド内のグラフラッパ */
     display: block;
+    padding-top: 30px;
 }
 .chart-grid{         /* [追加] 2カラム→SPで1カラム */
     display: grid;
