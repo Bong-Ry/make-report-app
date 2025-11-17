@@ -1780,9 +1780,13 @@ async function prepareAndShowAIAnalysisForPrint(analysisType, tabId) {
     const content = data.content || '（データがありません）';
     const pentagonText = data.pentagonText || getTabLabel(tabId);
 
+    console.log(`[PDF] Content loaded for ${analysisType}-${tabId}:`, content ? `${content.substring(0, 50)}...` : 'empty');
+
     // 表示を更新
     const displayElement = document.getElementById(`display-${tabId}`);
     const textareaElement = document.getElementById(`textarea-${tabId}`);
+
+    console.log(`[PDF] Display element:`, displayElement ? 'found' : 'NOT FOUND');
 
     if (displayElement) {
       displayElement.textContent = content;
@@ -2452,8 +2456,12 @@ async function handlePdfExport() {
         // AI分析ページ - 実際の画面を表示してからクローン
         console.log(`[PDF Export] AI分析: ${pageInfo.analysisType} - ${pageInfo.subtype}`);
         await prepareAndShowAIAnalysisForPrint(pageInfo.analysisType, pageInfo.subtype);
-        // AI分析データの取得とレンダリングを十分に待つ
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // AI分析データの取得とレンダリングを十分に待つ（レイアウトとフォント調整）
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        // フォントサイズ調整のための追加待機
+        await new Promise(resolve => requestAnimationFrame(() => {
+          setTimeout(resolve, 500);
+        }));
         const aiPage = await cloneAIAnalysisPageForPrint();
         if (aiPage) {
           printContainer.appendChild(aiPage);
@@ -2593,8 +2601,24 @@ async function cloneAIAnalysisPageForPrint() {
   const printPage = document.createElement('div');
   printPage.className = 'print-page';
 
-  // report-body全体をクローン（タイトル、サブタイトル、セパレータ、ボディすべて含む）
+  // report-bodyをクローン
   const bodyClone = reportBody.cloneNode(true);
+
+  // アクティブなパネルのみを表示するように調整
+  const allPanels = bodyClone.querySelectorAll('.ai-panel');
+  allPanels.forEach(panel => {
+    if (!panel.classList.contains('is-active')) {
+      // 非アクティブなパネルは削除
+      panel.remove();
+    } else {
+      // アクティブなパネルは常に表示（印刷用にスタイルを強制）
+      panel.style.position = 'relative';
+      panel.style.opacity = '1';
+      panel.style.visibility = 'visible';
+      panel.style.transform = 'none';
+      panel.style.display = 'block';
+    }
+  });
 
   // Canvas要素の描画内容をコピー
   const originalCanvases = reportBody.querySelectorAll('canvas');
@@ -2610,9 +2634,6 @@ async function cloneAIAnalysisPageForPrint() {
       context.drawImage(originalCanvas, 0, 0);
     }
   });
-
-  // クローンしたボディのスタイルは元のまま維持（CSSのスタイルを使用）
-  // padding: 40px 40px 20px 40px などは保持
 
   printPage.appendChild(bodyClone);
 
