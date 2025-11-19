@@ -563,7 +563,7 @@ async function prepareAndShowIntroPages(reportType) {
     const endYearMonth = `${ey}年${em}月`;
 
     document.getElementById('slide-body').innerHTML = `
-      <div class="w-full h-full cover-background" style="position: relative; display: flex; align-items: flex-start; justify-content: center; padding-top: 20px;">
+      <div class="w-full h-full cover-background" style="position: relative; display: flex; align-items: flex-start; justify-content: center; padding-top: 10px; margin: 0;">
         <img src="${bgImageUrl}" alt="表紙背景" style="width: 95%; height: 95%; object-fit: cover; z-index: 0;">
         <div class="flex items-start justify-start h-full p-12" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; padding-top: 120px;">
           <div class="text-left">

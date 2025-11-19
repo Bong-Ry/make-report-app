@@ -477,6 +477,7 @@ body{
         display: flex;
         flex-direction: column;
         padding: 0;
+        margin: 0;
         box-sizing: border-box;
     }
 
@@ -485,6 +486,7 @@ body{
         max-height: 210mm;
         height: 210mm;
         margin: 0;
+        padding: 0;
         aspect-ratio: auto !important;
         overflow: hidden !important;
     }
@@ -526,17 +528,21 @@ body{
 
     /* 表紙ページのタイトルとサブタイトルを非表示 */
     .print-page.cover-page .report-title,
-    .print-page.cover-page .report-subtitle {
+    .print-page.cover-page .report-subtitle,
+    .print-page.cover-page .report-separator {
         display: none !important;
         height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
+        line-height: 0 !important;
     }
 
     .print-page.cover-page .report-content {
         flex: 1 !important;
         display: flex !important;
         flex-direction: column !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     .print-page.cover-page #slide-body {
@@ -554,7 +560,8 @@ body{
         display: flex !important;
         align-items: flex-start !important;
         justify-content: center !important;
-        padding-top: 20px !important;
+        padding-top: 10px !important;
+        margin: 0 !important;
     }
 
     .print-page.cover-page .cover-background img {
