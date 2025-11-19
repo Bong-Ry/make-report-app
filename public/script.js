@@ -2321,7 +2321,7 @@ async function handlePdfExport() {
     console.log('[PDF Export] printContainer:', printContainer);
     printContainer.innerHTML = '';
 
-    // 全ページタイプを定義
+    // 全ページタイプを定義（コメント一覧とWCを交互に配置）
     const allPages = [
       'cover',
       'toc',
@@ -2339,20 +2339,21 @@ async function handlePdfExport() {
       'satisfaction_h',
       'recommendation',
       'nps_score',
-      // NPSコメント一覧（5ページ）
+      // NPSコメント一覧（5ページ）→ WC-NPS
       { type: 'nps_comments', key: 'L_10' },
       { type: 'nps_comments', key: 'L_9' },
       { type: 'nps_comments', key: 'L_8' },
       { type: 'nps_comments', key: 'L_7' },
       { type: 'nps_comments', key: 'L_6_under' },
-      // フィードバックコメント一覧（3種類）
-      { type: 'nps_comments', key: 'I' },  // 良かった点・悪かった点
-      { type: 'nps_comments', key: 'J' },  // 印象スタッフ
-      { type: 'nps_comments', key: 'M' },  // お産意見
-      // ワードクラウド（4ページ）
       { type: 'word_cloud', analysisKey: 'L' },  // WC-NPS
-      { type: 'word_cloud', analysisKey: 'I' },  // WC-悪い点
+      // 良かった点コメント → WC-良い点
+      { type: 'nps_comments', key: 'I' },
+      { type: 'word_cloud', analysisKey: 'I' },  // WC-良い点
+      // 印象スタッフコメント → WC-スタッフ
+      { type: 'nps_comments', key: 'J' },
       { type: 'word_cloud', analysisKey: 'J' },  // WC-スタッフ
+      // お産意見コメント → WC-お産
+      { type: 'nps_comments', key: 'M' },
       { type: 'word_cloud', analysisKey: 'M' },  // WC-お産
       // AI分析（5種類 × 3タブ = 15ページ）
       // AI-NPS
