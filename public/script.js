@@ -2485,6 +2485,11 @@ async function handlePdfExport() {
       }
 
       if (printPage) {
+        // 表紙(cover)の場合のみ、専用クラスを追加して識別できるようにする
+        if (pageType === 'cover') {
+          printPage.classList.add('cover-page');
+        }
+
         printContainer.appendChild(printPage);
         console.log(`[PDF Export] ページ ${i + 1} クローン完了`);
       } else {

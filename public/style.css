@@ -502,6 +502,28 @@ body{
         object-fit: cover;
     }
 
+    /* 表紙専用の特別スタイル */
+    .print-page.cover-page .report-body {
+        /* 枠線を削除 */
+        border: none !important;
+
+        /* パディング(内側の余白)を削除して、中身を大きく表示できるようにする */
+        padding: 0 !important;
+
+        /* 角丸も不要なら削除 */
+        border-radius: 0 !important;
+
+        /* 背景色などが必要ならここで指定 */
+        /* background-color: white !important; */
+    }
+
+    /* 表紙の背景画像を画面いっぱいに広げる調整（任意） */
+    .print-page.cover-page .cover-background img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important; /* 比率を保ちつつ隙間なく埋める */
+    }
+
     .print-page:last-child {
         page-break-after: auto;
     }
