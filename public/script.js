@@ -2398,8 +2398,24 @@ async function handlePdfExport() {
       if (typeof pageInfo === 'string') {
         // 通常のレポートページ
         await prepareAndShowReport(pageInfo);
-        // グラフの描画を待つ
-        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // 表紙の場合は画像読み込みを待つ
+        if (pageInfo === 'cover') {
+          const coverImg = document.querySelector('.cover-background img');
+          if (coverImg) {
+            if (!coverImg.complete) {
+              await new Promise(resolve => {
+                coverImg.onload = resolve;
+                coverImg.onerror = resolve;
+                setTimeout(resolve, 3000); // タイムアウト
+              });
+            }
+          }
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          // グラフの描画を待つ
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
       } else if (pageInfo.type === 'nps_comments') {
         // コメントページ - 各カラムを取得して各ページを生成
         // keyに応じてcommentTypeを設定
