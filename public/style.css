@@ -480,6 +480,12 @@ body{
         box-sizing: border-box;
     }
 
+    /* 表紙ページのみマージンとpadding-topを0に */
+    .print-page.cover-page {
+        margin: 0 !important;
+        padding-top: 0 !important;
+    }
+
     .print-page .report-body {
         min-height: auto !important;
         max-height: 210mm;
