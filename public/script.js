@@ -545,9 +545,13 @@ async function prepareAndShowIntroPages(reportType) {
 
   if (reportType === 'cover') {
     // 表紙：タイトル・サブタイトル・点線を非表示
-    document.getElementById('report-title').textContent = '';
-    document.getElementById('report-subtitle').textContent = '';
-    document.getElementById('report-title').style.textAlign = 'center';
+    const titleEl = document.getElementById('report-title');
+    const subtitleEl = document.getElementById('report-subtitle');
+    titleEl.textContent = '';
+    subtitleEl.textContent = '';
+    titleEl.style.display = 'none';
+    subtitleEl.style.display = 'none';
+    titleEl.style.textAlign = 'center';
 
     // 背景画像URL
     const bgImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1-a8Hw5h15t6wvAafU2zoxg5uLCOmjIt-/view?usp=drive_link');
