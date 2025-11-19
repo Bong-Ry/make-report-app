@@ -545,13 +545,9 @@ async function prepareAndShowIntroPages(reportType) {
 
   if (reportType === 'cover') {
     // 表紙：タイトル・サブタイトル・点線を非表示
-    const titleEl = document.getElementById('report-title');
-    const subtitleEl = document.getElementById('report-subtitle');
-    titleEl.textContent = '';
-    subtitleEl.textContent = '';
-    titleEl.style.display = 'none';
-    subtitleEl.style.display = 'none';
-    titleEl.style.textAlign = 'center';
+    document.getElementById('report-title').textContent = '';
+    document.getElementById('report-subtitle').textContent = '';
+    document.getElementById('report-title').style.textAlign = 'center';
 
     // 背景画像URL
     const bgImageUrl = convertGoogleDriveUrl('https://drive.google.com/file/d/1-a8Hw5h15t6wvAafU2zoxg5uLCOmjIt-/view?usp=drive_link');
@@ -563,7 +559,7 @@ async function prepareAndShowIntroPages(reportType) {
     const endYearMonth = `${ey}年${em}月`;
 
     document.getElementById('slide-body').innerHTML = `
-      <div class="w-full h-full cover-background" style="position: relative; display: flex; align-items: flex-start; justify-content: center; padding-top: 0; margin: 0;">
+      <div class="w-full h-full cover-background" style="position: relative; display: flex; align-items: center; justify-content: center;">
         <img src="${bgImageUrl}" alt="表紙背景" style="width: 95%; height: 95%; object-fit: cover; z-index: 0;">
         <div class="flex items-start justify-start h-full p-12" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; padding-top: 120px;">
           <div class="text-left">

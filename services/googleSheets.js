@@ -689,19 +689,19 @@ exports.getSheetRowCounts = async (centralSheetId, clinicName) => {
     try {
         const results = {};
 
-        // 「全体」シートのデータ行数（1行目から全てカウント）
+        // 「全体」シートのデータ行数（ヘッダー行を除く）
         const overallResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: centralSheetId,
             range: '全体!A:A',
         });
-        results.overallCount = overallResponse.data.values?.length || 0;
+        results.overallCount = (overallResponse.data.values?.length || 1) - 1; // ヘッダーを除く
 
-        // 「管理」シートのデータ行数（1行目から全てカウント）
+        // 「管理」シートのデータ行数（ヘッダー行を除く）
         const managementResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: centralSheetId,
             range: '管理!A:A',
         });
-        results.managementCount = managementResponse.data.values?.length || 0;
+        results.managementCount = (managementResponse.data.values?.length || 1) - 1; // ヘッダーを除く
 
         // クリニック名シートのデータ行数（ヘッダー行を除く）
         const clinicResponse = await sheets.spreadsheets.values.get({

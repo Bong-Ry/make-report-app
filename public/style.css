@@ -477,7 +477,6 @@ body{
         display: flex;
         flex-direction: column;
         padding: 0;
-        margin: 0;
         box-sizing: border-box;
     }
 
@@ -486,7 +485,6 @@ body{
         max-height: 210mm;
         height: 210mm;
         margin: 0;
-        padding: 40px 40px 20px 40px;
         aspect-ratio: auto !important;
         overflow: hidden !important;
     }
@@ -518,69 +516,15 @@ body{
         /* 角丸も不要なら削除 */
         border-radius: 0 !important;
 
-        /* 背景色 */
-        background-color: white !important;
-
-        /* 表紙のコンテンツエリアも高さを確保 */
-        display: flex !important;
-        flex-direction: column !important;
+        /* 背景色などが必要ならここで指定 */
+        /* background-color: white !important; */
     }
 
-    /* 表紙ページのタイトルとサブタイトルを非表示 */
-    .print-page.cover-page .report-title,
-    .print-page.cover-page .report-subtitle,
-    .print-page.cover-page .report-separator {
-        display: none !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 0 !important;
-    }
-
-    .print-page.cover-page .report-content {
-        flex: 1 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    .print-page.cover-page #slide-body {
-        flex: 1 !important;
-        display: flex !important;
-        flex-direction: column !important;
-    }
-
-    /* 表紙の背景画像を画面いっぱいに広げる調整 */
-    .print-page.cover-page .cover-background {
-        position: relative !important;
-        width: 100% !important;
-        height: 100% !important;
-        flex: 1 !important;
-        display: flex !important;
-        align-items: flex-start !important;
-        justify-content: center !important;
-        padding-top: 10px !important;
-        margin: 0 !important;
-    }
-
+    /* 表紙の背景画像を画面いっぱいに広げる調整（任意） */
     .print-page.cover-page .cover-background img {
-        width: 95% !important;
-        height: 95% !important;
-        object-fit: cover !important;
-        display: block !important;
-    }
-
-    .print-page.cover-page .cover-background > div {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
         width: 100% !important;
         height: 100% !important;
-        display: flex !important;
-        padding: 48px !important;
-        padding-top: 120px !important;
-        z-index: 1 !important;
+        object-fit: cover !important; /* 比率を保ちつつ隙間なく埋める */
     }
 
     .print-page:last-child {
