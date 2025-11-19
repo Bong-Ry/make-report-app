@@ -53,6 +53,9 @@ router.post('/api/getChartData', reportController.getChartData);
 // 4. (画面2) [変更] 転記済みのタブリストと「完了ステータス」を取得
 router.post('/api/getTransferredList', reportController.getTransferredList);
 
+// 5. シート行数を取得
+router.post('/api/getSheetRowCounts', reportController.getSheetRowCounts);
+
 // =================================================================
 // === ▼▼▼ 分析系APIルート (変更なし) ▼▼▼ ===
 // =================================================================

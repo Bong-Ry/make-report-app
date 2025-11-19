@@ -500,6 +500,9 @@ body{
     .print-page .cover-background img {
         max-height: 210mm;
         object-fit: cover;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
     }
 
     /* 表紙専用の特別スタイル */

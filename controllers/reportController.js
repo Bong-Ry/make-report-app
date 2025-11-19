@@ -76,6 +76,23 @@ exports.getTransferredList = async (req, res) => {
     }
 };
 
+// シート行数を取得するエンドポイント
+exports.getSheetRowCounts = async (req, res) => {
+    const { centralSheetId, clinicName } = req.body;
+    console.log(`POST /api/getSheetRowCounts called for: ${clinicName} in ${centralSheetId}`);
+
+    if (!centralSheetId || !clinicName) {
+        return res.status(400).send('Invalid request: centralSheetId and clinicName required.');
+    }
+
+    try {
+        const rowCounts = await googleSheetsService.getSheetRowCounts(centralSheetId, clinicName);
+        res.json(rowCounts);
+    } catch (err) {
+        console.error('[/api/getSheetRowCounts] Error:', err);
+        res.status(500).send(err.message || 'シート行数の取得に失敗しました。');
+    }
+};
 
 // --- (変更なし) findOrCreateSheet (1/3) ---
 exports.findOrCreateSheet = async (req, res) => {

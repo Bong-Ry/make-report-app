@@ -682,6 +682,40 @@ exports.readCompletionStatusMap = async (centralSheetId) => {
 };
 // --- (変更なし) 管理マーカーI/O 終わり ---
 
+// データ行数を取得する関数
+exports.getSheetRowCounts = async (centralSheetId, clinicName) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+
+    try {
+        const results = {};
+
+        // 「全体」シートのデータ行数（ヘッダー行を除く）
+        const overallResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: '全体!A:A',
+        });
+        results.overallCount = (overallResponse.data.values?.length || 1) - 1; // ヘッダーを除く
+
+        // 「管理」シートのデータ行数（ヘッダー行を除く）
+        const managementResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: '管理!A:A',
+        });
+        results.managementCount = (managementResponse.data.values?.length || 1) - 1; // ヘッダーを除く
+
+        // クリニック名シートのデータ行数（ヘッダー行を除く）
+        const clinicResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: `${clinicName}!A:A`,
+        });
+        results.clinicCount = (clinicResponse.data.values?.length || 1) - 1; // ヘッダーを除く
+
+        return results;
+    } catch (error) {
+        console.error('[getSheetRowCounts] Error:', error);
+        throw error;
+    }
+};
 
 // ▼▼▼ [ここから変更] ▼▼▼
 /**

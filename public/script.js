@@ -591,16 +591,18 @@ async function prepareAndShowIntroPages(reportType) {
   } else if (reportType === 'summary') {
     let overallCount = 0, clinicCount = 0, clinicListCount = 0;
     try {
-      const overallData = await getReportDataForCurrentClinic("全体");
-      overallCount = overallData.npsScoreData.totalCount || 0;
-      clinicListCount = (await fetch('/api/getTransferredList', {
+      const rowCounts = await fetch('/api/getSheetRowCounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ centralSheetId: currentCentralSheetId })
-      }).then(r => r.json())).sheetTitles.length - 2; 
-          
-      const clinicData = await getReportDataForCurrentClinic(currentClinicForModal);
-      clinicCount = clinicData.npsScoreData.totalCount || 0;
+        body: JSON.stringify({
+          centralSheetId: currentCentralSheetId,
+          clinicName: currentClinicForModal
+        })
+      }).then(r => r.json());
+
+      overallCount = rowCounts.overallCount || 0;
+      clinicListCount = rowCounts.managementCount || 0;
+      clinicCount = rowCounts.clinicCount || 0;
     } catch (e) { console.warn("Error fetching data for summary:", e); }
 
     const [sy, sm] = selectedPeriod.start.split('-').map(Number);
@@ -2504,10 +2506,11 @@ async function handlePdfExport() {
         // 表紙(cover)の場合のみ、専用クラスを追加して識別できるようにする
         if (pageType === 'cover') {
           printPage.classList.add('cover-page');
+          console.log(`[PDF Export] 表紙ページにcover-pageクラスを追加`);
         }
 
         printContainer.appendChild(printPage);
-        console.log(`[PDF Export] ページ ${i + 1} クローン完了`);
+        console.log(`[PDF Export] ページ ${i + 1} (${pageType}) クローン完了`);
       } else {
         console.warn(`[PDF Export] ページ ${i + 1} のクローンに失敗`);
       }
