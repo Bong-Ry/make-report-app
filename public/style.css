@@ -107,6 +107,13 @@ body{
     align-items: center;
     height: 100%;
 }
+
+/* WCページ左側のグラフは背景色なし */
+.chart-wc-left .chart-container {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+}
 /* WordCloud キャンバス */
 #word-cloud-canvas {
     width: 100%;
