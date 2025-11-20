@@ -1011,13 +1011,13 @@ function renderCommentPage(pageIndex) {
 
   const bodyEl = document.getElementById('slide-body');
   bodyEl.innerHTML = '';
-  bodyEl.style.overflowY = 'hidden'; // スクロール禁止
+  bodyEl.style.overflowY = window.commentEditMode ? 'auto' : 'auto'; // 編集・表示両方でスクロール許可
 
   if (columnData.length === 0 && currentCommentData.length > 0) {
     bodyEl.innerHTML = '<p class="text-center text-gray-500 py-16">(このページは空です)</p>';
   } else {
-    // 編集モードでない場合のみフォントサイズ調整
     if (!window.commentEditMode) {
+      // 表示モード: すべてのデータを表示（スクロール可能）
       const fragment = document.createDocumentFragment();
       columnData.forEach(comment => {
         const p = document.createElement('p');
@@ -1026,51 +1026,54 @@ function renderCommentPage(pageIndex) {
         fragment.appendChild(p);
       });
       bodyEl.appendChild(fragment);
-
-      // コメント表示後にフォントサイズを調整
-      adjustCommentFontSizes(bodyEl);
     } else {
-      // 編集モード
-      const textarea = document.createElement('textarea');
-      textarea.className = 'edit-textarea';
-      textarea.value = columnData.join('\n');
-      bodyEl.appendChild(textarea);
+      // 編集モード: データ単位で編集可能なテキストエリアを生成
+      const editContainer = document.createElement('div');
+      editContainer.className = 'comment-edit-container';
+      editContainer.style.display = 'flex';
+      editContainer.style.flexDirection = 'column';
+      editContainer.style.gap = '8px';
+      editContainer.style.padding = '8px';
+
+      columnData.forEach((comment, index) => {
+        const itemWrapper = document.createElement('div');
+        itemWrapper.className = 'comment-edit-item';
+        itemWrapper.style.display = 'flex';
+        itemWrapper.style.flexDirection = 'column';
+        itemWrapper.style.gap = '4px';
+
+        const label = document.createElement('label');
+        label.textContent = `コメント ${index + 1}`;
+        label.style.fontSize = '10pt';
+        label.style.fontWeight = 'bold';
+        label.style.color = '#4b5563';
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'comment-item-textarea';
+        textarea.dataset.index = index;
+        textarea.value = comment;
+        textarea.style.width = '100%';
+        textarea.style.minHeight = '60px';
+        textarea.style.padding = '8px';
+        textarea.style.border = '1px solid #d1d5db';
+        textarea.style.borderRadius = '4px';
+        textarea.style.fontSize = '11pt';
+        textarea.style.fontFamily = 'inherit';
+        textarea.style.resize = 'vertical';
+
+        itemWrapper.appendChild(label);
+        itemWrapper.appendChild(textarea);
+        editContainer.appendChild(itemWrapper);
+      });
+
+      bodyEl.appendChild(editContainer);
     }
   }
 
   renderCommentControls();
 }
 
-// コメント一覧のフォントサイズを自動調整する関数
-function adjustCommentFontSizes(containerEl) {
-  if (!containerEl) return;
-
-  const initialFontSizePt = 12;
-  const minFontSizePt = 7;
-  const step = 0.5;
-  let currentSize = initialFontSizePt;
-
-  // 全てのコメントアイテムに同じフォントサイズを適用
-  const commentItems = containerEl.querySelectorAll('.comment-display-item');
-  commentItems.forEach(item => {
-    item.style.fontSize = currentSize + 'pt';
-  });
-
-  // コンテナがあふれている場合、フォントサイズを縮小
-  for (let i = 0; i < 100; i++) {
-    if (containerEl.scrollHeight <= containerEl.clientHeight) {
-      break;
-    }
-    currentSize -= step;
-    if (currentSize < minFontSizePt) {
-      currentSize = minFontSizePt;
-      break;
-    }
-    commentItems.forEach(item => {
-      item.style.fontSize = currentSize + 'pt';
-    });
-  }
-}
+// コメント一覧のフォントサイズを自動調整する関数（削除 - スクロール表示に変更）
 
 function renderCommentControls() {
   const controlsContainer = document.getElementById('comment-controls');
@@ -1112,15 +1115,18 @@ function enterCommentEditMode() {
 }
 
 async function saveCommentEdit() {
-  const textarea = document.querySelector('.edit-textarea');
-  if (!textarea) return;
+  const textareas = document.querySelectorAll('.comment-item-textarea');
+  if (!textareas || textareas.length === 0) return;
 
-  const newContent = textarea.value;
-  const lines = newContent.split('\n').filter(line => line.trim() !== '');
+  // 各テキストエリアから編集内容を取得
+  const editedComments = [];
+  textareas.forEach(textarea => {
+    editedComments.push(textarea.value.trim());
+  });
 
   // データを更新
   const oldData = currentCommentData[currentCommentPageIndex] || [];
-  currentCommentData[currentCommentPageIndex] = lines;
+  currentCommentData[currentCommentPageIndex] = editedComments;
 
   // スプレッドシートに保存
   showLoading(true, 'コメントを保存中...');
@@ -1131,10 +1137,10 @@ async function saveCommentEdit() {
 
     // 各行をスプレッドシートに保存
     const updatePromises = [];
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < editedComments.length; i++) {
       const rowNumber = startRowIndex + i + 2; // +2: ヘッダー行をスキップ + 1-indexed
       const cellAddress = `A${rowNumber}`;
-      const value = lines[i] || ''; // 空の場合は空文字列
+      const value = editedComments[i] || ''; // 空の場合は空文字列
 
       updatePromises.push(
         fetch('/api/updateCommentData', {
@@ -1148,6 +1154,26 @@ async function saveCommentEdit() {
           })
         })
       );
+    }
+
+    // 元のデータより減った場合、残りのセルをクリア
+    if (oldData.length > editedComments.length) {
+      for (let i = editedComments.length; i < oldData.length; i++) {
+        const rowNumber = startRowIndex + i + 2;
+        const cellAddress = `A${rowNumber}`;
+        updatePromises.push(
+          fetch('/api/updateCommentData', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              centralSheetId: currentCentralSheetId,
+              sheetName: currentCommentSheetName,
+              cell: cellAddress,
+              value: ''
+            })
+          })
+        );
+      }
     }
 
     await Promise.all(updatePromises);
