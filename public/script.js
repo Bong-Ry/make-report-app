@@ -1111,7 +1111,7 @@ function enterCommentEditMode() {
   renderCommentPage(currentCommentPageIndex);
 }
 
-function saveCommentEdit() {
+async function saveCommentEdit() {
   const textarea = document.querySelector('.edit-textarea');
   if (!textarea) return;
 
@@ -1119,11 +1119,52 @@ function saveCommentEdit() {
   const lines = newContent.split('\n').filter(line => line.trim() !== '');
 
   // データを更新
+  const oldData = currentCommentData[currentCommentPageIndex] || [];
   currentCommentData[currentCommentPageIndex] = lines;
 
-  // 編集モードを終了
-  window.commentEditMode = false;
-  renderCommentPage(currentCommentPageIndex);
+  // スプレッドシートに保存
+  showLoading(true, 'コメントを保存中...');
+
+  try {
+    // 現在のページのインデックスから、スプレッドシートの開始行を計算
+    const startRowIndex = currentCommentPageIndex * 16;
+
+    // 各行をスプレッドシートに保存
+    const updatePromises = [];
+    for (let i = 0; i < 16; i++) {
+      const rowNumber = startRowIndex + i + 2; // +2: ヘッダー行をスキップ + 1-indexed
+      const cellAddress = `A${rowNumber}`;
+      const value = lines[i] || ''; // 空の場合は空文字列
+
+      updatePromises.push(
+        fetch('/api/updateCommentData', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            centralSheetId: currentCentralSheetId,
+            sheetName: currentCommentSheetName,
+            cell: cellAddress,
+            value: value
+          })
+        })
+      );
+    }
+
+    await Promise.all(updatePromises);
+
+    console.log('コメント保存完了');
+    showLoading(false);
+
+    // 編集モードを終了
+    window.commentEditMode = false;
+    renderCommentPage(currentCommentPageIndex);
+  } catch (error) {
+    console.error('コメント保存エラー:', error);
+    alert('コメントの保存に失敗しました。もう一度お試しください。');
+    // エラー時は元のデータに戻す
+    currentCommentData[currentCommentPageIndex] = oldData;
+    showLoading(false);
+  }
 }
 
 // ▼▼▼ 市区町村 (テーブルはスクロール許可) ▼▼▼
