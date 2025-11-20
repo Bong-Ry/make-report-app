@@ -2644,12 +2644,9 @@ async function handlePdfExport() {
           continue; // forループの次の反復へ（下のクローン処理をスキップ）
         }
       } else if (pageInfo.type === 'word_cloud') {
-        // ワードクラウドページ - 実際の画面を表示してからクローン
+        // ワードクラウドページ - generateWordCloudPageForPrint を使用
         console.log(`[PDF Export] ワードクラウド: ${pageInfo.analysisKey}`);
-        await prepareAndShowAnalysisForPrint(pageInfo.analysisKey);
-        // グラフとワードクラウドの描画を十分に待つ（API呼び出し + レンダリング）
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        const wcPage = await cloneCurrentPageForPrint();
+        const wcPage = await generateWordCloudPageForPrint(pageInfo.analysisKey);
         if (wcPage) {
           printContainer.appendChild(wcPage);
           console.log(`[PDF Export] ページ ${i + 1} クローン完了`);
@@ -2921,6 +2918,9 @@ async function generateWordCloudPageForPrint(columnType) {
     }
   }
 
+  // ユニークなIDを生成
+  const uniqueId = `wc-${columnType}-${Date.now()}`;
+
   // ページ作成
   const printPage = document.createElement('div');
   printPage.className = 'print-page';
@@ -2951,33 +2951,33 @@ async function generateWordCloudPageForPrint(columnType) {
   reportContent.className = 'report-content';
 
   const slideBody = document.createElement('div');
-  slideBody.id = 'slide-body-temp';
+  slideBody.id = `slide-body-${uniqueId}`;
   slideBody.style.height = '100%';
   slideBody.style.overflowY = 'hidden';
   slideBody.innerHTML = `
     <div class="grid grid-cols-2 gap-2 h-full">
       <div class="grid grid-cols-2 grid-rows-2 gap-1 chart-wc-left" style="height: 80%;">
-        <div id="noun-chart-container-temp" class="chart-container h-full">
+        <div id="noun-chart-container-${uniqueId}" class="chart-container h-full">
           <h3 class="font-bold text-center mb-0 text-blue-600 leading-none py-1" style="font-size: 12px;">名詞</h3>
-          <div id="noun-chart-temp" class="w-full flex-1"></div>
+          <div id="noun-chart-${uniqueId}" class="w-full flex-1"></div>
         </div>
-        <div id="verb-chart-container-temp" class="chart-container h-full">
+        <div id="verb-chart-container-${uniqueId}" class="chart-container h-full">
           <h3 class="font-bold text-center mb-0 text-red-600 leading-none py-1" style="font-size: 12px;">動詞</h3>
-          <div id="verb-chart-temp" class="w-full flex-1"></div>
+          <div id="verb-chart-${uniqueId}" class="w-full flex-1"></div>
         </div>
-        <div id="adj-chart-container-temp" class="chart-container h-full">
+        <div id="adj-chart-container-${uniqueId}" class="chart-container h-full">
           <h3 class="font-bold text-center mb-0 text-green-600 leading-none py-1" style="font-size: 12px;">形容詞</h3>
-          <div id="adj-chart-temp" class="w-full flex-1"></div>
+          <div id="adj-chart-${uniqueId}" class="w-full flex-1"></div>
         </div>
-        <div id="int-chart-container-temp" class="chart-container h-full">
+        <div id="int-chart-container-${uniqueId}" class="chart-container h-full">
           <h3 class="font-bold text-center mb-0 text-gray-600 leading-none py-1" style="font-size: 12px;">感動詞</h3>
-          <div id="int-chart-temp" class="w-full flex-1"></div>
+          <div id="int-chart-${uniqueId}" class="w-full flex-1"></div>
         </div>
       </div>
       <div class="flex flex-col justify-start" style="height: 80%;">
         <p class="text-gray-600 text-left leading-tight" style="font-size: 12px; margin-bottom: 8px;">スコアが高い単語を複数選び出し、その値に応じた大きさで図示しています。<br>単語の色は品詞の種類で異なります。<br><span class="text-blue-600 font-semibold">青色=名詞</span>、<span class="text-red-600 font-semibold">赤色=動詞</span>、<span class="text-green-600 font-semibold">緑色=形容詞</span>、<span class="text-gray-600 font-semibold">灰色=感動詞</span></p>
-        <div id="word-cloud-container-temp" class="border border-gray-200" style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; background: #ffffff;">
-          <canvas id="word-cloud-canvas-temp" style="width: 100%; height: 100%; display: block;"></canvas>
+        <div id="word-cloud-container-${uniqueId}" class="border border-gray-200" style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; background: #ffffff;">
+          <canvas id="word-cloud-canvas-${uniqueId}" style="width: 100%; height: 100%; display: block;"></canvas>
         </div>
       </div>
     </div>
@@ -2999,7 +2999,7 @@ async function generateWordCloudPageForPrint(columnType) {
   // グラフ描画を待つ
   await new Promise(resolve => {
     requestAnimationFrame(() => {
-      drawAnalysisChartsTemp(analysisResults, resolve);
+      drawAnalysisChartsTemp(analysisResults, uniqueId, resolve);
     });
   });
 
@@ -3010,7 +3010,7 @@ async function generateWordCloudPageForPrint(columnType) {
 }
 
 // 一時的なグラフ描画関数
-function drawAnalysisChartsTemp(results, onComplete) {
+function drawAnalysisChartsTemp(results, uniqueId, onComplete) {
   if (!results || results.length === 0) {
     if (onComplete) onComplete();
     return;
@@ -3035,49 +3035,49 @@ function drawAnalysisChartsTemp(results, onComplete) {
   const checkComplete = () => {
     chartsDrawn++;
     if (chartsDrawn >= totalCharts) {
-      drawWordCloudOnCanvas(results, onComplete);
+      drawWordCloudOnCanvas(results, uniqueId, onComplete);
     }
   };
 
   // 棒グラフ描画
   if (noun.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...noun.slice(0, 10)]);
-    const chart = new google.visualization.BarChart(document.getElementById('noun-chart-temp'));
+    const chart = new google.visualization.BarChart(document.getElementById(`noun-chart-${uniqueId}`));
     google.visualization.events.addListener(chart, 'ready', checkComplete);
     chart.draw(d, { ...opt, colors: ['#2563eb'] });
   }
   if (verb.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...verb.slice(0, 10)]);
-    const chart = new google.visualization.BarChart(document.getElementById('verb-chart-temp'));
+    const chart = new google.visualization.BarChart(document.getElementById(`verb-chart-${uniqueId}`));
     google.visualization.events.addListener(chart, 'ready', checkComplete);
     chart.draw(d, { ...opt, colors: ['#dc2626'] });
   }
   if (adj.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...adj.slice(0, 10)]);
-    const chart = new google.visualization.BarChart(document.getElementById('adj-chart-temp'));
+    const chart = new google.visualization.BarChart(document.getElementById(`adj-chart-${uniqueId}`));
     google.visualization.events.addListener(chart, 'ready', checkComplete);
     chart.draw(d, { ...opt, colors: ['#16a34a'] });
   }
   if (intj.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...intj.slice(0, 10)]);
-    const chart = new google.visualization.BarChart(document.getElementById('int-chart-temp'));
+    const chart = new google.visualization.BarChart(document.getElementById(`int-chart-${uniqueId}`));
     google.visualization.events.addListener(chart, 'ready', checkComplete);
     chart.draw(d, { ...opt, colors: ['#6b7280'] });
   }
 
   if (totalCharts === 0) {
-    drawWordCloudOnCanvas(results, onComplete);
+    drawWordCloudOnCanvas(results, uniqueId, onComplete);
   }
 }
 
-function drawWordCloudOnCanvas(results, onComplete) {
-  const canvas = document.getElementById('word-cloud-canvas-temp');
+function drawWordCloudOnCanvas(results, uniqueId, onComplete) {
+  const canvas = document.getElementById(`word-cloud-canvas-${uniqueId}`);
   if (!canvas) {
     if (onComplete) onComplete();
     return;
   }
 
-  const container = document.getElementById('word-cloud-container-temp');
+  const container = document.getElementById(`word-cloud-container-${uniqueId}`);
   const rect = container.getBoundingClientRect();
 
   const dpr = window.devicePixelRatio || 1;
