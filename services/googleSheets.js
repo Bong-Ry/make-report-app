@@ -811,9 +811,10 @@ async function findOrCreateSheet(spreadsheetId, title) {
 
 async function clearSheet(spreadsheetId, range) {
     try {
+        const formattedRange = range.includes('!') ? range : `'${range}'`;
         await sheets.spreadsheets.values.clear({
             spreadsheetId: spreadsheetId,
-            range: range,
+            range: formattedRange,
         });
     } catch (e) {
         console.error(`[Helper] Error clearing sheet "${range}": ${e.message}`);
@@ -826,12 +827,13 @@ async function writeData(spreadsheetId, range, values, append = false) {
         console.warn(`[Helper] No data to write for sheet "${range}".`);
         return;
     }
-    
+
     try {
+        const formattedRange = range.includes('!') ? range : `'${range}'`;
         if (append) {
             await sheets.spreadsheets.values.append({
                 spreadsheetId: spreadsheetId,
-                range: range,
+                range: formattedRange,
                 valueInputOption: 'USER_ENTERED',
                 insertDataOption: 'INSERT_ROWS',
                 resource: {
@@ -841,7 +843,7 @@ async function writeData(spreadsheetId, range, values, append = false) {
         } else {
             await sheets.spreadsheets.values.update({
                 spreadsheetId: spreadsheetId,
-                range: range,
+                range: formattedRange,
                 valueInputOption: 'USER_ENTERED',
                 resource: {
                     values: values
