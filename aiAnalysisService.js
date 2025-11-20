@@ -281,5 +281,80 @@ exports.runAndSaveRecommendationAnalysis = async (centralSheetId, clinicName) =>
     console.log(`[aiAnalysisService-Rec] Saving ${dataRows.length} rows to sheet: "${sheetName}"`);
     await googleSheetsService.saveTableToSheet(centralSheetId, sheetName, sheetData);
 
+    // 8. ▼▼▼ [新規] 全体-おすすめ理由シートに集計 ▼▼▼
+    console.log(`[aiAnalysisService-Rec] Updating aggregate sheet: "全体-おすすめ理由"`);
+    await updateAggregateRecommendationSheet(centralSheetId, tableData);
+
     console.log(`[aiAnalysisService-Rec] SUCCESS for ${clinicName}`);
 };
+
+// =================================================================
+// === ▼▼▼ [新規] 全体-おすすめ理由シート更新関数 ▼▼▼ ===
+// =================================================================
+/**
+ * 全体-おすすめ理由シートを読み込み、各項目の件数を加算する
+ * @param {string} centralSheetId
+ * @param {Array} tableData - [{item, count, percentage}, ...]
+ */
+async function updateAggregateRecommendationSheet(centralSheetId, tableData) {
+    const aggregateSheetName = '全体-おすすめ理由';
+
+    try {
+        // 1. 既存データを読み込む
+        const response = await googleSheetsService.sheets.spreadsheets.values.get({
+            spreadsheetId: centralSheetId,
+            range: `'${aggregateSheetName}'!A:B`,
+            valueRenderOption: 'FORMATTED_VALUE'
+        });
+
+        let existingData = response.data.values || [];
+        let aggregateMap = new Map();
+
+        // 2. 既存データをMapに変換（ヘッダー行をスキップ）
+        if (existingData.length > 1) {
+            for (let i = 1; i < existingData.length; i++) {
+                const [item, countStr] = existingData[i];
+                if (item) {
+                    aggregateMap.set(item, parseInt(countStr) || 0);
+                }
+            }
+        }
+
+        // 3. 新しいデータを加算
+        tableData.forEach(row => {
+            const currentCount = aggregateMap.get(row.item) || 0;
+            aggregateMap.set(row.item, currentCount + row.count);
+        });
+
+        // 4. Map を配列に変換してソート
+        const updatedRows = Array.from(aggregateMap.entries())
+            .map(([item, count]) => [item, count])
+            .sort((a, b) => b[1] - a[1]); // 件数降順
+
+        // 5. ヘッダーを追加
+        const finalData = [['項目', '件数'], ...updatedRows];
+
+        // 6. シートに書き込む
+        await googleSheetsService.saveTableToSheet(centralSheetId, aggregateSheetName, finalData);
+
+        console.log(`[aiAnalysisService-Rec] Aggregate sheet updated: ${updatedRows.length} items`);
+
+    } catch (error) {
+        // シートが存在しない場合は新規作成
+        if (error.message && error.message.includes('not found')) {
+            console.log(`[aiAnalysisService-Rec] Aggregate sheet not found, creating new one...`);
+
+            const newData = tableData
+                .map(row => [row.item, row.count])
+                .sort((a, b) => b[1] - a[1]);
+
+            const finalData = [['項目', '件数'], ...newData];
+            await googleSheetsService.saveTableToSheet(centralSheetId, aggregateSheetName, finalData);
+
+            console.log(`[aiAnalysisService-Rec] New aggregate sheet created with ${newData.length} items`);
+        } else {
+            console.error(`[aiAnalysisService-Rec] Error updating aggregate sheet: ${error.message}`);
+            throw error;
+        }
+    }
+}
