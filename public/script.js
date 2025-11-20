@@ -525,11 +525,33 @@ async function prepareAndShowReport(reportType) {
     isChart = true;
   }
 
-  if (isChart) { 
-    setTimeout(() => {
-      try {
-        if (reportType === 'nps_score') {
-          drawNpsScoreCharts(clinicData.npsScoreData, overallData.npsScoreData);
+  if (isChart) {
+    // Google Chartsがロードされるまで待つ
+    const waitForGoogleCharts = () => {
+      return new Promise((resolve) => {
+        if (typeof google !== 'undefined' && google.visualization) {
+          resolve();
+        } else {
+          const checkInterval = setInterval(() => {
+            if (typeof google !== 'undefined' && google.visualization) {
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 100);
+          // タイムアウト
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            resolve();
+          }, 5000);
+        }
+      });
+    };
+
+    waitForGoogleCharts().then(() => {
+      setTimeout(() => {
+        try {
+          if (reportType === 'nps_score') {
+            drawNpsScoreCharts(clinicData.npsScoreData, overallData.npsScoreData);
         } else if (reportType.startsWith('satisfaction')) {
           const type = reportType.split('_')[1] + '_column';
           drawSatisfactionCharts(clinicData.satisfactionData[type].results, overallData.satisfactionData[type].results);
@@ -541,12 +563,13 @@ async function prepareAndShowReport(reportType) {
           drawIncomeCharts(clinicData.incomeData, overallData.incomeData);
         }
       } catch (e) {
-        console.error('Chart draw error:', e);
-        document.getElementById('slide-body').innerHTML = `<p class="text-center text-red-500 py-16">グラフ描画失敗<br>(${e.message})</p>`;
-      } finally {
-        showLoading(false);
-      }
-    }, 100);
+          console.error('Chart draw error:', e);
+          document.getElementById('slide-body').innerHTML = `<p class="text-center text-red-500 py-16">グラフ描画失敗<br>(${e.message})</p>`;
+        } finally {
+          showLoading(false);
+        }
+      }, 100);
+    });
   } else {
     showLoading(false);
   } 
@@ -668,7 +691,7 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
           </div>
         </div>
         <div class="flex flex-col h-full">
-          <div class="w-full flex justify-center mb-2">
+          <div class="w-full flex justify-center mb-6">
             <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain" />
           </div>
           <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 h-full">
