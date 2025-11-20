@@ -590,7 +590,7 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.textAlign = 'left';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center h-full items-start pt-2">
+      <div class="flex justify-center h-full items-start" style="padding-top: 0;">
         <ul class="text-sm font-normal space-y-0 text-left">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
@@ -630,7 +630,7 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.textAlign = 'left';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center h-full items-start pt-2">
+      <div class="flex justify-center h-full items-start" style="padding-top: 0;">
         <ul class="text-lg font-normal space-y-4 text-left">
           <li><span class="font-bold text-gray-800 w-32 inline-block">調査目的</span>｜貴院に対する満足度調査</li>
           <li><span class="font-bold text-gray-800 w-32 inline-block">調査方法</span>｜スマホ利用してのアンケートフォームによるインターネット調査</li>
