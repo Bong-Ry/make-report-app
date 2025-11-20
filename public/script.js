@@ -611,7 +611,7 @@ async function prepareAndShowIntroPages(reportType) {
   } else if (reportType === 'toc') {
     document.getElementById('report-title').textContent = '目次';
     document.getElementById('report-title').style.textAlign = 'center';
-    document.getElementById('report-title').style.marginBottom = '8px';
+    document.getElementById('report-title').style.marginBottom = '0px';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
       <div class="flex justify-center">
@@ -693,7 +693,7 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
         </div>
         <div class="flex flex-col h-full">
           <div class="w-full flex justify-center mb-10">
-            <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain" />
+            <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-25 object-contain" style="height: 100px;" />
           </div>
           <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 h-full">
             <p class="text-gray-500">NPSスコア計算中...</p>
@@ -724,7 +724,7 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
   // 左側（貴院）のグラフのみ背景色を設定
   const clinicOpt = {
     is3D: true,
-    chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
+    chartArea: { left: '5%', top: '60%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
     pieSliceText: 'percentage',
     pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
     legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
@@ -734,7 +734,7 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
   // 右側（全体平均）のグラフは背景色なし
   const overallOpt = {
     is3D: true,
-    chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },
+    chartArea: { left: '5%', top: '60%', width: '90%', height: '90%' },
     pieSliceText: 'percentage',
     pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
     legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
@@ -767,7 +767,7 @@ function drawIncomeCharts(clinicData, overallData) {
     annotations: { textStyle: { fontSize: 14, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
     vAxis: { format: "#.##'%'", viewWindow: { min: 0 }, textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
     hAxis: { textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
-    chartArea: { height: '75%', width: '90%', left: '5%', top: '5%', backgroundColor: '#ffff95' },
+    chartArea: { height: '75%', width: '90%', left: '5%', top: '60%', backgroundColor: '#ffff95' },
     backgroundColor: '#ffff95',
     colors: ['#DE5D83']
   };
@@ -777,7 +777,7 @@ function drawIncomeCharts(clinicData, overallData) {
     annotations: { textStyle: { fontSize: 14, color: 'black', auraColor: 'none' }, alwaysOutside: false, stem: { color: 'transparent' } },
     vAxis: { format: "#.##'%'", viewWindow: { min: 0 }, textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
     hAxis: { textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
-    chartArea: { height: '75%', width: '90%', left: '5%', top: '5%' },
+    chartArea: { height: '75%', width: '90%', left: '5%', top: '60%' },
     colors: ['#DE5D83']
   };
   const ccdEl = document.getElementById('clinic-bar-chart');
@@ -820,7 +820,7 @@ function drawNpsScoreCharts(clinicData, overallData) {
     hAxis: { title: '推奨度スコア (0〜10)', textStyle: { fontSize: 14 }, titleTextStyle: { fontSize: 14 } },
     bar: { groupWidth: '80%' },
     isStacked: false,
-    chartArea: { height: '75%', width: '90%', left: '5%', top: '5%' },
+    chartArea: { height: '75%', width: '90%', left: '5%', top: '60%' },
     backgroundColor: 'transparent',
     colors: ['#DE5D83']
   };
@@ -1570,10 +1570,7 @@ async function prepareAndShowAnalysis(columnType) {
 async function prepareAndShowAnalysisForPrint(columnType) {
   console.log(`[PDF WC] prepareAndShowAnalysisForPrint called for: ${columnType}`);
 
-  // WC-NPSの場合のみローディング表示
-  if (columnType === 'L') {
-    showLoading(true, `PDF出力用データ準備中(${getColumnName(columnType)})...`);
-  }
+  // ローディング表示なし（I/J/Mと同じ動作）
 
   showScreen('screen3');
   clearAnalysisCharts();
@@ -1618,13 +1615,11 @@ async function prepareAndShowAnalysisForPrint(columnType) {
         break;
       default:
         console.error("Invalid column:", columnType);
-        if (columnType === 'L') showLoading(false);
         return;
     }
   } catch (e) {
     console.error("Error accessing text data:", e);
     slideBody.innerHTML = `<p class="text-center text-red-500 py-16">レポートデータアクセスエラー</p>`;
-    if (columnType === 'L') showLoading(false);
     return;
   }
 
@@ -1633,7 +1628,6 @@ async function prepareAndShowAnalysisForPrint(columnType) {
 
   if (tl.length === 0) {
     slideBody.innerHTML = `<p class="text-center text-red-500 py-16">分析対象テキストなし</p>`;
-    if (columnType === 'L') showLoading(false);
     return;
   }
 
@@ -1710,10 +1704,7 @@ async function prepareAndShowAnalysisForPrint(columnType) {
           }, 200);
         });
       });
-      // WC-NPSの場合のみローディング非表示
-      if (columnType === 'L') {
-        showLoading(false);
-      }
+      // ローディング非表示なし（I/J/Mと同じ動作）
       return;
     }
 
@@ -1749,10 +1740,7 @@ async function prepareAndShowAnalysisForPrint(columnType) {
     document.getElementById('analysis-error').textContent = `分析失敗: ${error.message}`;
     document.getElementById('analysis-error').classList.remove('hidden');
   } finally {
-    // WC-NPSの場合のみローディング非表示
-    if (columnType === 'L') {
-      showLoading(false);
-    }
+    // ローディング非表示なし（I/J/Mと同じ動作）
   }
 }
 
