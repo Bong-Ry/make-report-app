@@ -340,9 +340,9 @@ async function updateAggregateRecommendationSheet(centralSheetId, tableData) {
         console.log(`[aiAnalysisService-Rec] Aggregate sheet updated: ${updatedRows.length} items`);
 
     } catch (error) {
-        // シートが存在しない場合は新規作成
-        if (error.message && error.message.includes('not found')) {
-            console.log(`[aiAnalysisService-Rec] Aggregate sheet not found, creating new one...`);
+        // シートが存在しない場合は新規作成 ("not found" または "Unable to parse range" の場合)
+        if (error.message && (error.message.includes('not found') || error.message.includes('Unable to parse range'))) {
+            console.log(`[aiAnalysisService-Rec] Aggregate sheet not found (or invalid range), creating new one...`);
 
             const newData = tableData
                 .map(row => [row.item, row.count])
