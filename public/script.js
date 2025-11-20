@@ -1393,9 +1393,24 @@ async function prepareAndShowRecommendationReport() {
     if (!clinicChartDataRes.ok) throw new Error(`貴院データ取得失敗: ${await clinicChartDataRes.text()}`);
     if (!overallChartDataRes.ok) throw new Error(`全体データ取得失敗: ${await overallChartDataRes.text()}`);
 
-    const clinicChartData = await clinicChartDataRes.json(); 
-    const overallChartData = await overallChartDataRes.json(); 
-        
+    let clinicChartData = await clinicChartDataRes.json();
+    let overallChartData = await overallChartDataRes.json();
+
+    // データ内の「インターネット（産院のホームページ）」を「公式サイト」に置換
+    clinicChartData = clinicChartData.map(row => {
+      if (Array.isArray(row) && row[0] === 'インターネット（産院のホームページ）') {
+        return ['公式サイト', row[1]];
+      }
+      return row;
+    });
+
+    overallChartData = overallChartData.map(row => {
+      if (Array.isArray(row) && row[0] === 'インターネット（産院のホームページ）') {
+        return ['公式サイト', row[1]];
+      }
+      return row;
+    });
+
     showLoading(false);
 
     // 左側（貴院）のグラフのみ背景色を設定
@@ -3158,7 +3173,7 @@ function drawWordCloudOnCanvas(results, uniqueId, onComplete) {
           default: return '#a8a29e';
         }
       },
-      backgroundColor: '#ffff95',
+      backgroundColor: 'transparent',
       clearCanvas: true,
       rotateRatio: 0,
       drawOutOfBound: false,

@@ -425,10 +425,10 @@ body{
     background: #fff;
     font-size: 14px; /* [変更④] 文字サイズは14固定（Google ChartsはJS側でも指定） */
 }
-.chart-canvas{       /* [追加] Canvas 背景も #ffff95（WCなど） */
+.chart-canvas{       /* [変更] Canvas 背景を透明に変更 */
     width: 100%;
     height: 100%;
-    background: #ffff95;
+    background: transparent;
     border-radius: 8px;
     display: block;
 }
