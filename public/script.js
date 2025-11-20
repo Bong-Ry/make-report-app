@@ -613,7 +613,7 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.textAlign = 'left';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center h-full items-start" style="padding-top: 0;">
+      <div class="flex justify-center items-start pt-4">
         <ul class="text-sm font-normal space-y-0 text-left">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
