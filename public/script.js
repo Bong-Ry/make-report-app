@@ -613,8 +613,8 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.textAlign = 'left';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center items-start">
-        <ul class="text-sm font-normal space-y-0 text-left">
+      <div class="flex justify-start">
+        <ul class="text-sm font-normal space-y-0 text-left" style="font-size: 14px;">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
           <ul class="pl-8 space-y-0 font-normal">
@@ -702,12 +702,12 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
     `;
   } else {
     htmlContent = `
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full">
-        <div class="flex flex-col h-full">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
+        <div class="flex flex-col items-center">
           <h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
           <div id="clinic-${cid}" class="w-full ${chartHeightClass} clinic-graph-bg-yellow"></div>
         </div>
-        <div class="flex flex-col h-full">
+        <div class="flex flex-col items-center">
           <h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3>
           <div id="average-${cid}" class="w-full ${chartHeightClass}"></div>
         </div>
@@ -1567,6 +1567,7 @@ async function prepareAndShowAnalysis(columnType) {
 
 // PDF出力専用：ローディングを表示しないバージョン
 async function prepareAndShowAnalysisForPrint(columnType) {
+  console.log(`[PDF WC] prepareAndShowAnalysisForPrint called for: ${columnType}`);
   showScreen('screen3');
   clearAnalysisCharts();
   updateNavActiveState(null, columnType, null);
@@ -1618,6 +1619,7 @@ async function prepareAndShowAnalysisForPrint(columnType) {
     return;
   }
 
+  console.log(`[PDF WC] Text count: ${tl.length}, Total: ${td}`);
   document.getElementById('report-title').textContent = getAnalysisTitle(columnType, td);
 
   if (tl.length === 0) {
@@ -1655,7 +1657,53 @@ async function prepareAndShowAnalysisForPrint(columnType) {
     </div>
   `;
 
+  console.log(`[PDF WC] HTML layout created`);
+
+  // Google Chartsがロードされるまで待つ
+  const waitForGoogleCharts = () => {
+    return new Promise((resolve) => {
+      if (typeof google !== 'undefined' && google.visualization) {
+        console.log(`[PDF WC] Google Charts already loaded`);
+        resolve();
+      } else {
+        console.log(`[PDF WC] Waiting for Google Charts...`);
+        const checkInterval = setInterval(() => {
+          if (typeof google !== 'undefined' && google.visualization) {
+            console.log(`[PDF WC] Google Charts loaded`);
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+        setTimeout(() => {
+          console.log(`[PDF WC] Google Charts wait timeout`);
+          clearInterval(checkInterval);
+          resolve();
+        }, 5000);
+      }
+    });
+  };
+
+  await waitForGoogleCharts();
+
   try {
+    console.log(`[PDF WC] Checking cache for: ${columnType}`);
+    // キャッシュがあればそれを使う
+    if (wcAnalysisCache[columnType] && wcAnalysisCache[columnType].analysisResults) {
+      console.log(`[PDF WC] Using cached analysis results`);
+      const cachedResults = wcAnalysisCache[columnType].analysisResults;
+      await new Promise(resolve => {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            console.log(`[PDF WC] Drawing cached charts`);
+            drawAnalysisCharts(cachedResults);
+            resolve();
+          }, 200);
+        });
+      });
+      return;
+    }
+
+    console.log(`[PDF WC] No cache, calling API...`);
     const r = await fetch('/api/analyzeText', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1665,38 +1713,25 @@ async function prepareAndShowAnalysisForPrint(columnType) {
       throw new Error(`分析APIエラー(${r.status})`);
     }
     const ad = await r.json();
+    console.log(`[PDF WC] API response received, results count: ${ad.results ? ad.results.length : 0}`);
+
     wcAnalysisCache[columnType] = {
       analysisResults: ad.results,
       title: getAnalysisTitle(columnType, td),
       subtitle: '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。'
     };
 
-    // Google Chartsがロードされるまで待つ
-    const waitForGoogleCharts = () => {
-      return new Promise((resolve) => {
-        if (typeof google !== 'undefined' && google.visualization) {
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          console.log(`[PDF WC] Drawing new charts`);
+          drawAnalysisCharts(ad.results);
           resolve();
-        } else {
-          const checkInterval = setInterval(() => {
-            if (typeof google !== 'undefined' && google.visualization) {
-              clearInterval(checkInterval);
-              resolve();
-            }
-          }, 100);
-          setTimeout(() => {
-            clearInterval(checkInterval);
-            resolve();
-          }, 5000);
-        }
+        }, 200);
       });
-    };
-
-    await waitForGoogleCharts();
-    requestAnimationFrame(() => {
-      setTimeout(() => drawAnalysisCharts(ad.results), 200);
     });
   } catch (error) {
-    console.error('!!! Analyze fail:', error);
+    console.error('[PDF WC] !!! Analyze fail:', error);
     document.getElementById('analysis-error').textContent = `分析失敗: ${error.message}`;
     document.getElementById('analysis-error').classList.remove('hidden');
   }
