@@ -610,10 +610,11 @@ async function prepareAndShowIntroPages(reportType) {
     `;
   } else if (reportType === 'toc') {
     document.getElementById('report-title').textContent = '目次';
-    document.getElementById('report-title').style.textAlign = 'left';
+    document.getElementById('report-title').style.textAlign = 'center';
+    document.getElementById('report-title').style.marginBottom = '8px';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-start">
+      <div class="flex justify-center">
         <ul class="text-sm font-normal space-y-0 text-left" style="font-size: 14px;">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
