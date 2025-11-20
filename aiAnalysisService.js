@@ -303,7 +303,7 @@ async function updateAggregateRecommendationSheet(centralSheetId, tableData) {
         // 1. 既存データを読み込む
         const response = await googleSheetsService.sheets.spreadsheets.values.get({
             spreadsheetId: centralSheetId,
-            range: `'${aggregateSheetName}'!A:B`,
+            range: `${aggregateSheetName}!A:B`,
             valueRenderOption: 'FORMATTED_VALUE'
         });
 
