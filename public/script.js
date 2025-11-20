@@ -1569,6 +1569,12 @@ async function prepareAndShowAnalysis(columnType) {
 // PDF出力専用：ローディングを表示しないバージョン
 async function prepareAndShowAnalysisForPrint(columnType) {
   console.log(`[PDF WC] prepareAndShowAnalysisForPrint called for: ${columnType}`);
+
+  // WC-NPSの場合のみローディング表示
+  if (columnType === 'L') {
+    showLoading(true, `PDF出力用データ準備中(${getColumnName(columnType)})...`);
+  }
+
   showScreen('screen3');
   clearAnalysisCharts();
   updateNavActiveState(null, columnType, null);
@@ -1612,11 +1618,13 @@ async function prepareAndShowAnalysisForPrint(columnType) {
         break;
       default:
         console.error("Invalid column:", columnType);
+        if (columnType === 'L') showLoading(false);
         return;
     }
   } catch (e) {
     console.error("Error accessing text data:", e);
     slideBody.innerHTML = `<p class="text-center text-red-500 py-16">レポートデータアクセスエラー</p>`;
+    if (columnType === 'L') showLoading(false);
     return;
   }
 
@@ -1625,6 +1633,7 @@ async function prepareAndShowAnalysisForPrint(columnType) {
 
   if (tl.length === 0) {
     slideBody.innerHTML = `<p class="text-center text-red-500 py-16">分析対象テキストなし</p>`;
+    if (columnType === 'L') showLoading(false);
     return;
   }
 
@@ -1701,6 +1710,10 @@ async function prepareAndShowAnalysisForPrint(columnType) {
           }, 200);
         });
       });
+      // WC-NPSの場合のみローディング非表示
+      if (columnType === 'L') {
+        showLoading(false);
+      }
       return;
     }
 
@@ -1735,6 +1748,11 @@ async function prepareAndShowAnalysisForPrint(columnType) {
     console.error('[PDF WC] !!! Analyze fail:', error);
     document.getElementById('analysis-error').textContent = `分析失敗: ${error.message}`;
     document.getElementById('analysis-error').classList.remove('hidden');
+  } finally {
+    // WC-NPSの場合のみローディング非表示
+    if (columnType === 'L') {
+      showLoading(false);
+    }
   }
 }
 
