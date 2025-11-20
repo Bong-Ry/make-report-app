@@ -1885,13 +1885,29 @@ function drawSingleBarChart(data, elementId, options) {
     c.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">データなし</p>';
     return;
   }
+
+  // ▼▼▼ [追加] 太さの計算ロジック ▼▼▼
+  // 「最大8個」のときの太さを基準(例えば60%)とし、データ数に応じて比率を下げる
+  // 例: 8個なら60%、1個なら (1/8)*60 = 7.5% の太さになる
+  const maxItems = 8;
+  const baseWidthPercent = 60; // 8個揃ったときの棒の太さ(%)
+  const currentCount = data.length;
+  const dynamicGroupWidth = (currentCount / maxItems) * baseWidthPercent + '%';
+
+  // 計算した太さをオプションに適用
+  const finalOptions = {
+    ...options,
+    bar: { groupWidth: dynamicGroupWidth }
+  };
+  // ▲▲▲ 追加ここまで ▲▲▲
+
   const cd = [['単語','スコア',{ role:'style' }]];
   const color = options.colors && options.colors.length > 0 ? options.colors[0] : '#a8a29e';
   data.slice().forEach(item => { cd.push([item.word, item.score, color]); });
   try {
     const dt = google.visualization.arrayToDataTable(cd);
     const chart = new google.visualization.BarChart(c);
-    chart.draw(dt, options);
+    chart.draw(dt, finalOptions);
   } catch (chartError) {
     console.error(`Error drawing bar chart for ${elementId}:`, chartError);
     c.innerHTML = `<p class="text-center text-red-500 text-sm py-4">グラフ描画エラー<br>${chartError.message}</p>`;
@@ -3039,6 +3055,15 @@ function drawAnalysisChartsTemp(results, uniqueId, onComplete) {
     else if (w.pos === '感動詞') intj.push([w.word, w.score]);
   });
 
+  // ▼▼▼ [追加] 太さを計算してオプションを返す関数 ▼▼▼
+  const getBarOption = (count) => {
+    const maxItems = 8;
+    const baseWidthPercent = 60;
+    // データ数に応じた％を計算
+    return { groupWidth: (count / maxItems) * baseWidthPercent + '%' };
+  };
+  // ▲▲▲ 追加ここまで ▲▲▲
+
   const opt = {
     legend: 'none', backgroundColor: 'transparent', chartArea: { width: '95%', height: '90%' },
     hAxis: { textStyle: { fontSize: 9 } }, vAxis: { textStyle: { fontSize: 9 } }
@@ -3059,25 +3084,25 @@ function drawAnalysisChartsTemp(results, uniqueId, onComplete) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...noun.slice(0, 10)]);
     const chart = new google.visualization.BarChart(document.getElementById(`noun-chart-${uniqueId}`));
     google.visualization.events.addListener(chart, 'ready', checkComplete);
-    chart.draw(d, { ...opt, colors: ['#2563eb'] });
+    chart.draw(d, { ...opt, colors: ['#2563eb'], bar: getBarOption(noun.slice(0, 10).length) });
   }
   if (verb.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...verb.slice(0, 10)]);
     const chart = new google.visualization.BarChart(document.getElementById(`verb-chart-${uniqueId}`));
     google.visualization.events.addListener(chart, 'ready', checkComplete);
-    chart.draw(d, { ...opt, colors: ['#dc2626'] });
+    chart.draw(d, { ...opt, colors: ['#dc2626'], bar: getBarOption(verb.slice(0, 10).length) });
   }
   if (adj.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...adj.slice(0, 10)]);
     const chart = new google.visualization.BarChart(document.getElementById(`adj-chart-${uniqueId}`));
     google.visualization.events.addListener(chart, 'ready', checkComplete);
-    chart.draw(d, { ...opt, colors: ['#16a34a'] });
+    chart.draw(d, { ...opt, colors: ['#16a34a'], bar: getBarOption(adj.slice(0, 10).length) });
   }
   if (intj.length > 0) {
     const d = google.visualization.arrayToDataTable([['単語', 'スコア'], ...intj.slice(0, 10)]);
     const chart = new google.visualization.BarChart(document.getElementById(`int-chart-${uniqueId}`));
     google.visualization.events.addListener(chart, 'ready', checkComplete);
-    chart.draw(d, { ...opt, colors: ['#6b7280'] });
+    chart.draw(d, { ...opt, colors: ['#6b7280'], bar: getBarOption(intj.slice(0, 10).length) });
   }
 
   if (totalCharts === 0) {
