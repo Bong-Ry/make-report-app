@@ -613,7 +613,7 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.textAlign = 'left';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center items-start pt-4">
+      <div class="flex justify-center items-start">
         <ul class="text-sm font-normal space-y-0 text-left">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
@@ -691,7 +691,7 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
           </div>
         </div>
         <div class="flex flex-col h-full">
-          <div class="w-full flex justify-center mb-6">
+          <div class="w-full flex justify-center mb-10">
             <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain" />
           </div>
           <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 h-full">
@@ -702,12 +702,12 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
     `;
   } else {
     htmlContent = `
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
-        <div class="flex flex-col items-center h-full">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full">
+        <div class="flex flex-col h-full">
           <h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
           <div id="clinic-${cid}" class="w-full ${chartHeightClass} clinic-graph-bg-yellow"></div>
         </div>
-        <div class="flex flex-col items-center h-full">
+        <div class="flex flex-col h-full">
           <h3 class="font-bold text-lg mb-4 text-center">（参照）全体平均</h3>
           <div id="average-${cid}" class="w-full ${chartHeightClass}"></div>
         </div>
@@ -1670,6 +1670,28 @@ async function prepareAndShowAnalysisForPrint(columnType) {
       title: getAnalysisTitle(columnType, td),
       subtitle: '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。'
     };
+
+    // Google Chartsがロードされるまで待つ
+    const waitForGoogleCharts = () => {
+      return new Promise((resolve) => {
+        if (typeof google !== 'undefined' && google.visualization) {
+          resolve();
+        } else {
+          const checkInterval = setInterval(() => {
+            if (typeof google !== 'undefined' && google.visualization) {
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 100);
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            resolve();
+          }, 5000);
+        }
+      });
+    };
+
+    await waitForGoogleCharts();
     requestAnimationFrame(() => {
       setTimeout(() => drawAnalysisCharts(ad.results), 200);
     });
