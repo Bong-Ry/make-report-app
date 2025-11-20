@@ -77,6 +77,22 @@ function setupEventListeners() {
       }
       return;
     }
+
+    // (編集ボタン)
+    const editBtn = e.target.closest('#comment-edit-btn');
+    if (editBtn) {
+      e.preventDefault();
+      enterCommentEditMode();
+      return;
+    }
+
+    // (保存ボタン)
+    const saveBtn = e.target.closest('#comment-save-btn');
+    if (saveBtn) {
+      e.preventDefault();
+      saveCommentEdit();
+      return;
+    }
   });
 
   // Screen 5 (Nav)
@@ -1087,24 +1103,7 @@ function renderCommentControls() {
     }
   `;
 
-  // イベントリスナーを追加
-  const prevBtn = document.getElementById('comment-prev');
-  const nextBtn = document.getElementById('comment-next');
-  const editBtn = document.getElementById('comment-edit-btn');
-  const saveBtn = document.getElementById('comment-save-btn');
-
-  if (prevBtn && !prevDisabled && !isEditMode) {
-    prevBtn.addEventListener('click', () => renderCommentPage(currentCommentPageIndex - 1));
-  }
-  if (nextBtn && !nextDisabled && !isEditMode) {
-    nextBtn.addEventListener('click', () => renderCommentPage(currentCommentPageIndex + 1));
-  }
-  if (editBtn) {
-    editBtn.addEventListener('click', enterCommentEditMode);
-  }
-  if (saveBtn) {
-    saveBtn.addEventListener('click', saveCommentEdit);
-  }
+  // イベントリスナーはsetupEventListeners内の委譲ハンドラーで処理されるため、ここでは追加しない
 }
 
 function enterCommentEditMode() {
