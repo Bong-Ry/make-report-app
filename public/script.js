@@ -611,7 +611,7 @@ async function prepareAndShowIntroPages(reportType) {
   } else if (reportType === 'toc') {
     document.getElementById('report-title').textContent = '目次';
     document.getElementById('report-title').style.textAlign = 'center';
-    document.getElementById('report-title').style.marginBottom = '8px';
+    document.getElementById('report-title').style.marginBottom = '4px';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
       <div class="flex justify-center">
@@ -693,7 +693,7 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
         </div>
         <div class="flex flex-col h-full">
           <div class="w-full flex justify-center mb-10">
-            <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain" />
+            <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-25 object-contain" style="height: 25px;" />
           </div>
           <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 h-full">
             <p class="text-gray-500">NPSスコア計算中...</p>
