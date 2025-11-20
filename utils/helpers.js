@@ -17,6 +17,11 @@ exports.getSpreadsheetIdFromUrl = (url) => {
  * @returns {string} (例: "クリニックA_AI分析")
  */
 exports.getAnalysisSheetName = (clinicName, type) => {
+    // 特例: clinicName が「全体」かつ type が 'RECOMMENDATION' の場合
+    if (clinicName === '全体' && type === 'RECOMMENDATION') {
+        return '全体-おすすめ理由';
+    }
+
     switch(type) {
         case 'AI':
             return `${clinicName}_AI分析`;
