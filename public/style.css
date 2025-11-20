@@ -197,7 +197,7 @@ body{
     flex-shrink: 0;
 }
 .report-subtitle {
-    font-size: 14px;
+    font-size: 14pt;
     color: #6b7280;
     margin-bottom: 16px;
     white-space: pre-wrap;
@@ -493,6 +493,8 @@ body{
         margin: 0;
         aspect-ratio: auto !important;
         overflow: hidden !important;
+        border: 8px solid #fcf1ed !important;
+        border-radius: 12px !important;
     }
 
     /* 背景画像を印刷時に強制表示 */

@@ -574,7 +574,7 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.textAlign = 'left';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center h-full items-start pt-8">
+      <div class="flex justify-center h-full items-start pt-2">
         <ul class="text-sm font-normal space-y-0 text-left">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
@@ -614,7 +614,7 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.textAlign = 'left';
     document.getElementById('report-subtitle').textContent = '';
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center h-full items-start pt-8">
+      <div class="flex justify-center h-full items-start pt-2">
         <ul class="text-lg font-normal space-y-4 text-left">
           <li><span class="font-bold text-gray-800 w-32 inline-block">調査目的</span>｜貴院に対する満足度調査</li>
           <li><span class="font-bold text-gray-800 w-32 inline-block">調査方法</span>｜スマホ利用してのアンケートフォームによるインターネット調査</li>
@@ -686,9 +686,9 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     is3D: true,
     chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
     pieSliceText: 'percentage',
-    pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
-    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
-    tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
+    pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
+    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
+    tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },
     backgroundColor: '#ffff95'
   };
   // 右側（全体平均）のグラフは背景色なし
@@ -696,9 +696,9 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     is3D: true,
     chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },
     pieSliceText: 'percentage',
-    pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
-    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
-    tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' }
+    pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
+    legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
+    tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' }
   };
   const cdEl = document.getElementById('clinic-pie-chart');
   if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
@@ -1276,9 +1276,9 @@ async function prepareAndShowRecommendationReport() {
       is3D: true,
       chartArea: { left: '5%', top: '5%', width: '90%', height: '90%', backgroundColor: '#ffff95' },
       pieSliceText: 'percentage',
-      pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
-      legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
-      tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' },
+      pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
+      legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
+      tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },
       backgroundColor: '#ffff95'
     };
     // 右側（全体平均）のグラフは背景色なし
@@ -1286,9 +1286,9 @@ async function prepareAndShowRecommendationReport() {
       is3D: true,
       chartArea: { left: '5%', top: '5%', width: '90%', height: '90%' },
       pieSliceText: 'percentage',
-      pieSliceTextStyle: { color: 'black', fontSize: 14, bold: true },
-      legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 14 } },
-      tooltip: { showColorCode: true, textStyle: { fontSize: 14 }, trigger: 'focus' }
+      pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
+      legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
+      tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' }
     };
     const clinicChartEl = document.getElementById('clinic-pie-chart');
     if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
