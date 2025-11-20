@@ -692,7 +692,7 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
           </div>
         </div>
         <div class="flex flex-col h-full">
-          <div class="w-full flex justify-center mb-10 mt-25">
+          <div class="w-full flex justify-center mb-10 mt-30">
             <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain" />
           </div>
           <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 h-full">
