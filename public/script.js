@@ -983,10 +983,15 @@ async function fetchAndRenderCommentPage(commentKey) {
     } else {
       // 全コメントを1つの配列に統合
       const allComments = data.flat();
-      // 16件ずつに分割
+
+      // NPSコメントかどうかで分割ルールを変更
+      const isNPS = commentKey === 'promoters' || commentKey === 'passives' || commentKey === 'detractors';
+      const chunkSize = isNPS ? 16 : 12;
+
+      // 指定件数ずつに分割
       const chunkedData = [];
-      for (let i = 0; i < allComments.length; i += 16) {
-        chunkedData.push(allComments.slice(i, i + 16));
+      for (let i = 0; i < allComments.length; i += chunkSize) {
+        chunkedData.push(allComments.slice(i, i + chunkSize));
       }
       currentCommentData = chunkedData;
       // 全コメント数をカウント
