@@ -1011,13 +1011,13 @@ function renderCommentPage(pageIndex) {
 
   const bodyEl = document.getElementById('slide-body');
   bodyEl.innerHTML = '';
-  bodyEl.style.overflowY = window.commentEditMode ? 'auto' : 'auto'; // 編集・表示両方でスクロール許可
+  bodyEl.style.overflowY = window.commentEditMode ? 'auto' : 'hidden'; // 表示モードはスクロール禁止
 
   if (columnData.length === 0 && currentCommentData.length > 0) {
     bodyEl.innerHTML = '<p class="text-center text-gray-500 py-16">(このページは空です)</p>';
   } else {
     if (!window.commentEditMode) {
-      // 表示モード: すべてのデータを表示（スクロール可能）
+      // 表示モード: フォントサイズ自動調整で1ページに収める
       const fragment = document.createDocumentFragment();
       columnData.forEach(comment => {
         const p = document.createElement('p');
@@ -1026,6 +1026,9 @@ function renderCommentPage(pageIndex) {
         fragment.appendChild(p);
       });
       bodyEl.appendChild(fragment);
+
+      // コメント表示後にフォントサイズを調整
+      adjustCommentFontSizes(bodyEl);
     } else {
       // 編集モード: データ単位で編集可能なテキストエリアを生成
       const editContainer = document.createElement('div');
@@ -1073,7 +1076,36 @@ function renderCommentPage(pageIndex) {
   renderCommentControls();
 }
 
-// コメント一覧のフォントサイズを自動調整する関数（削除 - スクロール表示に変更）
+// コメント一覧のフォントサイズを自動調整する関数
+function adjustCommentFontSizes(containerEl) {
+  if (!containerEl) return;
+
+  const initialFontSizePt = 12;
+  const minFontSizePt = 7;
+  const step = 0.5;
+  let currentSize = initialFontSizePt;
+
+  // 全てのコメントアイテムに同じフォントサイズを適用
+  const commentItems = containerEl.querySelectorAll('.comment-display-item');
+  commentItems.forEach(item => {
+    item.style.fontSize = currentSize + 'pt';
+  });
+
+  // コンテナがあふれている場合、フォントサイズを縮小
+  for (let i = 0; i < 100; i++) {
+    if (containerEl.scrollHeight <= containerEl.clientHeight) {
+      break;
+    }
+    currentSize -= step;
+    if (currentSize < minFontSizePt) {
+      currentSize = minFontSizePt;
+      break;
+    }
+    commentItems.forEach(item => {
+      item.style.fontSize = currentSize + 'pt';
+    });
+  }
+}
 
 function renderCommentControls() {
   const controlsContainer = document.getElementById('comment-controls');
