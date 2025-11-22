@@ -257,6 +257,10 @@ async function runBackgroundAiAnalysis(centralSheetId, clinicNames) {
                 return limit(async () => {
                     const sheetName = getCommentSheetName(clinicName, task.type);
                     try {
+                        // ★★★ [修正] API制限(429)回避のため、意図的に待機時間を設ける ★★★
+                        // 1つの処理につき2秒待機することで、1分間の書き込み制限を超えないように調整
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+
                         console.log(`[BG-AI] Running ${clinicName} - COMMENTS (${task.type}) -> ${sheetName}`);
                         await googleSheetsService.saveCommentsToSheet(centralSheetId, sheetName, task.comments);
                         console.log(`[BG-AI] SUCCESS: ${clinicName} - COMMENTS (${task.type})`);
