@@ -793,6 +793,7 @@ exports.writeCompletionMarker = async (centralSheetId, clinicName) => {
 
 exports.readCompletionStatusMap = async (centralSheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+    console.log(`[googleSheetsService-Marker] Reading Completion Status Map...`);
 
     const statusMap = {};
 
@@ -813,8 +814,9 @@ exports.readCompletionStatusMap = async (centralSheetId) => {
         rows.forEach(row => {
             const clinicName = row[0];
             const status = row[1];
+
             if (clinicName) {
-                statusMap[clinicName] = (status === 'Complete');
+                statusMap[clinicName] = (status != null && String(status).trim() !== '');
             }
         });
 

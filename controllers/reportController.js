@@ -46,27 +46,27 @@ exports.getTransferredList = async (req, res) => {
     if (!centralSheetId) {
         return res.status(400).send('Invalid request: centralSheetId required.');
     }
-    
+
     try {
-        const sheetTitles = await googleSheetsService.getSheetTitles(centralSheetId);
-        const sheetTitlesSet = new Set(sheetTitles);
-        const masterClinics = await googleSheetsService.getMasterClinicList();
         const completionMap = await googleSheetsService.readCompletionStatusMap(centralSheetId);
-        
+
+        const transferredClinics = Object.keys(completionMap).filter(name => completionMap[name] === true);
+
+        const masterClinics = await googleSheetsService.getMasterClinicList();
         const aiCompletionStatus = {};
 
         for (const clinicName of masterClinics) {
-            if (sheetTitlesSet.has(clinicName)) {
+            if (completionMap.hasOwnProperty(clinicName)) {
                 aiCompletionStatus[clinicName] = (completionMap[clinicName] === true);
             } else {
-                aiCompletionStatus[clinicName] = false; // 転記自体されていない
+                aiCompletionStatus[clinicName] = false;
             }
         }
-        
-        console.log(`[/api/getTransferredList] AI Status (from Management Sheet):`, aiCompletionStatus);
-        
-        res.json({ 
-            sheetTitles: sheetTitles,
+
+        console.log(`[/api/getTransferredList] Completed (Transferred) count: ${transferredClinics.length}`);
+
+        res.json({
+            sheetTitles: transferredClinics,
             aiCompletionStatus: aiCompletionStatus
         });
 
