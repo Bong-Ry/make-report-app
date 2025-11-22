@@ -8,18 +8,18 @@ const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbyqJvn1bpg
 const KEYFILEPATH = '/etc/secrets/credentials.json';
 const SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive', // Drive API (ファイル名取得用)
+    'https://www.googleapis.com/auth/drive.file',
 ];
 
-// ★★★ [設定] フォルダID設定 (ご提示いただいたIDを反映) ★★★
+// ★★★ [設定] フォルダID設定 ★★★
 const FOLDER_CONFIG = {
     MAIN:       '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj', // ① 全体・管理 (既存)
     RAW:        '1baxkwAXMkgFYd6lg4AMeQqnWfx2-uv6A', // ② 元データ (RAW)
     REC:        '1t-rzPW2BiLOXCb_XlMEWT8DvE1iM3yO-', // ③ おすすめ理由 (REC)
     AI:         '1kO9EWERPUO7pbhq51kr9eVG2aJyalIfM', // ④ AI分析 (AI)
 
-    // ★追加: 市区町村用フォルダ
-    MUNICIPALITY: '1JHjw4nwvhnpDjimB-9y8sVVkrfM043Yp', // 市区町村
+    // ★修正: 市区町村を独立設定
+    MUNICIPALITY: '1JHjw4nwvhnpDjimB-9y8sVVkrfM043Yp', // 市区町村用
 
     // NPSコメント
     NPS_10:     '1p5uPULplr4jS7LCwKaz3JsmOWwqNbx1V', // ⑤ NPS 10
@@ -81,7 +81,7 @@ exports.findOrCreateCentralSheet = async (periodText) => {
         { type: FILE_TYPES.RAW,         folderId: FOLDER_CONFIG.RAW },
         { type: FILE_TYPES.REC,         folderId: FOLDER_CONFIG.REC },
         { type: FILE_TYPES.AI,          folderId: FOLDER_CONFIG.AI },
-        { type: FILE_TYPES.MUNICIPALITY, folderId: FOLDER_CONFIG.MUNICIPALITY }, // ★追加
+        { type: FILE_TYPES.MUNICIPALITY, folderId: FOLDER_CONFIG.MUNICIPALITY }, // ★追加: 市区町村ファイルを作成対象に
         { type: FILE_TYPES.NPS_10,      folderId: FOLDER_CONFIG.NPS_10 },
         { type: FILE_TYPES.NPS_9,       folderId: FOLDER_CONFIG.NPS_9 },
         { type: FILE_TYPES.NPS_8,       folderId: FOLDER_CONFIG.NPS_8 },
@@ -94,7 +94,9 @@ exports.findOrCreateCentralSheet = async (periodText) => {
 
     // 1. すべてのファイルについて GAS API を呼び出し (並列実行)
     const results = await Promise.all(fileDefinitions.map(async (def) => {
+        // API負荷分散のためわずかにウェイトを入れる
         await new Promise(r => setTimeout(r, Math.random() * 2000));
+
         const id = await callGasToCreateFile(periodText, def.folderId);
         console.log(`[Orchestrator] Verified/Created ${def.type}: ${id}`);
         return { type: def.type, id: id };
@@ -125,17 +127,18 @@ exports.findOrCreateCentralSheet = async (periodText) => {
  * [重要] 司令塔関数: シート名から、書き込むべきファイルのIDを返す
  */
 async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
+    // 1. フォルダIDの特定
     let targetFolderId = FOLDER_CONFIG.MAIN;
     let typeKey = 'MAIN';
 
-    // 1. フォルダIDの特定 (優先順位順)
     if (['全体', '管理', '全体-おすすめ理由'].includes(sheetName)) {
         return mainSheetId;
     } else if (sheetName.endsWith('_AI分析')) {
         targetFolderId = FOLDER_CONFIG.AI;
         typeKey = 'AI';
     } else if (sheetName.endsWith('_市区町村')) {
-        targetFolderId = FOLDER_CONFIG.MUNICIPALITY; // ★変更
+        // ★修正: 市区町村は専用フォルダへ振り分け
+        targetFolderId = FOLDER_CONFIG.MUNICIPALITY;
         typeKey = 'MUNICIPALITY';
     } else if (sheetName.endsWith('_おすすめ理由')) {
         targetFolderId = FOLDER_CONFIG.REC;
@@ -165,10 +168,11 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
         targetFolderId = FOLDER_CONFIG.NPS_6_UNDER;
         typeKey = 'NPS_6_UNDER';
     } else if (sheetName === clinicName) {
-        targetFolderId = FOLDER_CONFIG.RAW;
+        targetFolderId = FOLDER_CONFIG.RAW; // 元データ
         typeKey = 'RAW';
     }
 
+    // メインフォルダの場合はそのまま返す
     if (targetFolderId === FOLDER_CONFIG.MAIN) {
         return mainSheetId;
     }
@@ -277,7 +281,6 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
             });
 
             if (filteredRows.length > 0) {
-                // 1. 個別データシート (RAWフォルダのファイルへ)
                 const clinicSheetTitle = clinicName;
                 const targetId = await getTargetSpreadsheetId(centralSheetId, clinicSheetTitle, clinicName);
 
@@ -289,7 +292,7 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
                 const colCount = filteredRows[0] ? filteredRows[0].length : 18;
                 await resizeSheetToFitData(targetId, sheetId, rowCount, colCount);
 
-                // 2. 全体シート (MAINファイルへ)
+                // 全体シートはMAINファイルへ
                 await findOrCreateSheet(centralSheetId, '全体');
                 await writeData(centralSheetId, '全体', filteredRows, true);
             }
@@ -309,7 +312,6 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
     let targetId = centralSheetId;
 
     if (sheetName !== '全体') {
-        // クリニック名の場合は RAWフォルダのファイルID を取得
         targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName);
     }
 
