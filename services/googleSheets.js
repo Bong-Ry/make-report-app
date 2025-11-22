@@ -8,18 +8,15 @@ const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6Nt
 const KEYFILEPATH = '/etc/secrets/credentials.json';
 const SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive', // Drive API (ファイル名取得用)
 ];
 
 // ★★★ [設定] フォルダID設定 ★★★
 const FOLDER_CONFIG = {
-    MAIN:       '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj', // ① 全体・管理
-    RAW:        '1baxkwAXMkgFYd6lg4AMeQqnWfx2-uv6A', // ② 元データ
-    REC:        '1t-rzPW2BiLOXCb_XlMEWT8DvE1iM3yO-', // ③ おすすめ理由
-    AI:         '1kO9EWERPUO7pbhq51kr9eVG2aJyalIfM', // ④ AI分析
-
-    // ★追加: 市区町村用フォルダ
-    MUNICIPALITY: '1JHjw4nwvhnpDjimB-9y8sVVkrfM043Yp', // ④-2 市区町村
+    MAIN:       '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj', // ① 全体・管理 (既存)
+    RAW:        '1baxkwAXMkgFYd6lg4AMeQqnWfx2-uv6A', // ② 元データ (RAW)
+    REC:        '1t-rzPW2BiLOXCb_XlMEWT8DvE1iM3yO-', // ③ おすすめ理由 (REC)
+    AI:         '1kO9EWERPUO7pbhq51kr9eVG2aJyalIfM', // ④ AI分析 (AI)
 
     // NPSコメント
     NPS_10:     '1p5uPULplr4jS7LCwKaz3JsmOWwqNbx1V', // ⑤ NPS 10
@@ -29,9 +26,9 @@ const FOLDER_CONFIG = {
     NPS_6_UNDER:'1YwysnvQn6J7-3JNYEAgU8_4iASv7yx5X', // ⑤ NPS 6以下
 
     // その他コメント
-    GOODBAD:    '1ofRq1uS9hrJ86NFH86cHpheVi4WCm4KI', // ⑥ 良/悪点
-    STAFF:      '1x6-f5yEH6KzEIxNznRK2S5Vp6nOHyPXM', // ⑦ スタッフ
-    DELIVERY:   '1waeSxj0cCjd4YLDVLCyxDJ8d5JHJ53kt'  // ⑧ お産意見
+    GOODBAD:    '1ofRq1uS9hrJ86NFH86cHpheVi4WCm4KI', // ⑥ 良/悪点 (GOODBAD)
+    STAFF:      '1x6-f5yEH6KzEIxNznRK2S5Vp6nOHyPXM', // ⑦ スタッフ (STAFF)
+    DELIVERY:   '1waeSxj0cCjd4YLDVLCyxDJ8d5JHJ53kt'  // ⑧ お産意見 (DELIVERY)
 };
 // ★★★ 設定ここまで ★★★
 
@@ -55,48 +52,75 @@ exports.sheets = sheets;
 // === [新規] シンプルファイル管理 (同名ファイル検索方式) ===
 // =================================================================
 
-// ファイル種別の定義
-const FILE_TYPES = {
-    MAIN: 'MAIN',           // ① 全体・管理
-    RAW: 'RAW',             // ② 元データ一覧
-    REC: 'REC',             // ③ おすすめ理由
-    AI: 'AI',               // ④ AI分析
-    MUNICIPALITY: 'MUNICIPALITY', // ★追加: 市区町村
-    NPS_10: 'NPS_10',       // ⑤ NPS 10
-    NPS_9: 'NPS_9',         // ⑤ NPS 9
-    NPS_8: 'NPS_8',         // ⑤ NPS 8
-    NPS_7: 'NPS_7',         // ⑤ NPS 7
-    NPS_6_UNDER: 'NPS_6',   // ⑤ NPS 6以下
-    GOODBAD: 'GOODBAD',     // ⑥ よかった点悪かった点
-    STAFF: 'STAFF',         // ⑦ スタッフ印象
-    DELIVERY: 'DELIVERY'    // ⑧ お産意見
-};
-
-// IDキャッシュ
+// IDキャッシュ (MainSheetId + FolderKey -> SubFileId)
 const fileIdCache = new Map();
+// ファイル名キャッシュ (MainSheetId -> "2025-04～2025-09")
 const fileNameCache = new Map();
 
+// ファイル種別の定義
+const FILE_TYPES = {
+    MAIN: 'MAIN', RAW: 'RAW', REC: 'REC', AI: 'AI',
+    NPS_10: 'NPS_10', NPS_9: 'NPS_9', NPS_8: 'NPS_8', NPS_7: 'NPS_7', NPS_6_UNDER: 'NPS_6',
+    GOODBAD: 'GOODBAD', STAFF: 'STAFF', DELIVERY: 'DELIVERY'
+};
+
 /**
- * [変更] 期間選択時に呼ばれる関数
- * ここでは「メインファイル」の確保だけを行い、IDを返します。
- * (サブファイルは必要になった瞬間に自動で作られるので、ここで事前作成しなくてもOKです)
+ * [変更] 期間選択時に呼ばれる関数 (オーケストレーター)
+ * 指定された期間名のファイルが各フォルダにあるか確認し、なければ一斉に作成します。
  */
 exports.findOrCreateCentralSheet = async (periodText) => {
-    console.log(`[Orchestrator] Initializing MAIN file for: "${periodText}"`);
+    console.log(`[Orchestrator] Initializing ALL files for period: "${periodText}"`);
 
-    // メインフォルダに、指定された期間名のファイルがあるか確認（なければ作成）
-    const mainSheetId = await callGasToCreateFile(periodText, FOLDER_CONFIG.MAIN);
+    // 作成・確認対象のファイル定義一覧
+    const fileDefinitions = [
+        { type: FILE_TYPES.MAIN,        folderId: FOLDER_CONFIG.MAIN },
+        { type: FILE_TYPES.RAW,         folderId: FOLDER_CONFIG.RAW },
+        { type: FILE_TYPES.REC,         folderId: FOLDER_CONFIG.REC },
+        { type: FILE_TYPES.AI,          folderId: FOLDER_CONFIG.AI }, // 市区町村含む
+        { type: FILE_TYPES.NPS_10,      folderId: FOLDER_CONFIG.NPS_10 },
+        { type: FILE_TYPES.NPS_9,       folderId: FOLDER_CONFIG.NPS_9 },
+        { type: FILE_TYPES.NPS_8,       folderId: FOLDER_CONFIG.NPS_8 },
+        { type: FILE_TYPES.NPS_7,       folderId: FOLDER_CONFIG.NPS_7 },
+        { type: FILE_TYPES.NPS_6_UNDER, folderId: FOLDER_CONFIG.NPS_6_UNDER },
+        { type: FILE_TYPES.GOODBAD,     folderId: FOLDER_CONFIG.GOODBAD },
+        { type: FILE_TYPES.STAFF,       folderId: FOLDER_CONFIG.STAFF },
+        { type: FILE_TYPES.DELIVERY,    folderId: FOLDER_CONFIG.DELIVERY },
+    ];
 
-    console.log(`[Orchestrator] Main ID: ${mainSheetId}`);
+    // 1. すべてのファイルについて GAS API を呼び出し (並列実行)
+    // GAS側は「フォルダ内に同名ファイルがあればそのIDを返し、なければ作成してIDを返す」挙動
+    const results = await Promise.all(fileDefinitions.map(async (def) => {
+        // API負荷分散のためわずかにウェイトを入れる
+        await new Promise(r => setTimeout(r, Math.random() * 2000));
+
+        const id = await callGasToCreateFile(periodText, def.folderId);
+        console.log(`[Orchestrator] Verified/Created ${def.type}: ${id}`);
+        return { type: def.type, id: id };
+    }));
+
+    // 2. メインファイルのIDを特定
+    const mainFileEntry = results.find(r => r.type === FILE_TYPES.MAIN);
+    if (!mainFileEntry) throw new Error("メインファイルの作成に失敗しました。");
+    const mainSheetId = mainFileEntry.id;
+
+    // 3. 結果をすべてキャッシュに保存 (後続の処理でAPIを呼ばなくて済むようにする)
+    results.forEach(res => {
+        const cacheKey = `${mainSheetId}_${res.type}`;
+        fileIdCache.set(cacheKey, res.id);
+    });
+
+    // メインファイルの期間名もキャッシュ
+    fileNameCache.set(mainSheetId, periodText);
+
+    // (オプション) メインファイルの管理シートにも一応記録しておく（バックアップとして）
+    saveFileMapToManagementSheet(mainSheetId, results).catch(e => console.warn("管理シートへの記録に失敗(非致命的):", e));
+
+    console.log(`[Orchestrator] All 12 files are ready. Main ID: ${mainSheetId}`);
     return mainSheetId;
 };
 
 /**
  * [重要] 司令塔関数: シート名から、書き込むべきファイルのIDを返す
- * ロジック:
- * 1. メインIDから「ファイル名（期間）」を取得する (例: "2025-04～2025-09")
- * 2. シート名を見て「どのフォルダを使うか」を決める (例: "_NPS10"なら NPS_10フォルダ)
- * 3. そのフォルダの中に、同じ名前のファイルがあるかGASに問い合わせてIDを取得する
  */
 async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
     // 1. フォルダIDの特定
@@ -105,13 +129,9 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
 
     if (['全体', '管理', '全体-おすすめ理由'].includes(sheetName)) {
         return mainSheetId; // メインファイルそのもの
-    } else if (sheetName.endsWith('_AI分析')) {
+    } else if (sheetName.endsWith('_AI分析') || sheetName.endsWith('_市区町村')) {
         targetFolderId = FOLDER_CONFIG.AI;
         typeKey = 'AI';
-    } else if (sheetName.endsWith('_市区町村')) {
-        // ★変更: 市区町村は専用フォルダへ
-        targetFolderId = FOLDER_CONFIG.MUNICIPALITY;
-        typeKey = 'MUNICIPALITY';
     } else if (sheetName.endsWith('_おすすめ理由')) {
         targetFolderId = FOLDER_CONFIG.REC;
         typeKey = 'REC';
@@ -149,14 +169,13 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
         return mainSheetId;
     }
 
-    // 2. キャッシュ確認 (すでにIDを知っていればそれを返す)
+    // 2. キャッシュ確認 (findOrCreateCentralSheetで作成済みならここヒットする)
     const cacheKey = `${mainSheetId}_${typeKey}`;
     if (fileIdCache.has(cacheKey)) {
         return fileIdCache.get(cacheKey);
     }
 
-    // 3. ファイル名の特定 (メインファイルのIDから名前を逆引き)
-    // (アプリの画面によってはファイル名が送られてこないので、Drive APIで確実に取得する)
+    // 3. キャッシュにない場合（サーバー再起動後など）は、ファイル名から再取得を試みる
     let periodFileName = fileNameCache.get(mainSheetId);
     if (!periodFileName) {
         try {
@@ -165,15 +184,14 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
                 fields: 'name'
             });
             periodFileName = fileMeta.data.name;
-            fileNameCache.set(mainSheetId, periodFileName); // キャッシュ
-            console.log(`[Orchestrator] Determined period name from ID: "${periodFileName}"`);
+            fileNameCache.set(mainSheetId, periodFileName);
         } catch (e) {
             console.error(`[Orchestrator] Failed to get filename for ID ${mainSheetId}`, e);
             throw new Error('メインファイル名の取得に失敗しました');
         }
     }
 
-    // 4. ターゲットフォルダ内で、同じ名前のファイルを探す (なければ作る)
+    // 4. GASを呼んでIDを取得（作成済みならIDだけ返ってくる）
     const targetFileId = await callGasToCreateFile(periodFileName, targetFolderId);
 
     // 5. 結果をキャッシュして返す
@@ -183,7 +201,6 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
 
 /**
  * GAS APIを呼んでファイルを作成/取得する
- * (GAS側は「フォルダIDと名前を受け取って、あればそのIDを返す、なければ新規作成して返す」という動きをする)
  */
 async function callGasToCreateFile(fileName, folderId) {
     try {
@@ -204,6 +221,15 @@ async function callGasToCreateFile(fileName, folderId) {
         console.error(`[GAS] Failed to create/find file "${fileName}" in folder "${folderId}":`, e.message);
         throw e;
     }
+}
+
+// (管理シートへのバックアップ記録用ヘルパー)
+async function saveFileMapToManagementSheet(mainSheetId, results) {
+    const rows = results.map(r => [r.type, r.id]);
+    try {
+        await findOrCreateSheet(mainSheetId, '管理');
+        await writeData(mainSheetId, "'管理'!D:E", rows, true);
+    } catch (e) {}
 }
 
 
@@ -249,7 +275,6 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
             if (filteredRows.length > 0) {
                 // 1. 個別データシート (RAWフォルダのファイルへ)
                 const clinicSheetTitle = clinicName;
-                // ★ここで振り分け
                 const targetId = await getTargetSpreadsheetId(centralSheetId, clinicSheetTitle, clinicName);
 
                 const sheetId = await findOrCreateSheet(targetId, clinicSheetTitle);
@@ -582,7 +607,6 @@ exports.updateCommentSheetCell = async (centralSheetId, sheetName, cell, value) 
     }
 };
 
-// --- タイトル取得 (Mainファイルのみ) ---
 exports.getSheetTitles = async (spreadsheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     try {
@@ -601,7 +625,6 @@ exports.getSheetTitles = async (spreadsheetId) => {
     }
 };
 
-// --- 分析I/O (変更なし) ---
 exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     console.log(`[googleSheetsService] Saving Table to Sheet: "${sheetName}"`);
@@ -857,7 +880,6 @@ exports.readSingleCell = async (centralSheetId, sheetName, cell) => {
     }
 };
 
-// --- ヘルパー関数 (リサイズ・作成・書き込み) ---
 async function resizeSheetToFitData(spreadsheetId, sheetId, dataRowsCount, dataColsCount) {
     const targetRowCount = Math.max(dataRowsCount + 2, 5);
     const targetColCount = Math.max(dataColsCount + 1, 2);
