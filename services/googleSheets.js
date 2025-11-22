@@ -4,7 +4,7 @@ const { google } = require('googleapis');
 const { getSpreadsheetIdFromUrl, getAiAnalysisKeys } = require('../utils/helpers');
 
 // --- 認証・初期化 ---
-const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
+const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbyqJvn1bpgtvGuTyMErZ5g46CPrNIN_7FeWQPSBp1kPXgHbjrWZaMtCyT6bxqnOvyRAwA/exec';
 const KEYFILEPATH = '/etc/secrets/credentials.json';
 const SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
