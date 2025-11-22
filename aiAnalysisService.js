@@ -120,17 +120,18 @@ exports.runAndSaveMunicipalityAnalysis = async (centralSheetId, clinicName) => {
         throw new Error('分析対象の郵便番号データが0件です。 (Type: MUNICIPALITY)');
     }
 
-    // 2. 郵便番号APIで住所を検索 (変更なし)
+    // 2. ▼▼▼ [変更] 郵便番号APIで住所を検索（1件ずつ順番に処理） ▼▼▼
     const uniquePostalCodes = Object.keys(postalCodeCounts);
-    console.log(`[aiAnalysisService-Muni] Looking up ${uniquePostalCodes.length} unique postal codes...`);
-    
+    console.log(`[aiAnalysisService-Muni] Looking up ${uniquePostalCodes.length} unique postal codes (sequential)...`);
+
     const addressAggregates = {}; // { "都道府県-市区町村": count }
     let totalValidCodesCount = 0;
 
-    const lookupPromises = uniquePostalCodes.map(async (postalCode) => {
+    // Promise.all ではなく、for...of で1件ずつ順番に処理
+    for (const postalCode of uniquePostalCodes) {
         const count = postalCodeCounts[postalCode];
-        const address = await postalCodeService.lookupPostalCode(postalCode); 
-        
+        const address = await postalCodeService.lookupPostalCode(postalCode);
+
         if (address && address.prefecture && address.municipality) {
             const key = `${address.prefecture}-${address.municipality}`;
             addressAggregates[key] = (addressAggregates[key] || 0) + count;
@@ -138,10 +139,13 @@ exports.runAndSaveMunicipalityAnalysis = async (centralSheetId, clinicName) => {
             addressAggregates['不明-不明'] = (addressAggregates['不明-不明'] || 0) + count;
         }
         totalValidCodesCount += count;
-    });
 
-    // 3. 集計 (変更なし)
-    await Promise.all(lookupPromises);
+        // 各リクエスト間に0.2秒の待機時間を入れる
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    // ▲▲▲ 変更ここまで ▲▲▲
+
+    // 3. 集計
     
     if (totalValidCodesCount === 0) {
         throw new Error('有効な郵便番号データが0件です。 (Type: MUNICIPALITY)');
