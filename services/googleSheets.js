@@ -8,15 +8,18 @@ const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6Nt
 const KEYFILEPATH = '/etc/secrets/credentials.json';
 const SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive', // Drive API (ファイル名取得用)
+    'https://www.googleapis.com/auth/drive.file',
 ];
 
-// ★★★ [設定] フォルダID設定 (ご提示いただいたIDを反映) ★★★
+// ★★★ [設定] フォルダID設定 ★★★
 const FOLDER_CONFIG = {
-    MAIN:       '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj', // ① 全体・管理 (既存)
-    RAW:        '1baxkwAXMkgFYd6lg4AMeQqnWfx2-uv6A', // ② 元データ (RAW)
-    REC:        '1t-rzPW2BiLOXCb_XlMEWT8DvE1iM3yO-', // ③ おすすめ理由 (REC)
-    AI:         '1kO9EWERPUO7pbhq51kr9eVG2aJyalIfM', // ④ AI分析 (AI)
+    MAIN:       '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj', // ① 全体・管理
+    RAW:        '1baxkwAXMkgFYd6lg4AMeQqnWfx2-uv6A', // ② 元データ
+    REC:        '1t-rzPW2BiLOXCb_XlMEWT8DvE1iM3yO-', // ③ おすすめ理由
+    AI:         '1kO9EWERPUO7pbhq51kr9eVG2aJyalIfM', // ④ AI分析
+
+    // ★追加: 市区町村用フォルダ
+    MUNICIPALITY: '1JHjw4nwvhnpDjimB-9y8sVVkrfM043Yp', // ④-2 市区町村
 
     // NPSコメント
     NPS_10:     '1p5uPULplr4jS7LCwKaz3JsmOWwqNbx1V', // ⑤ NPS 10
@@ -26,9 +29,9 @@ const FOLDER_CONFIG = {
     NPS_6_UNDER:'1YwysnvQn6J7-3JNYEAgU8_4iASv7yx5X', // ⑤ NPS 6以下
 
     // その他コメント
-    GOODBAD:    '1ofRq1uS9hrJ86NFH86cHpheVi4WCm4KI', // ⑥ 良/悪点 (GOODBAD)
-    STAFF:      '1x6-f5yEH6KzEIxNznRK2S5Vp6nOHyPXM', // ⑦ スタッフ (STAFF)
-    DELIVERY:   '1waeSxj0cCjd4YLDVLCyxDJ8d5JHJ53kt'  // ⑧ お産意見 (DELIVERY)
+    GOODBAD:    '1ofRq1uS9hrJ86NFH86cHpheVi4WCm4KI', // ⑥ 良/悪点
+    STAFF:      '1x6-f5yEH6KzEIxNznRK2S5Vp6nOHyPXM', // ⑦ スタッフ
+    DELIVERY:   '1waeSxj0cCjd4YLDVLCyxDJ8d5JHJ53kt'  // ⑧ お産意見
 };
 // ★★★ 設定ここまで ★★★
 
@@ -52,10 +55,25 @@ exports.sheets = sheets;
 // === [新規] シンプルファイル管理 (同名ファイル検索方式) ===
 // =================================================================
 
-// IDキャッシュ (MainSheetId + FolderKey -> SubFileId)
-// API呼び出し回数を減らすため、一度見つけたIDはメモリに保存しておく
+// ファイル種別の定義
+const FILE_TYPES = {
+    MAIN: 'MAIN',           // ① 全体・管理
+    RAW: 'RAW',             // ② 元データ一覧
+    REC: 'REC',             // ③ おすすめ理由
+    AI: 'AI',               // ④ AI分析
+    MUNICIPALITY: 'MUNICIPALITY', // ★追加: 市区町村
+    NPS_10: 'NPS_10',       // ⑤ NPS 10
+    NPS_9: 'NPS_9',         // ⑤ NPS 9
+    NPS_8: 'NPS_8',         // ⑤ NPS 8
+    NPS_7: 'NPS_7',         // ⑤ NPS 7
+    NPS_6_UNDER: 'NPS_6',   // ⑤ NPS 6以下
+    GOODBAD: 'GOODBAD',     // ⑥ よかった点悪かった点
+    STAFF: 'STAFF',         // ⑦ スタッフ印象
+    DELIVERY: 'DELIVERY'    // ⑧ お産意見
+};
+
+// IDキャッシュ
 const fileIdCache = new Map();
-// ファイル名キャッシュ (MainSheetId -> "2025-04～2025-09")
 const fileNameCache = new Map();
 
 /**
@@ -87,9 +105,13 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
 
     if (['全体', '管理', '全体-おすすめ理由'].includes(sheetName)) {
         return mainSheetId; // メインファイルそのもの
-    } else if (sheetName.endsWith('_AI分析') || sheetName.endsWith('_市区町村')) {
+    } else if (sheetName.endsWith('_AI分析')) {
         targetFolderId = FOLDER_CONFIG.AI;
         typeKey = 'AI';
+    } else if (sheetName.endsWith('_市区町村')) {
+        // ★変更: 市区町村は専用フォルダへ
+        targetFolderId = FOLDER_CONFIG.MUNICIPALITY;
+        typeKey = 'MUNICIPALITY';
     } else if (sheetName.endsWith('_おすすめ理由')) {
         targetFolderId = FOLDER_CONFIG.REC;
         typeKey = 'REC';
