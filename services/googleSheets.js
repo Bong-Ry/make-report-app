@@ -51,9 +51,6 @@ exports.sheets = sheets;
 // =================================================================
 /**
  * API呼び出しをラップし、429エラー(Quota exceeded)時に待機してリトライする
- * @param {Function} operation - 実行する非同期関数
- * @param {string} context - ログ用コンテキスト
- * @param {number} maxRetries - 最大リトライ回数 (デフォルト: 5回)
  */
 async function executeWithRetry(operation, context = '', maxRetries = 5) {
     let attempt = 0;
@@ -62,16 +59,13 @@ async function executeWithRetry(operation, context = '', maxRetries = 5) {
             return await operation();
         } catch (error) {
             attempt++;
-            // エラーがQuota系かチェック (429 or "Quota exceeded")
             const isQuotaError = error.code === 429 || (error.message && error.message.includes('Quota exceeded'));
             
             if (isQuotaError && attempt < maxRetries) {
-                // 待機時間: 10秒 + 試行回数ごとのゆらぎ
                 const waitTime = 10000 + (Math.random() * 2000);
                 console.warn(`[Retry] Quota exceeded in ${context}. Retrying in ${Math.round(waitTime)}ms... (Attempt ${attempt}/${maxRetries})`);
                 await new Promise(resolve => setTimeout(resolve, waitTime));
             } else {
-                // リトライ対象外エラー、または回数切れの場合はスロー
                 if (attempt >= maxRetries) {
                     console.error(`[Retry] Failed after ${maxRetries} attempts in ${context}.`);
                 }
@@ -95,7 +89,7 @@ const FILE_TYPES = {
 const fileIdCache = new Map();
 const fileNameCache = new Map();
 
-// ★変更: ファイルID管理用のシート名
+// ファイルID管理用のシート名
 const ID_MANAGEMENT_SHEET_NAME = 'ID管理';
 
 exports.findOrCreateCentralSheet = async (periodText) => {
@@ -105,7 +99,7 @@ exports.findOrCreateCentralSheet = async (periodText) => {
         { type: FILE_TYPES.MAIN,        folderId: FOLDER_CONFIG.MAIN },
         { type: FILE_TYPES.RAW,         folderId: FOLDER_CONFIG.RAW },
         { type: FILE_TYPES.REC,         folderId: FOLDER_CONFIG.REC },
-        { type: FILE_TYPES.AI,          folderId: FOLDER_CONFIG.AI },
+        { type: FILE_TYPES.AI,          folderId: FOLDER_CONFIG.AI }, 
         { type: FILE_TYPES.MUNICIPALITY, folderId: FOLDER_CONFIG.MUNICIPALITY },
         { type: FILE_TYPES.NPS_10,      folderId: FOLDER_CONFIG.NPS_10 },
         { type: FILE_TYPES.NPS_9,       folderId: FOLDER_CONFIG.NPS_9 },
@@ -117,7 +111,7 @@ exports.findOrCreateCentralSheet = async (periodText) => {
         { type: FILE_TYPES.DELIVERY,    folderId: FOLDER_CONFIG.DELIVERY },
     ];
 
-    // 1. GAS API呼び出し (ファイル作成/取得)
+    // 1. GAS API呼び出し
     const results = await Promise.all(fileDefinitions.map(async (def) => {
         await new Promise(r => setTimeout(r, Math.random() * 2000));
         const id = await callGasToCreateFile(periodText, def.folderId);
@@ -136,8 +130,8 @@ exports.findOrCreateCentralSheet = async (periodText) => {
 
     fileNameCache.set(mainSheetId, periodText);
 
-    // ★変更: 「ID管理」シートに A, B列 で保存
-    saveFileMapToManagementSheet(mainSheetId, results).catch(e => console.warn("ID管理シートへの記録失敗(非致命的):", e));
+    // ID管理シートに保存 (追記ではなく上書き)
+    saveFileMapToManagementSheet(mainSheetId, results);
 
     console.log(`[Orchestrator] All 13 files are ready. Main ID: ${mainSheetId}`);
     return mainSheetId;
@@ -207,7 +201,6 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
 }
 
 async function callGasToCreateFile(fileName, folderId) {
-    // GAS呼び出し自体は軽いのでリトライなし（GAS側でエラーハンドリング）
     try {
         const response = await fetch(GAS_SHEET_FINDER_URL, {
             method: 'POST',
@@ -223,12 +216,11 @@ async function callGasToCreateFile(fileName, folderId) {
     }
 }
 
-// --- ID管理シート操作 (A, B列) ---
+// --- ID管理シート操作 ---
 async function loadFileMapFromManagementSheet(mainSheetId) {
     const map = new Map();
     map.set(FILE_TYPES.MAIN, mainSheetId);
     try {
-        // ★変更: ID管理シートのA:B列を読む
         const range = `'${ID_MANAGEMENT_SHEET_NAME}'!A:B`;
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: mainSheetId,
@@ -242,17 +234,23 @@ async function loadFileMapFromManagementSheet(mainSheetId) {
     return map;
 }
 
+// [修正] 管理シートへの保存：クリアしてから書き込む
 async function saveFileMapToManagementSheet(mainSheetId, results) {
     const rows = results.map(r => [r.type, r.id]);
     try {
-        // ★変更: ID管理シートを作成・書き込み (A:B列)
         await findOrCreateSheet(mainSheetId, ID_MANAGEMENT_SHEET_NAME); 
-        await writeData(mainSheetId, `'${ID_MANAGEMENT_SHEET_NAME}'!A:B`, rows, true);
-    } catch (e) {}
+        
+        // ★追記(append)ではなく、クリアして上書きする
+        await clearSheet(mainSheetId, ID_MANAGEMENT_SHEET_NAME);
+        await writeData(mainSheetId, `'${ID_MANAGEMENT_SHEET_NAME}'!A1`, rows, false); // append=false
+        
+    } catch (e) {
+        console.warn("ID管理シートへの記録失敗(非致命的):", e);
+    }
 }
 
 // =================================================================
-// === 既存関数の改修（リトライ適用 & ID振り分け） ===
+// === 既存関数の改修 ===
 // =================================================================
 
 exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId) => {
@@ -311,37 +309,6 @@ exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId)
 };
 
 exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
-    let targetId = centralSheetId;
-    if (sheetName !== '全体') {
-        targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName); 
-    }
-    console.log(`[AGG] Reading data from ID: ${targetId}, Sheet: "${sheetName}"`);
-    // ... (中略: チャートデータ処理は変更なし。読み込み部分のみリトライ適用不可避だが、頻度低いのでそのまま) ...
-    // 元のコードのデータ処理ロジックを維持
-    try {
-        const range = `'${sheetName}'!A:R`;
-        const clinicDataResponse = await sheets.spreadsheets.values.get({
-            spreadsheetId: targetId, range, dateTimeRenderOption: 'SERIAL_NUMBER', valueRenderOption: 'UNFORMATTED_VALUE'
-        });
-        const clinicDataRows = clinicDataResponse.data.values;
-        // ... (以下のデータ整形ロジックはそのまま維持) ...
-        // (省略)
-        if (!clinicDataRows || clinicDataRows.length < 1) { return buildReportDataObject(null); }
-        // ... データ処理 ...
-        // (便宜上、ここのデータ処理ロジックは前のコードと同じものを想定してください。
-        //  実際のファイルでは元の長い処理ロジックをそのまま残します)
-        return require('./reportDataProcessor').process(clinicDataRows); // ※実際はここに元のロジックが入ります
-    } catch (e) {
-        console.error(`[AGG] Error: ${e.message}`);
-        return buildReportDataObject(null);
-    }
-};
-
-// (注: getReportDataForChartsの長いロジックは省略していません、元のコードを維持してください。
-//  ここでは紙面の都合上省略して見せていますが、上書き時は元のロジックを使ってください)
-//  => 今回は安全のため「元のロジック」を含めた完全版を提供します。
-
-exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
     if (!sheets) throw new Error('Google Sheets API Not Initialized');
     let targetId = centralSheetId;
     if (sheetName !== '全体') {
@@ -362,7 +329,6 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
         keys.forEach(key => { chartData.push([key, counts[key] || 0]); });
         return chartData;
     };
-    // ... (初期化処理) ...
     const allNpsReasons=[], allFeedbacks_I=[], allFeedbacks_J=[], allFeedbacks_M=[];
     const satisfactionCounts_B=initializeCounts(satisfactionKeys), satisfactionCounts_C=initializeCounts(satisfactionKeys),
           satisfactionCounts_D=initializeCounts(satisfactionKeys), satisfactionCounts_E=initializeCounts(satisfactionKeys),
@@ -419,7 +385,6 @@ exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
 };
 
 function buildReportDataObject(data) {
-    // ... (元のコードと同じロジック) ...
     if (!data) {
         const emptyChart = [['カテゴリ', '件数']];
         return {
