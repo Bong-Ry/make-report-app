@@ -346,7 +346,7 @@ exports.getCommentSheetName = getCommentSheetName;
 // --- (変更なし) コメントシート名 取得ヘルパー 終わり ---
 
 // --- (変更なし) コメントデータ保存・読み込み・更新 (3関数) ---
-const ROWS_PER_COLUMN = 20;
+const ROWS_PER_COLUMN = 12;
 
 function formatCommentsToColumns(comments) {
     const columns = [];
