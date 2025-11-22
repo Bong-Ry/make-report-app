@@ -11,12 +11,15 @@ const SCOPES = [
     'https://www.googleapis.com/auth/drive', // Drive API (ファイル名取得用)
 ];
 
-// ★★★ [設定] フォルダID設定 ★★★
+// ★★★ [設定] フォルダID設定 (ご提示いただいたIDを反映) ★★★
 const FOLDER_CONFIG = {
     MAIN:       '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj', // ① 全体・管理 (既存)
     RAW:        '1baxkwAXMkgFYd6lg4AMeQqnWfx2-uv6A', // ② 元データ (RAW)
     REC:        '1t-rzPW2BiLOXCb_XlMEWT8DvE1iM3yO-', // ③ おすすめ理由 (REC)
     AI:         '1kO9EWERPUO7pbhq51kr9eVG2aJyalIfM', // ④ AI分析 (AI)
+
+    // ★追加: 市区町村用フォルダ
+    MUNICIPALITY: '1JHjw4nwvhnpDjimB-9y8sVVkrfM043Yp', // 市区町村
 
     // NPSコメント
     NPS_10:     '1p5uPULplr4jS7LCwKaz3JsmOWwqNbx1V', // ⑤ NPS 10
@@ -60,6 +63,7 @@ const fileNameCache = new Map();
 // ファイル種別の定義
 const FILE_TYPES = {
     MAIN: 'MAIN', RAW: 'RAW', REC: 'REC', AI: 'AI',
+    MUNICIPALITY: 'MUNICIPALITY', // ★追加
     NPS_10: 'NPS_10', NPS_9: 'NPS_9', NPS_8: 'NPS_8', NPS_7: 'NPS_7', NPS_6_UNDER: 'NPS_6',
     GOODBAD: 'GOODBAD', STAFF: 'STAFF', DELIVERY: 'DELIVERY'
 };
@@ -76,7 +80,8 @@ exports.findOrCreateCentralSheet = async (periodText) => {
         { type: FILE_TYPES.MAIN,        folderId: FOLDER_CONFIG.MAIN },
         { type: FILE_TYPES.RAW,         folderId: FOLDER_CONFIG.RAW },
         { type: FILE_TYPES.REC,         folderId: FOLDER_CONFIG.REC },
-        { type: FILE_TYPES.AI,          folderId: FOLDER_CONFIG.AI }, // 市区町村含む
+        { type: FILE_TYPES.AI,          folderId: FOLDER_CONFIG.AI },
+        { type: FILE_TYPES.MUNICIPALITY, folderId: FOLDER_CONFIG.MUNICIPALITY }, // ★追加
         { type: FILE_TYPES.NPS_10,      folderId: FOLDER_CONFIG.NPS_10 },
         { type: FILE_TYPES.NPS_9,       folderId: FOLDER_CONFIG.NPS_9 },
         { type: FILE_TYPES.NPS_8,       folderId: FOLDER_CONFIG.NPS_8 },
@@ -88,11 +93,8 @@ exports.findOrCreateCentralSheet = async (periodText) => {
     ];
 
     // 1. すべてのファイルについて GAS API を呼び出し (並列実行)
-    // GAS側は「フォルダ内に同名ファイルがあればそのIDを返し、なければ作成してIDを返す」挙動
     const results = await Promise.all(fileDefinitions.map(async (def) => {
-        // API負荷分散のためわずかにウェイトを入れる
         await new Promise(r => setTimeout(r, Math.random() * 2000));
-
         const id = await callGasToCreateFile(periodText, def.folderId);
         console.log(`[Orchestrator] Verified/Created ${def.type}: ${id}`);
         return { type: def.type, id: id };
@@ -103,7 +105,7 @@ exports.findOrCreateCentralSheet = async (periodText) => {
     if (!mainFileEntry) throw new Error("メインファイルの作成に失敗しました。");
     const mainSheetId = mainFileEntry.id;
 
-    // 3. 結果をすべてキャッシュに保存 (後続の処理でAPIを呼ばなくて済むようにする)
+    // 3. 結果をすべてキャッシュに保存
     results.forEach(res => {
         const cacheKey = `${mainSheetId}_${res.type}`;
         fileIdCache.set(cacheKey, res.id);
@@ -112,10 +114,10 @@ exports.findOrCreateCentralSheet = async (periodText) => {
     // メインファイルの期間名もキャッシュ
     fileNameCache.set(mainSheetId, periodText);
 
-    // (オプション) メインファイルの管理シートにも一応記録しておく（バックアップとして）
+    // (オプション) メインファイルの管理シートにも記録
     saveFileMapToManagementSheet(mainSheetId, results).catch(e => console.warn("管理シートへの記録に失敗(非致命的):", e));
 
-    console.log(`[Orchestrator] All 12 files are ready. Main ID: ${mainSheetId}`);
+    console.log(`[Orchestrator] All files are ready. Main ID: ${mainSheetId}`);
     return mainSheetId;
 };
 
@@ -123,15 +125,18 @@ exports.findOrCreateCentralSheet = async (periodText) => {
  * [重要] 司令塔関数: シート名から、書き込むべきファイルのIDを返す
  */
 async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
-    // 1. フォルダIDの特定
     let targetFolderId = FOLDER_CONFIG.MAIN;
     let typeKey = 'MAIN';
 
+    // 1. フォルダIDの特定 (優先順位順)
     if (['全体', '管理', '全体-おすすめ理由'].includes(sheetName)) {
-        return mainSheetId; // メインファイルそのもの
-    } else if (sheetName.endsWith('_AI分析') || sheetName.endsWith('_市区町村')) {
+        return mainSheetId;
+    } else if (sheetName.endsWith('_AI分析')) {
         targetFolderId = FOLDER_CONFIG.AI;
         typeKey = 'AI';
+    } else if (sheetName.endsWith('_市区町村')) {
+        targetFolderId = FOLDER_CONFIG.MUNICIPALITY; // ★変更
+        typeKey = 'MUNICIPALITY';
     } else if (sheetName.endsWith('_おすすめ理由')) {
         targetFolderId = FOLDER_CONFIG.REC;
         typeKey = 'REC';
@@ -160,22 +165,21 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
         targetFolderId = FOLDER_CONFIG.NPS_6_UNDER;
         typeKey = 'NPS_6_UNDER';
     } else if (sheetName === clinicName) {
-        targetFolderId = FOLDER_CONFIG.RAW; // 元データ
+        targetFolderId = FOLDER_CONFIG.RAW;
         typeKey = 'RAW';
     }
 
-    // メインフォルダの場合はそのまま返す
     if (targetFolderId === FOLDER_CONFIG.MAIN) {
         return mainSheetId;
     }
 
-    // 2. キャッシュ確認 (findOrCreateCentralSheetで作成済みならここヒットする)
+    // 2. キャッシュ確認
     const cacheKey = `${mainSheetId}_${typeKey}`;
     if (fileIdCache.has(cacheKey)) {
         return fileIdCache.get(cacheKey);
     }
 
-    // 3. キャッシュにない場合（サーバー再起動後など）は、ファイル名から再取得を試みる
+    // 3. ファイル名の特定
     let periodFileName = fileNameCache.get(mainSheetId);
     if (!periodFileName) {
         try {
@@ -191,7 +195,7 @@ async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
         }
     }
 
-    // 4. GASを呼んでIDを取得（作成済みならIDだけ返ってくる）
+    // 4. IDを取得
     const targetFileId = await callGasToCreateFile(periodFileName, targetFolderId);
 
     // 5. 結果をキャッシュして返す
