@@ -3,14 +3,36 @@
 const { google } = require('googleapis');
 const { getSpreadsheetIdFromUrl, getAiAnalysisKeys } = require('../utils/helpers');
 
-// --- (変更なし) 認証・初期化 ---
+// --- 認証・初期化 ---
 const GAS_SHEET_FINDER_URL = 'https://script.google.com/macros/s/AKfycbzn4rNw6NttPPmcJBpSKJifK8-Mb1CatsGhqvYF5G6BIAf6bOUuNS_E72drg0tH9re-qQ/exec';
 const KEYFILEPATH = '/etc/secrets/credentials.json';
 const SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive', // Drive API (ファイル名取得用)
 ];
-const MASTER_FOLDER_ID = '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj';
+
+// ★★★ [設定] フォルダID設定 (ご提示いただいたIDを反映) ★★★
+const FOLDER_CONFIG = {
+    MAIN:       '1_pJQKl5-RRi6h-U3EEooGmPkTrkF1Vbj', // ① 全体・管理 (既存)
+    RAW:        '1baxkwAXMkgFYd6lg4AMeQqnWfx2-uv6A', // ② 元データ (RAW)
+    REC:        '1t-rzPW2BiLOXCb_XlMEWT8DvE1iM3yO-', // ③ おすすめ理由 (REC)
+    AI:         '1kO9EWERPUO7pbhq51kr9eVG2aJyalIfM', // ④ AI分析 (AI)
+
+    // NPSコメント
+    NPS_10:     '1p5uPULplr4jS7LCwKaz3JsmOWwqNbx1V', // ⑤ NPS 10
+    NPS_9:      '1KL6IpplS3Uapgja0ku1OQibCtpt-bt1x', // ⑤ NPS 9
+    NPS_8:      '13ptWLa5z--keuCIBB-ihrI9bfNG7Fdoc', // ⑤ NPS 8
+    NPS_7:      '1A00rQFe9fWu8z70o1vUIy0KZfQ49JPU4', // ⑤ NPS 7
+    NPS_6_UNDER:'1YwysnvQn6J7-3JNYEAgU8_4iASv7yx5X', // ⑤ NPS 6以下
+
+    // その他コメント
+    GOODBAD:    '1ofRq1uS9hrJ86NFH86cHpheVi4WCm4KI', // ⑥ 良/悪点 (GOODBAD)
+    STAFF:      '1x6-f5yEH6KzEIxNznRK2S5Vp6nOHyPXM', // ⑦ スタッフ (STAFF)
+    DELIVERY:   '1waeSxj0cCjd4YLDVLCyxDJ8d5JHJ53kt'  // ⑧ お産意見 (DELIVERY)
+};
+// ★★★ 設定ここまで ★★★
+
+const MASTER_FOLDER_ID = FOLDER_CONFIG.MAIN;
 
 let sheets;
 let drive;
@@ -25,9 +47,354 @@ try {
 }
 
 exports.sheets = sheets;
-// --- (変更なし) 認証・初期化 終わり ---
 
-// --- (変更なし) マスターシート関数 (2つ) ---
+// =================================================================
+// === [新規] シンプルファイル管理 (同名ファイル検索方式) ===
+// =================================================================
+
+// IDキャッシュ (MainSheetId + FolderKey -> SubFileId)
+// API呼び出し回数を減らすため、一度見つけたIDはメモリに保存しておく
+const fileIdCache = new Map();
+// ファイル名キャッシュ (MainSheetId -> "2025-04～2025-09")
+const fileNameCache = new Map();
+
+/**
+ * [変更] 期間選択時に呼ばれる関数
+ * ここでは「メインファイル」の確保だけを行い、IDを返します。
+ * (サブファイルは必要になった瞬間に自動で作られるので、ここで事前作成しなくてもOKです)
+ */
+exports.findOrCreateCentralSheet = async (periodText) => {
+    console.log(`[Orchestrator] Initializing MAIN file for: "${periodText}"`);
+
+    // メインフォルダに、指定された期間名のファイルがあるか確認（なければ作成）
+    const mainSheetId = await callGasToCreateFile(periodText, FOLDER_CONFIG.MAIN);
+
+    console.log(`[Orchestrator] Main ID: ${mainSheetId}`);
+    return mainSheetId;
+};
+
+/**
+ * [重要] 司令塔関数: シート名から、書き込むべきファイルのIDを返す
+ * ロジック:
+ * 1. メインIDから「ファイル名（期間）」を取得する (例: "2025-04～2025-09")
+ * 2. シート名を見て「どのフォルダを使うか」を決める (例: "_NPS10"なら NPS_10フォルダ)
+ * 3. そのフォルダの中に、同じ名前のファイルがあるかGASに問い合わせてIDを取得する
+ */
+async function getTargetSpreadsheetId(mainSheetId, sheetName, clinicName) {
+    // 1. フォルダIDの特定
+    let targetFolderId = FOLDER_CONFIG.MAIN;
+    let typeKey = 'MAIN';
+
+    if (['全体', '管理', '全体-おすすめ理由'].includes(sheetName)) {
+        return mainSheetId; // メインファイルそのもの
+    } else if (sheetName.endsWith('_AI分析') || sheetName.endsWith('_市区町村')) {
+        targetFolderId = FOLDER_CONFIG.AI;
+        typeKey = 'AI';
+    } else if (sheetName.endsWith('_おすすめ理由')) {
+        targetFolderId = FOLDER_CONFIG.REC;
+        typeKey = 'REC';
+    } else if (sheetName.endsWith('_よかった点悪かった点')) {
+        targetFolderId = FOLDER_CONFIG.GOODBAD;
+        typeKey = 'GOODBAD';
+    } else if (sheetName.endsWith('_印象スタッフ')) {
+        targetFolderId = FOLDER_CONFIG.STAFF;
+        typeKey = 'STAFF';
+    } else if (sheetName.endsWith('_お産意見')) {
+        targetFolderId = FOLDER_CONFIG.DELIVERY;
+        typeKey = 'DELIVERY';
+    } else if (sheetName.endsWith('_NPS10')) {
+        targetFolderId = FOLDER_CONFIG.NPS_10;
+        typeKey = 'NPS_10';
+    } else if (sheetName.endsWith('_NPS9')) {
+        targetFolderId = FOLDER_CONFIG.NPS_9;
+        typeKey = 'NPS_9';
+    } else if (sheetName.endsWith('_NPS8')) {
+        targetFolderId = FOLDER_CONFIG.NPS_8;
+        typeKey = 'NPS_8';
+    } else if (sheetName.endsWith('_NPS7')) {
+        targetFolderId = FOLDER_CONFIG.NPS_7;
+        typeKey = 'NPS_7';
+    } else if (sheetName.endsWith('_NPS6以下')) {
+        targetFolderId = FOLDER_CONFIG.NPS_6_UNDER;
+        typeKey = 'NPS_6_UNDER';
+    } else if (sheetName === clinicName) {
+        targetFolderId = FOLDER_CONFIG.RAW; // 元データ
+        typeKey = 'RAW';
+    }
+
+    // メインフォルダの場合はそのまま返す
+    if (targetFolderId === FOLDER_CONFIG.MAIN) {
+        return mainSheetId;
+    }
+
+    // 2. キャッシュ確認 (すでにIDを知っていればそれを返す)
+    const cacheKey = `${mainSheetId}_${typeKey}`;
+    if (fileIdCache.has(cacheKey)) {
+        return fileIdCache.get(cacheKey);
+    }
+
+    // 3. ファイル名の特定 (メインファイルのIDから名前を逆引き)
+    // (アプリの画面によってはファイル名が送られてこないので、Drive APIで確実に取得する)
+    let periodFileName = fileNameCache.get(mainSheetId);
+    if (!periodFileName) {
+        try {
+            const fileMeta = await drive.files.get({
+                fileId: mainSheetId,
+                fields: 'name'
+            });
+            periodFileName = fileMeta.data.name;
+            fileNameCache.set(mainSheetId, periodFileName); // キャッシュ
+            console.log(`[Orchestrator] Determined period name from ID: "${periodFileName}"`);
+        } catch (e) {
+            console.error(`[Orchestrator] Failed to get filename for ID ${mainSheetId}`, e);
+            throw new Error('メインファイル名の取得に失敗しました');
+        }
+    }
+
+    // 4. ターゲットフォルダ内で、同じ名前のファイルを探す (なければ作る)
+    const targetFileId = await callGasToCreateFile(periodFileName, targetFolderId);
+
+    // 5. 結果をキャッシュして返す
+    fileIdCache.set(cacheKey, targetFileId);
+    return targetFileId;
+}
+
+/**
+ * GAS APIを呼んでファイルを作成/取得する
+ * (GAS側は「フォルダIDと名前を受け取って、あればそのIDを返す、なければ新規作成して返す」という動きをする)
+ */
+async function callGasToCreateFile(fileName, folderId) {
+    try {
+        const response = await fetch(GAS_SHEET_FINDER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                periodText: fileName,
+                folderId: folderId
+            })
+        });
+        const result = await response.json();
+        if (result.status === 'ok' && result.spreadsheetId) {
+            return result.spreadsheetId;
+        }
+        throw new Error(result.message || 'Unknown GAS error');
+    } catch (e) {
+        console.error(`[GAS] Failed to create/find file "${fileName}" in folder "${folderId}":`, e.message);
+        throw e;
+    }
+}
+
+
+// =================================================================
+// === 既存関数の改修（getTargetSpreadsheetId を適用） ===
+// =================================================================
+
+// --- データ転記 (ETL) ---
+exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId) => {
+    const startDate = new Date(period.start + '-01T00:00:00Z');
+    const [endYear, endMonth] = period.end.split('-').map(Number);
+    const endDate = new Date(Date.UTC(endYear, endMonth, 0));
+    endDate.setUTCHours(23, 59, 59, 999);
+
+    const processedClinics = [];
+
+    for (const clinicName in clinicUrls) {
+        const sourceSheetId = getSpreadsheetIdFromUrl(clinicUrls[clinicName]);
+        if (!sourceSheetId) continue;
+
+        try {
+            const range = "'フォームの回答 1'!A:R";
+            const clinicDataResponse = await sheets.spreadsheets.values.get({
+                spreadsheetId: sourceSheetId, range, dateTimeRenderOption: 'SERIAL_NUMBER', valueRenderOption: 'UNFORMATTED_VALUE'
+            });
+            const clinicDataRows = clinicDataResponse.data.values;
+            if (!clinicDataRows || clinicDataRows.length < 2) continue;
+
+            const dataBody = clinicDataRows.slice(1);
+            const timestampIndex = 0;
+            const filteredRows = [];
+
+            dataBody.forEach((row) => {
+                const serialValue = row[timestampIndex];
+                if (typeof serialValue !== 'number' || serialValue <= 0) return;
+                const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                const timestamp = new Date(excelEpoch.getTime() + serialValue * 24 * 60 * 60 * 1000);
+                if (timestamp.getTime() >= startDate.getTime() && timestamp.getTime() <= endDate.getTime()) {
+                    filteredRows.push(row);
+                }
+            });
+
+            if (filteredRows.length > 0) {
+                // 1. 個別データシート (RAWフォルダのファイルへ)
+                const clinicSheetTitle = clinicName;
+                // ★ここで振り分け
+                const targetId = await getTargetSpreadsheetId(centralSheetId, clinicSheetTitle, clinicName);
+
+                const sheetId = await findOrCreateSheet(targetId, clinicSheetTitle);
+                await clearSheet(targetId, clinicSheetTitle);
+                await writeData(targetId, clinicSheetTitle, filteredRows);
+
+                const rowCount = filteredRows.length;
+                const colCount = filteredRows[0] ? filteredRows[0].length : 18;
+                await resizeSheetToFitData(targetId, sheetId, rowCount, colCount);
+
+                // 2. 全体シート (MAINファイルへ)
+                await findOrCreateSheet(centralSheetId, '全体');
+                await writeData(centralSheetId, '全体', filteredRows, true);
+            }
+
+            processedClinics.push(clinicName);
+
+        } catch (e) {
+            console.error(`Error for ${clinicName}: ${e.message}`);
+            continue;
+        }
+    }
+    return processedClinics;
+};
+
+// --- データ集計 (読み込み) ---
+exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
+    let targetId = centralSheetId;
+
+    if (sheetName !== '全体') {
+        // クリニック名の場合は RAWフォルダのファイルID を取得
+        targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName);
+    }
+
+    console.log(`[AGG] Reading data from ID: ${targetId}, Sheet: "${sheetName}"`);
+
+    const satisfactionKeys = ['非常に満足', '満足', 'ふつう', '不満', '非常に不満'];
+    const ageKeys = ['10代', '20代', '30代', '40代'];
+    const childrenKeys = ['1人', '2人', '3人', '4人', '5人以上'];
+    const recommendationKeys = [
+        'インターネット（Googleの口コミ）', 'インターネット（SNS）', 'インターネット（産院のホームページ）',
+        '知人の紹介', '家族の紹介', '自宅からの距離', 'インターネット（情報サイト）'
+    ];
+    const initializeCounts = (keys) => keys.reduce((acc, key) => { acc[key] = 0; return acc; }, {});
+    const createChartData = (counts, keys) => {
+        const chartData = [['カテゴリ', '件数']];
+        keys.forEach(key => {
+            chartData.push([key, counts[key] || 0]);
+        });
+        return chartData;
+    };
+    const allNpsReasons = [], allFeedbacks_I = [], allFeedbacks_J = [], allFeedbacks_M = [];
+    const satisfactionCounts_B = initializeCounts(satisfactionKeys), satisfactionCounts_C = initializeCounts(satisfactionKeys), satisfactionCounts_D = initializeCounts(satisfactionKeys), satisfactionCounts_E = initializeCounts(satisfactionKeys), satisfactionCounts_F = initializeCounts(satisfactionKeys), satisfactionCounts_G = initializeCounts(satisfactionKeys), satisfactionCounts_H = initializeCounts(satisfactionKeys);
+    const childrenCounts_P = initializeCounts(childrenKeys);
+    const ageCounts_O = initializeCounts(ageKeys);
+    const incomeCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
+    const postalCodeCounts = {};
+    const npsScoreCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
+    const recommendationCounts = initializeCounts(recommendationKeys);
+    const recommendationOthers = [];
+    try {
+        const range = `'${sheetName}'!A:R`;
+        const clinicDataResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: targetId, // ★切り替えたIDを使用
+            range: range,
+            dateTimeRenderOption: 'SERIAL_NUMBER',
+            valueRenderOption: 'UNFORMATTED_VALUE'
+        });
+        const clinicDataRows = clinicDataResponse.data.values;
+        if (!clinicDataRows || clinicDataRows.length < 1) {
+            return buildReportDataObject(null);
+        }
+        const satBIndex = 1, satCIndex = 2, satDIndex = 3, satEIndex = 4, satFIndex = 5, satGIndex = 6, satHIndex = 7, feedbackIIndex = 8, feedbackJIndex = 9, scoreKIndex = 10, reasonLIndex = 11, feedbackMIndex = 12, recommendationNIndex = 13, ageOIndex = 14, childrenPIndex = 15, incomeQIndex = 16, postalCodeRIndex = 17;
+        clinicDataRows.forEach((row) => {
+            const score = row[scoreKIndex], reason = row[reasonLIndex]; if (reason != null && String(reason).trim() !== '') { const scoreNum = parseInt(score, 10); if (!isNaN(scoreNum)) allNpsReasons.push({ score: scoreNum, reason: String(reason).trim() }); }
+            const feedbackI = row[feedbackIIndex]; if (feedbackI != null && String(feedbackI).trim() !== '') allFeedbacks_I.push(String(feedbackI).trim());
+            const feedbackJ = row[feedbackJIndex]; if (feedbackJ != null && String(feedbackJ).trim() !== '') allFeedbacks_J.push(String(feedbackJ).trim());
+            const feedbackM = row[feedbackMIndex]; if (feedbackM != null && String(feedbackM).trim() !== '') allFeedbacks_M.push(String(feedbackM).trim());
+            const satB = row[satBIndex]; if (satB != null && satisfactionKeys.includes(String(satB))) satisfactionCounts_B[String(satB)]++;
+            const satC = row[satCIndex]; if (satC != null && satisfactionKeys.includes(String(satC))) satisfactionCounts_C[String(satC)]++;
+            const satD = row[satDIndex]; if (satD != null && satisfactionKeys.includes(String(satD))) satisfactionCounts_D[String(satD)]++;
+            const satE = row[satEIndex]; if (satE != null && satisfactionKeys.includes(String(satE))) satisfactionCounts_E[String(satE)]++;
+            const satF = row[satFIndex]; if (satF != null && satisfactionKeys.includes(String(satF))) satisfactionCounts_F[String(satF)]++;
+            const satG = row[satGIndex]; if (satG != null && satisfactionKeys.includes(String(satG))) satisfactionCounts_G[String(satG)]++;
+            const satH = row[satHIndex]; if (satH != null && satisfactionKeys.includes(String(satH))) satisfactionCounts_H[String(satH)]++;
+            const childrenP = row[childrenPIndex]; if (childrenP != null && childrenKeys.includes(String(childrenP))) childrenCounts_P[String(childrenP)]++;
+            const ageO = row[ageOIndex]; if (ageO != null && ageKeys.includes(String(ageO))) ageCounts_O[String(ageO)]++;
+            const income = row[incomeQIndex]; if (typeof income === 'number' && income >= 1 && income <= 10 && !isNaN(income)) incomeCounts[income]++;
+            const postalCodeRaw = row[postalCodeRIndex];
+            if (postalCodeRaw) {
+                const postalCode = String(postalCodeRaw).replace(/-/g, '').trim();
+                if (/^\d{7}$/.test(postalCode)) {
+                    postalCodeCounts[postalCode] = (postalCodeCounts[postalCode] || 0) + 1;
+                }
+            }
+            const npsScore = row[scoreKIndex];
+            if (npsScore != null && npsScore >= 0 && npsScore <= 10) {
+                const scoreNum = parseInt(npsScore, 10);
+                if (!isNaN(scoreNum)) npsScoreCounts[scoreNum]++;
+            }
+            const recommendation = row[recommendationNIndex];
+            if (recommendation != null) {
+                const recText = String(recommendation).trim();
+                if (recommendationKeys.includes(recText)) {
+                    recommendationCounts[recText]++;
+                } else if (recText !== '') {
+                    recommendationOthers.push(recText);
+                }
+            }
+        });
+        const aggregationData = {
+            allNpsReasons, allFeedbacks_I, allFeedbacks_J, allFeedbacks_M,
+            satisfactionCounts_B, satisfactionCounts_C, satisfactionCounts_D, satisfactionCounts_E, satisfactionCounts_F, satisfactionCounts_G, satisfactionCounts_H,
+            childrenCounts_P, ageCounts_O, incomeCounts, postalCodeCounts,
+            npsScoreCounts, recommendationCounts, recommendationOthers,
+            satisfactionKeys, ageKeys, childrenKeys, recommendationKeys,
+            createChartData
+        };
+        return buildReportDataObject(aggregationData);
+    } catch (e) {
+        console.error(`[googleSheetsService-AGG] Error aggregating data from "${sheetName}": ${e.toString()}`, e.stack);
+        return buildReportDataObject(null);
+    }
+};
+
+// --- buildReportDataObject (変更なし) ---
+function buildReportDataObject(data) {
+    if (!data) {
+        const emptyChart = [['カテゴリ', '件数']];
+        return {
+            npsData: { totalCount: 0, results: {}, rawText: [] },
+            feedbackData: { i_column: { totalCount: 0, results: [] }, j_column: { totalCount: 0, results: [] }, m_column: { totalCount: 0, results: [] } },
+            satisfactionData: { b_column: { results: emptyChart }, c_column: { results: emptyChart }, d_column: { results: emptyChart }, e_column: { results: emptyChart }, f_column: { results: emptyChart }, g_column: { results: emptyChart }, h_column: { results: emptyChart } },
+            ageData: { results: emptyChart },
+            childrenCountData: { results: emptyChart },
+            incomeData: { results: [['評価', '割合', { role: 'annotation' }]], totalCount: 0 },
+            postalCodeData: { counts: {} },
+            npsScoreData: { counts: {}, totalCount: 0 },
+            recommendationData: { fixedCounts: {}, otherList: [], fixedKeys: [] }
+        };
+    }
+    const {
+        allNpsReasons, allFeedbacks_I, allFeedbacks_J, allFeedbacks_M,
+        satisfactionCounts_B, satisfactionCounts_C, satisfactionCounts_D, satisfactionCounts_E, satisfactionCounts_F, satisfactionCounts_G, satisfactionCounts_H,
+        childrenCounts_P, ageCounts_O, incomeCounts, postalCodeCounts,
+        npsScoreCounts, recommendationCounts, recommendationOthers,
+        satisfactionKeys, ageKeys, childrenKeys, recommendationKeys,
+        createChartData
+    } = data;
+    const groupedByScore = allNpsReasons.reduce((acc, item) => { if (typeof item.score === 'number' && !isNaN(item.score)) { if (!acc[item.score]) acc[item.score] = []; acc[item.score].push(item.reason); } return acc; }, {});
+    const incomeChartData = [['評価', '割合', { role: 'annotation' }]];
+    const totalIncomeCount = Object.values(incomeCounts).reduce((a, b) => a + b, 0);
+    if (totalIncomeCount > 0) { for (let i = 1; i <= 10; i++) { const count = incomeCounts[i] || 0; const percentage = (count / totalIncomeCount) * 100; incomeChartData.push([String(i), percentage, `${Math.round(percentage)}%`]); } }
+    return {
+        npsData: { totalCount: allNpsReasons.length, results: groupedByScore, rawText: allNpsReasons.map(r => r.reason) },
+        feedbackData: { i_column: { totalCount: allFeedbacks_I.length, results: allFeedbacks_I }, j_column: { totalCount: allFeedbacks_J.length, results: allFeedbacks_J }, m_column: { totalCount: allFeedbacks_M.length, results: allFeedbacks_M } },
+        satisfactionData: { b_column: { results: createChartData(satisfactionCounts_B, satisfactionKeys) }, c_column: { results: createChartData(satisfactionCounts_C, satisfactionKeys) }, d_column: { results: createChartData(satisfactionCounts_D, satisfactionKeys) }, e_column: { results: createChartData(satisfactionCounts_E, satisfactionKeys) }, f_column: { results: createChartData(satisfactionCounts_F, satisfactionKeys) }, g_column: { results: createChartData(satisfactionCounts_G, satisfactionKeys) }, h_column: { results: createChartData(satisfactionCounts_H, satisfactionKeys) } },
+        ageData: { results: createChartData(ageCounts_O, ageKeys) },
+        childrenCountData: { results: createChartData(childrenCounts_P, childrenKeys) },
+        incomeData: { results: incomeChartData, totalCount: totalIncomeCount },
+        postalCodeData: { counts: postalCodeCounts },
+        npsScoreData: { counts: npsScoreCounts, totalCount: Object.values(npsScoreCounts).reduce((a, b) => a + b, 0) },
+        recommendationData: { fixedCounts: recommendationCounts, otherList: recommendationOthers, fixedKeys: recommendationKeys }
+    };
+}
+
+// --- マスターシート関数 (変更なし) ---
 exports.getMasterClinicList = async () => {
     const currentMasterSheetId = process.env.MASTER_SHEET_ID;
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
@@ -70,274 +437,8 @@ exports.getMasterClinicUrls = async () => {
         throw new Error('マスターシートのURL一覧読み込みに失敗しました。');
     }
 };
-// --- (変更なし) マスターシート関数 終わり ---
 
-// --- (変更なし) GAS呼び出し (findOrCreateCentralSheet) ---
-exports.findOrCreateCentralSheet = async (periodText) => {
-    const fileName = periodText;
-    console.log(`[googleSheetsService] Finding or creating central sheet via GAS: "${fileName}"`);
-    try {
-        const response = await fetch(GAS_SHEET_FINDER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                periodText: fileName,
-                folderId: MASTER_FOLDER_ID
-            })
-        });
-        if (!response.ok) {
-            throw new Error(`GAS Web App request failed with status ${response.status}: ${await response.text()}`);
-        }
-        const result = await response.json();
-        if (result.status === 'ok' && result.spreadsheetId) {
-            console.log(`[googleSheetsService] GAS operation successful. ID: ${result.spreadsheetId}`);
-            return result.spreadsheetId;
-        } else {
-            console.error('[googleSheetsService] GAS Web App returned an error:', result.message);
-            throw new Error(`GAS側でのシート作成に失敗しました: ${result.message || '不明なエラー'}`);
-        }
-    } catch (err) {
-        console.error(`[googleSheetsService] Error in findOrCreateCentralSheet (GAS) for "${fileName}".`);
-        console.error(err);
-        throw new Error(`集計スプレッドシートの検索または作成に失敗しました (GAS): ${err.message}`);
-    }
-};
-// --- (変更なし) GAS呼び出し 終わり ---
-
-// --- ▼▼▼ [修正] データ転記 (リサイズ処理追加) ▼▼▼ ---
-exports.fetchAndAggregateReportData = async (clinicUrls, period, centralSheetId) => {
-    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    if (!centralSheetId) throw new Error('集計スプレッドシートIDが指定されていません。');
-
-    const startDate = new Date(period.start + '-01T00:00:00Z');
-    const [endYear, endMonth] = period.end.split('-').map(Number);
-    const endDate = new Date(Date.UTC(endYear, endMonth, 0));
-    endDate.setUTCHours(23, 59, 59, 999);
-    console.log(`[googleSheetsService-ETL] Filtering data between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-
-    const processedClinics = [];
-
-    for (const clinicName in clinicUrls) {
-        const sourceSheetId = getSpreadsheetIdFromUrl(clinicUrls[clinicName]);
-        if (!sourceSheetId) {
-            console.warn(`[googleSheetsService-ETL] Invalid URL for ${clinicName}. Skipping.`);
-            continue;
-        }
-
-        console.log(`[googleSheetsService-ETL] Processing ${clinicName} (Source ID: ${sourceSheetId})`);
-
-        try {
-            const range = "'フォームの回答 1'!A:R";
-            const clinicDataResponse = await sheets.spreadsheets.values.get({
-                spreadsheetId: sourceSheetId,
-                range: range,
-                dateTimeRenderOption: 'SERIAL_NUMBER',
-                valueRenderOption: 'UNFORMATTED_VALUE'
-            });
-
-            const clinicDataRows = clinicDataResponse.data.values;
-            if (!clinicDataRows || clinicDataRows.length < 2) {
-                console.log(`[googleSheetsService-ETL] No data or only header found for ${clinicName}. Skipping.`);
-                continue;
-            }
-
-            // const header = clinicDataRows.shift(); // ヘッダーはそのまま使うのでshiftしない方が良いかも？ロジック維持
-            const header = clinicDataRows[0]; // 参照のみ
-            const dataBody = clinicDataRows.slice(1); // データ部分
-
-            const timestampIndex = 0;
-            const filteredRows = [];
-
-            dataBody.forEach((row) => {
-                const serialValue = row[timestampIndex];
-                if (typeof serialValue !== 'number' || serialValue <= 0 || isNaN(serialValue)) return;
-                const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-                const timestamp = new Date(excelEpoch.getTime() + serialValue * 24 * 60 * 60 * 1000);
-
-                if (timestamp.getTime() >= startDate.getTime() && timestamp.getTime() <= endDate.getTime()) {
-                    filteredRows.push(row);
-                }
-            });
-
-            console.log(`[googleSheetsService-ETL] For ${clinicName}: ${filteredRows.length} rows matched period.`);
-
-            if (filteredRows.length > 0) {
-                const clinicSheetTitle = clinicName;
-                // [修正] IDを取得して変数に格納
-                const sheetId = await findOrCreateSheet(centralSheetId, clinicSheetTitle);
-
-                await clearSheet(centralSheetId, clinicSheetTitle);
-                await writeData(centralSheetId, clinicSheetTitle, filteredRows);
-                console.log(`[googleSheetsService-ETL] Wrote ${filteredRows.length} rows to sheet: "${clinicSheetTitle}"`);
-
-                // ▼▼▼ [新規] クリニック個別シートをリサイズ (容量削減) ▼▼▼
-                // データ行数 + バッファ少々
-                const rowCount = filteredRows.length;
-                const colCount = filteredRows[0] ? filteredRows[0].length : 18;
-                await resizeSheetToFitData(centralSheetId, sheetId, rowCount, colCount);
-                // ▲▲▲
-
-                await findOrCreateSheet(centralSheetId, '全体');
-                await writeData(centralSheetId, '全体', filteredRows, true); // append = true (全体シートはリサイズしない)
-                console.log(`[googleSheetsService-ETL] Appended ${filteredRows.length} rows to sheet: "全体"`);
-            }
-
-            processedClinics.push(clinicName);
-
-        } catch (e) {
-            if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
-                console.error(`[googleSheetsService-ETL] Error for ${clinicName}: Sheet 'フォームの回答 1' not found or invalid range. Skipping. Error: ${e.toString()}`);
-            } else {
-                console.error(`[googleSheetsService-ETL] Error processing sheet for ${clinicName}: ${e.toString()}`, e.stack);
-            }
-            continue;
-        }
-    }
-
-    return processedClinics;
-};
-// --- (変更なし) データ転記 終わり ---
-
-// --- (変更なし) データ集計 (getReportDataForCharts) ---
-exports.getReportDataForCharts = async (centralSheetId, sheetName) => {
-    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    console.log(`[googleSheetsService-AGG] Aggregating data from Sheet ID: ${centralSheetId}, Tab: "${sheetName}"`);
-    const satisfactionKeys = ['非常に満足', '満足', 'ふつう', '不満', '非常に不満'];
-    const ageKeys = ['10代', '20代', '30代', '40代'];
-    const childrenKeys = ['1人', '2人', '3人', '4人', '5人以上'];
-    const recommendationKeys = [
-        'インターネット（Googleの口コミ）', 'インターネット（SNS）', 'インターネット（産院のホームページ）',
-        '知人の紹介', '家族の紹介', '自宅からの距離', 'インターネット（情報サイト）'
-    ];
-    const initializeCounts = (keys) => keys.reduce((acc, key) => { acc[key] = 0; return acc; }, {});
-    const createChartData = (counts, keys) => {
-        const chartData = [['カテゴリ', '件数']];
-        keys.forEach(key => {
-            chartData.push([key, counts[key] || 0]);
-        });
-        return chartData;
-    };
-    const allNpsReasons = [], allFeedbacks_I = [], allFeedbacks_J = [], allFeedbacks_M = [];
-    const satisfactionCounts_B = initializeCounts(satisfactionKeys), satisfactionCounts_C = initializeCounts(satisfactionKeys), satisfactionCounts_D = initializeCounts(satisfactionKeys), satisfactionCounts_E = initializeCounts(satisfactionKeys), satisfactionCounts_F = initializeCounts(satisfactionKeys), satisfactionCounts_G = initializeCounts(satisfactionKeys), satisfactionCounts_H = initializeCounts(satisfactionKeys);
-    const childrenCounts_P = initializeCounts(childrenKeys);
-    const ageCounts_O = initializeCounts(ageKeys);
-    const incomeCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
-    const postalCodeCounts = {};
-    const npsScoreCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
-    const recommendationCounts = initializeCounts(recommendationKeys);
-    const recommendationOthers = [];
-    try {
-        const range = `'${sheetName}'!A:R`;
-        const clinicDataResponse = await sheets.spreadsheets.values.get({
-            spreadsheetId: centralSheetId,
-            range: range,
-            dateTimeRenderOption: 'SERIAL_NUMBER',
-            valueRenderOption: 'UNFORMATTED_VALUE'
-        });
-        const clinicDataRows = clinicDataResponse.data.values;
-        if (!clinicDataRows || clinicDataRows.length < 1) {
-            console.log(`[googleSheetsService-AGG] No data found in "${sheetName}".`);
-            return buildReportDataObject(null);
-        }
-        const satBIndex = 1, satCIndex = 2, satDIndex = 3, satEIndex = 4, satFIndex = 5, satGIndex = 6, satHIndex = 7, feedbackIIndex = 8, feedbackJIndex = 9, scoreKIndex = 10, reasonLIndex = 11, feedbackMIndex = 12, recommendationNIndex = 13, ageOIndex = 14, childrenPIndex = 15, incomeQIndex = 16, postalCodeRIndex = 17;
-        clinicDataRows.forEach((row) => {
-            const score = row[scoreKIndex], reason = row[reasonLIndex]; if (reason != null && String(reason).trim() !== '') { const scoreNum = parseInt(score, 10); if (!isNaN(scoreNum)) allNpsReasons.push({ score: scoreNum, reason: String(reason).trim() }); }
-            const feedbackI = row[feedbackIIndex]; if (feedbackI != null && String(feedbackI).trim() !== '') allFeedbacks_I.push(String(feedbackI).trim());
-            const feedbackJ = row[feedbackJIndex]; if (feedbackJ != null && String(feedbackJ).trim() !== '') allFeedbacks_J.push(String(feedbackJ).trim());
-            const feedbackM = row[feedbackMIndex]; if (feedbackM != null && String(feedbackM).trim() !== '') allFeedbacks_M.push(String(feedbackM).trim());
-            const satB = row[satBIndex]; if (satB != null && satisfactionKeys.includes(String(satB))) satisfactionCounts_B[String(satB)]++;
-            const satC = row[satCIndex]; if (satC != null && satisfactionKeys.includes(String(satC))) satisfactionCounts_C[String(satC)]++;
-            const satD = row[satDIndex]; if (satD != null && satisfactionKeys.includes(String(satD))) satisfactionCounts_D[String(satD)]++;
-            const satE = row[satEIndex]; if (satE != null && satisfactionKeys.includes(String(satE))) satisfactionCounts_E[String(satE)]++;
-            const satF = row[satFIndex]; if (satF != null && satisfactionKeys.includes(String(satF))) satisfactionCounts_F[String(satF)]++;
-            const satG = row[satGIndex]; if (satG != null && satisfactionKeys.includes(String(satG))) satisfactionCounts_G[String(satG)]++;
-            const satH = row[satHIndex]; if (satH != null && satisfactionKeys.includes(String(satH))) satisfactionCounts_H[String(satH)]++;
-            const childrenP = row[childrenPIndex]; if (childrenP != null && childrenKeys.includes(String(childrenP))) childrenCounts_P[String(childrenP)]++;
-            const ageO = row[ageOIndex]; if (ageO != null && ageKeys.includes(String(ageO))) ageCounts_O[String(ageO)]++;
-            const income = row[incomeQIndex]; if (typeof income === 'number' && income >= 1 && income <= 10 && !isNaN(income)) incomeCounts[income]++;
-            const postalCodeRaw = row[postalCodeRIndex];
-            if (postalCodeRaw) {
-                const postalCode = String(postalCodeRaw).replace(/-/g, '').trim();
-                if (/^\d{7}$/.test(postalCode)) {
-                    postalCodeCounts[postalCode] = (postalCodeCounts[postalCode] || 0) + 1;
-                }
-            }
-            const npsScore = row[scoreKIndex];
-            if (npsScore != null && npsScore >= 0 && npsScore <= 10) {
-                const scoreNum = parseInt(npsScore, 10);
-                if (!isNaN(scoreNum)) npsScoreCounts[scoreNum]++;
-            }
-            const recommendation = row[recommendationNIndex];
-            if (recommendation != null) {
-                const recText = String(recommendation).trim();
-                if (recommendationKeys.includes(recText)) {
-                    recommendationCounts[recText]++;
-                } else if (recText !== '') {
-                    recommendationOthers.push(recText);
-                }
-            }
-        });
-        console.log(`[googleSheetsService-AGG] Aggregation complete for "${sheetName}".`);
-        const aggregationData = {
-            allNpsReasons, allFeedbacks_I, allFeedbacks_J, allFeedbacks_M,
-            satisfactionCounts_B, satisfactionCounts_C, satisfactionCounts_D, satisfactionCounts_E, satisfactionCounts_F, satisfactionCounts_G, satisfactionCounts_H,
-            childrenCounts_P, ageCounts_O, incomeCounts, postalCodeCounts,
-            npsScoreCounts, recommendationCounts, recommendationOthers,
-            satisfactionKeys, ageKeys, childrenKeys, recommendationKeys,
-            createChartData
-        };
-        return buildReportDataObject(aggregationData);
-    } catch (e) {
-        console.error(`[googleSheetsService-AGG] Error aggregating data from "${sheetName}": ${e.toString()}`, e.stack);
-        return buildReportDataObject(null);
-    }
-};
-// --- (変更なし) データ集計 終わり ---
-
-// --- (変更なし) データ構築 (buildReportDataObject) ---
-function buildReportDataObject(data) {
-    if (!data) {
-        const emptyChart = [['カテゴリ', '件数']];
-        return {
-            npsData: { totalCount: 0, results: {}, rawText: [] },
-            feedbackData: { i_column: { totalCount: 0, results: [] }, j_column: { totalCount: 0, results: [] }, m_column: { totalCount: 0, results: [] } },
-            satisfactionData: { b_column: { results: emptyChart }, c_column: { results: emptyChart }, d_column: { results: emptyChart }, e_column: { results: emptyChart }, f_column: { results: emptyChart }, g_column: { results: emptyChart }, h_column: { results: emptyChart } },
-            ageData: { results: emptyChart },
-            childrenCountData: { results: emptyChart },
-            incomeData: { results: [['評価', '割合', { role: 'annotation' }]], totalCount: 0 },
-            postalCodeData: { counts: {} },
-            npsScoreData: { counts: {}, totalCount: 0 },
-            recommendationData: { fixedCounts: {}, otherList: [], fixedKeys: [] }
-        };
-    }
-    const {
-        allNpsReasons, allFeedbacks_I, allFeedbacks_J, allFeedbacks_M,
-        satisfactionCounts_B, satisfactionCounts_C, satisfactionCounts_D, satisfactionCounts_E, satisfactionCounts_F, satisfactionCounts_G, satisfactionCounts_H,
-        childrenCounts_P, ageCounts_O, incomeCounts, postalCodeCounts,
-        npsScoreCounts, recommendationCounts, recommendationOthers,
-        satisfactionKeys, ageKeys, childrenKeys, recommendationKeys,
-        createChartData
-    } = data;
-    const groupedByScore = allNpsReasons.reduce((acc, item) => { if (typeof item.score === 'number' && !isNaN(item.score)) { if (!acc[item.score]) acc[item.score] = []; acc[item.score].push(item.reason); } return acc; }, {});
-    const incomeChartData = [['評価', '割合', { role: 'annotation' }]];
-    const totalIncomeCount = Object.values(incomeCounts).reduce((a, b) => a + b, 0);
-    if (totalIncomeCount > 0) { for (let i = 1; i <= 10; i++) { const count = incomeCounts[i] || 0; const percentage = (count / totalIncomeCount) * 100; incomeChartData.push([String(i), percentage, `${Math.round(percentage)}%`]); } }
-    return {
-        npsData: { totalCount: allNpsReasons.length, results: groupedByScore, rawText: allNpsReasons.map(r => r.reason) },
-        feedbackData: { i_column: { totalCount: allFeedbacks_I.length, results: allFeedbacks_I }, j_column: { totalCount: allFeedbacks_J.length, results: allFeedbacks_J }, m_column: { totalCount: allFeedbacks_M.length, results: allFeedbacks_M } },
-        satisfactionData: { b_column: { results: createChartData(satisfactionCounts_B, satisfactionKeys) }, c_column: { results: createChartData(satisfactionCounts_C, satisfactionKeys) }, d_column: { results: createChartData(satisfactionCounts_D, satisfactionKeys) }, e_column: { results: createChartData(satisfactionCounts_E, satisfactionKeys) }, f_column: { results: createChartData(satisfactionCounts_F, satisfactionKeys) }, g_column: { results: createChartData(satisfactionCounts_G, satisfactionKeys) }, h_column: { results: createChartData(satisfactionCounts_H, satisfactionKeys) } },
-        ageData: { results: createChartData(ageCounts_O, ageKeys) },
-        childrenCountData: { results: createChartData(childrenCounts_P, childrenKeys) },
-        incomeData: { results: incomeChartData, totalCount: totalIncomeCount },
-        postalCodeData: { counts: postalCodeCounts },
-        npsScoreData: { counts: npsScoreCounts, totalCount: Object.values(npsScoreCounts).reduce((a, b) => a + b, 0) },
-        recommendationData: { fixedCounts: recommendationCounts, otherList: recommendationOthers, fixedKeys: recommendationKeys }
-    };
-}
-// --- (変更なし) データ構築 終わり ---
-
-
-// --- (変更なし) コメントシート名 取得ヘルパー (ローカル) ---
+// --- コメントシート名ヘルパー (変更なし) ---
 function getCommentSheetName(clinicName, type) {
     switch(type) {
         case 'L_10': return `${clinicName}_NPS10`;
@@ -353,10 +454,8 @@ function getCommentSheetName(clinicName, type) {
     }
 };
 exports.getCommentSheetName = getCommentSheetName;
-// --- (変更なし) コメントシート名 取得ヘルパー 終わり ---
 
-// --- (変更あり) コメントデータ保存 (リサイズ処理追加) ---
-// [変更] ROWS_PER_COLUMN を 12 に変更
+// --- コメントI/O (変更なし: 12件設定) ---
 const ROWS_PER_COLUMN = 12;
 
 function formatCommentsToColumns(comments) {
@@ -385,7 +484,6 @@ exports.saveCommentsToSheet = async (centralSheetId, sheetName, comments) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
 
     if (!comments || comments.length === 0) {
-        // コメントがない場合は何もしない（あるいは空シート作ってリサイズでも良いが省略）
         console.log(`[googleSheetsService-Comments] No comments to save for "${sheetName}". Skipping.`);
         return;
     }
@@ -396,16 +494,15 @@ exports.saveCommentsToSheet = async (centralSheetId, sheetName, comments) => {
     const rowsData = transpose(columnsData);
 
     try {
-        // [修正] IDを取得して変数に格納
-        const sheetId = await findOrCreateSheet(centralSheetId, sheetName);
-        await clearSheet(centralSheetId, sheetName);
-        await writeData(centralSheetId, sheetName, rowsData);
+        const targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName.split('_')[0]);
 
-        // ▼▼▼ [新規] コメントシートをリサイズ (容量削減) ▼▼▼
+        const sheetId = await findOrCreateSheet(targetId, sheetName);
+        await clearSheet(targetId, sheetName);
+        await writeData(targetId, sheetName, rowsData);
+
         const rowCount = rowsData.length;
         const colCount = rowsData[0] ? rowsData[0].length : 1;
-        await resizeSheetToFitData(centralSheetId, sheetId, rowCount, colCount);
-        // ▲▲▲
+        await resizeSheetToFitData(targetId, sheetId, rowCount, colCount);
 
         console.log(`[googleSheetsService-Comments] Saved comments to "${sheetName}".`);
     } catch (e) {
@@ -417,12 +514,13 @@ exports.saveCommentsToSheet = async (centralSheetId, sheetName, comments) => {
 exports.readCommentsBySheet = async (centralSheetId, sheetName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
 
+    const targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName.split('_')[0]);
     const range = `'${sheetName}'!A:Z`;
-    console.log(`[googleSheetsService-Comments] Reading comments from "${sheetName}" (Range: ${range})`);
+    console.log(`[googleSheetsService-Comments] Reading from ID: ${targetId}, Sheet: "${sheetName}"`);
 
     try {
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: centralSheetId,
+            spreadsheetId: targetId,
             range: range,
             valueRenderOption: 'FORMATTED_VALUE',
             majorDimension: 'COLUMNS'
@@ -431,7 +529,6 @@ exports.readCommentsBySheet = async (centralSheetId, sheetName) => {
         const columns = response.data.values;
 
         if (!columns || columns.length === 0) {
-            console.log(`[googleSheetsService-Comments] No data found in "${sheetName}".`);
             return [];
         }
 
@@ -439,7 +536,6 @@ exports.readCommentsBySheet = async (centralSheetId, sheetName) => {
 
     } catch (e) {
         if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
-            console.warn(`[googleSheetsService-Comments] Sheet "${sheetName}" not found. Returning empty data.`);
             return [];
         }
         console.error(`[googleSheetsService-Comments] Error reading comment data: ${e.message}`, e);
@@ -450,22 +546,21 @@ exports.readCommentsBySheet = async (centralSheetId, sheetName) => {
 exports.updateCommentSheetCell = async (centralSheetId, sheetName, cell, value) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
 
+    const targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName.split('_')[0]);
     const range = `'${sheetName}'!${cell}`;
 
-    console.log(`[googleSheetsService-Comments] Updating cell "${range}" with new value...`);
+    console.log(`[googleSheetsService-Comments] Updating ID: ${targetId}, cell "${range}"`);
 
     try {
-        await writeData(centralSheetId, range, [[value]], false);
+        await writeData(targetId, range, [[value]], false);
         console.log(`[googleSheetsService-Comments] Cell update successful.`);
     } catch (e) {
         console.error(`[googleSheetsService-Comments] Error updating cell "${range}": ${e.message}`, e);
         throw new Error(`コメントシート(${sheetName})のセル(${range})更新に失敗しました: ${e.message}`);
     }
 };
-// --- (変更なし) コメントI/O 終わり ---
 
-
-// --- (変更なし) シート名一覧取得 (getSheetTitles) ---
+// --- タイトル取得 (Mainファイルのみ) ---
 exports.getSheetTitles = async (spreadsheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     try {
@@ -475,7 +570,7 @@ exports.getSheetTitles = async (spreadsheetId) => {
         });
 
         const titles = metadata.data.sheets.map(sheet => sheet.properties.title);
-        console.log(`[getSheetTitles] Found ${titles.length} sheets:`, titles.join(', '));
+        console.log(`[getSheetTitles] Found ${titles.length} sheets in MAIN file.`);
         return titles;
 
     } catch (e) {
@@ -483,23 +578,22 @@ exports.getSheetTitles = async (spreadsheetId) => {
         throw new Error(`シート一覧の取得に失敗しました: ${e.message}`);
     }
 };
-// --- (変更なし) シート名一覧取得 終わり ---
 
-// --- ▼▼▼ [修正] 分析タブI/O (リサイズ処理追加) ▼▼▼ ---
+// --- 分析I/O (変更なし) ---
 exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
     console.log(`[googleSheetsService] Saving Table to Sheet: "${sheetName}"`);
 
     try {
-        // [修正] IDを取得
-        const sheetId = await findOrCreateSheet(centralSheetId, sheetName);
-        await clearSheet(centralSheetId, sheetName);
-        await writeData(centralSheetId, sheetName, dataRows);
+        const targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName.split('_')[0]);
 
-        // 既存のオートリサイズ (列幅調整)
+        const sheetId = await findOrCreateSheet(targetId, sheetName);
+        await clearSheet(targetId, sheetName);
+        await writeData(targetId, sheetName, dataRows);
+
         if (sheetId) {
              await sheets.spreadsheets.batchUpdate({
-                spreadsheetId: centralSheetId,
+                spreadsheetId: targetId,
                 resource: { requests: [
                     { autoResizeDimensions: {
                         dimensions: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 4 }
@@ -508,11 +602,9 @@ exports.saveTableToSheet = async (centralSheetId, sheetName, dataRows) => {
             });
         }
 
-        // ▼▼▼ [新規] シート自体をリサイズ (容量削減) ▼▼▼
         const rowCount = dataRows.length;
         const colCount = dataRows[0] ? dataRows[0].length : 4;
-        await resizeSheetToFitData(centralSheetId, sheetId, rowCount, colCount);
-        // ▲▲▲
+        await resizeSheetToFitData(targetId, sheetId, rowCount, colCount);
 
         console.log(`[googleSheetsService] Successfully saved Table for "${sheetName}"`);
 
@@ -527,26 +619,25 @@ exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
     console.log(`[googleSheetsService] Saving AI Key-Value Data to Sheet: "${sheetName}"`);
 
     try {
-        // [修正] IDを取得
-        const sheetId = await findOrCreateSheet(centralSheetId, sheetName);
-        await clearSheet(centralSheetId, sheetName);
+        const targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName.split('_')[0]);
+
+        const sheetId = await findOrCreateSheet(targetId, sheetName);
+        await clearSheet(targetId, sheetName);
 
         const allKeys = getAiAnalysisKeys();
         const dataRows = allKeys.map(key => {
             const value = aiDataMap.get(key) || '（データなし）';
-            return [key, value]; // [A列, B列]
+            return [key, value];
         });
 
         const header = ['項目キー', '分析文章データ'];
         const finalData = [header, ...dataRows];
 
-        // A1から書き込む
-        await writeData(centralSheetId, `'${sheetName}'!A1`, finalData);
+        await writeData(targetId, `'${sheetName}'!A1`, finalData);
 
-        // 既存のオートリサイズ (列幅調整)
         if (sheetId) {
              await sheets.spreadsheets.batchUpdate({
-                spreadsheetId: centralSheetId,
+                spreadsheetId: targetId,
                 resource: { requests: [
                     { autoResizeDimensions: {
                         dimensions: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }
@@ -560,10 +651,7 @@ exports.saveAiAnalysisData = async (centralSheetId, sheetName, aiDataMap) => {
             });
         }
 
-        // ▼▼▼ [新規] シート自体をリサイズ (容量削減) ▼▼▼
-        // AI分析データは常に16行 (ヘッダー1 + データ15)、2列
-        await resizeSheetToFitData(centralSheetId, sheetId, 16, 2);
-        // ▲▲▲
+        await resizeSheetToFitData(targetId, sheetId, 16, 2);
 
         console.log(`[googleSheetsService] Successfully saved AI Key-Value Data for "${sheetName}"`);
 
@@ -579,12 +667,13 @@ exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
     const allKeys = getAiAnalysisKeys();
     const aiDataMap = new Map();
 
-    console.log(`[googleSheetsService] Reading AI Fixed-Cell Data from Sheet: "${sheetName}" (Range: B2:B16)`);
-
     try {
+        const targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName.split('_')[0]);
+        console.log(`[googleSheetsService] Reading AI Data from ID: ${targetId}, Sheet: "${sheetName}"`);
+
         const range = `'${sheetName}'!B2:B16`;
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: centralSheetId,
+            spreadsheetId: targetId,
             range: range,
             valueRenderOption: 'FORMATTED_VALUE'
         });
@@ -598,12 +687,10 @@ exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
             aiDataMap.set(key, value);
         });
 
-        console.log(`[googleSheetsService] Successfully read ${allKeys.length} AI values from fixed cells.`);
         return aiDataMap;
 
     } catch (e) {
         if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
-            console.warn(`[googleSheetsService] Sheet "${sheetName}" not found. Returning empty map with defaults.`);
             allKeys.forEach(key => {
                 aiDataMap.set(key, '（データがありません）');
             });
@@ -613,17 +700,14 @@ exports.readAiAnalysisData = async (centralSheetId, sheetName) => {
         throw new Error(`AI分析(Key-Value)のシート読み込みに失敗しました: ${e.message}`);
     }
 };
-// --- (変更なし) 分析タブI/O 終わり ---
 
-// --- (変更なし) 管理マーカーI/O (3関数) ---
 const MANAGEMENT_SHEET_NAME = '管理';
 
 exports.writeInitialMarker = async (centralSheetId, clinicName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    console.log(`[googleSheetsService-Marker] Writing Initial Marker for: "${clinicName}"`);
     try {
         await findOrCreateSheet(centralSheetId, MANAGEMENT_SHEET_NAME);
-        await writeData(centralSheetId, MANAGEMENT_SHEET_NAME, [[clinicName]], true); // append = true
+        await writeData(centralSheetId, MANAGEMENT_SHEET_NAME, [[clinicName]], true);
     } catch (e) {
         console.error(`[googleSheetsService-Marker] Error writing initial marker: ${e.message}`, e);
     }
@@ -631,7 +715,6 @@ exports.writeInitialMarker = async (centralSheetId, clinicName) => {
 
 exports.writeCompletionMarker = async (centralSheetId, clinicName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    console.log(`[googleSheetsService-Marker] Writing Completion Marker for: "${clinicName}"`);
     try {
         await findOrCreateSheet(centralSheetId, MANAGEMENT_SHEET_NAME);
 
@@ -648,11 +731,10 @@ exports.writeCompletionMarker = async (centralSheetId, clinicName) => {
         const rowIndex = rows.findIndex(row => row[0] === clinicName);
 
         if (rowIndex === -1) {
-            console.warn(`[googleSheetsService-Marker] Clinic name "${clinicName}" not found in management sheet A-column.`);
-            await writeData(centralSheetId, MANAGEMENT_SHEET_NAME, [[clinicName, 'Complete']], true); // append
+            await writeData(centralSheetId, MANAGEMENT_SHEET_NAME, [[clinicName, 'Complete']], true);
         } else {
             const cellToUpdate = `'${MANAGEMENT_SHEET_NAME}'!B${rowIndex + 1}`;
-            await writeData(centralSheetId, cellToUpdate, [['Complete']], false); // (上書き)
+            await writeData(centralSheetId, cellToUpdate, [['Complete']], false);
         }
 
     } catch (e) {
@@ -662,7 +744,6 @@ exports.writeCompletionMarker = async (centralSheetId, clinicName) => {
 
 exports.readCompletionStatusMap = async (centralSheetId) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    console.log(`[googleSheetsService-Marker] Reading Completion Status Map...`);
 
     const statusMap = {};
 
@@ -695,9 +776,7 @@ exports.readCompletionStatusMap = async (centralSheetId) => {
         return statusMap;
     }
 };
-// --- (変更なし) 管理マーカーI/O 終わり ---
 
-// --- (変更なし) シート行数取得 ---
 exports.getSheetRowCounts = async (centralSheetId, clinicName) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
 
@@ -716,8 +795,9 @@ exports.getSheetRowCounts = async (centralSheetId, clinicName) => {
         });
         results.managementCount = (managementResponse.data.values?.length || 1) - 1;
 
+        const targetId = await getTargetSpreadsheetId(centralSheetId, clinicName, clinicName);
         const clinicResponse = await sheets.spreadsheets.values.get({
-            spreadsheetId: centralSheetId,
+            spreadsheetId: targetId,
             range: `${clinicName}!A:A`,
         });
         results.clinicCount = (clinicResponse.data.values?.length || 1) - 1;
@@ -729,16 +809,16 @@ exports.getSheetRowCounts = async (centralSheetId, clinicName) => {
     }
 };
 
-// --- (変更なし) 単一セル読み込み ---
 exports.readSingleCell = async (centralSheetId, sheetName, cell) => {
     if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
 
-    const range = `'${sheetName}'!${cell}`;
-    console.log(`[googleSheetsService] Reading single cell: "${range}"`);
-
     try {
+        const targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, sheetName.split('_')[0]);
+        const range = `'${sheetName}'!${cell}`;
+        console.log(`[googleSheetsService] Reading single cell ID: ${targetId}, "${range}"`);
+
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: centralSheetId,
+            spreadsheetId: targetId,
             range: range,
             valueRenderOption: 'FORMATTED_VALUE'
         });
@@ -748,28 +828,15 @@ exports.readSingleCell = async (centralSheetId, sheetName, cell) => {
 
     } catch (e) {
         if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
-            console.warn(`[readSingleCell] Sheet or cell not found: "${range}". Returning null.`);
             return null;
         }
-        console.error(`[readSingleCell] Error reading cell "${range}": ${e.message}`, e);
-        throw new Error(`セル(${range})の読み込みに失敗しました: ${e.message}`);
+        console.error(`[readSingleCell] Error reading cell: ${e.message}`, e);
+        throw new Error(`セル読み込みに失敗しました: ${e.message}`);
     }
 };
 
-
-// =================================================================
-// === ▼▼▼ [新規] ヘルパー: シートリサイズ (余白削除) ▼▼▼ ===
-// =================================================================
-/**
- * [新規] 指定されたシートのサイズを、データのサイズに合わせて縮小（余白削除）する
- * @param {string} spreadsheetId
- * @param {number} sheetId
- * @param {number} dataRowsCount
- * @param {number} dataColsCount
- */
+// --- ヘルパー関数 (リサイズ・作成・書き込み) ---
 async function resizeSheetToFitData(spreadsheetId, sheetId, dataRowsCount, dataColsCount) {
-    // 安全のため、最低でも 5行 / 2列 は確保する (データが0件の場合などのエラー防止)
-    // また、少しバッファを持たせて (+2行, +1列) 見た目の窮屈さを防ぐ
     const targetRowCount = Math.max(dataRowsCount + 2, 5);
     const targetColCount = Math.max(dataColsCount + 1, 2);
 
@@ -791,15 +858,11 @@ async function resizeSheetToFitData(spreadsheetId, sheetId, dataRowsCount, dataC
                 }]
             }
         });
-        // console.log(`[Helper] Resized sheet ${sheetId} to ${targetRowCount} rows x ${targetColCount} cols`);
     } catch (e) {
         console.warn(`[Helper] Failed to resize sheet ${sheetId}: ${e.message}`);
-        // リサイズ失敗は致命的ではないのでエラーを投げずにログのみ
     }
 }
 
-
-// --- (変更なし) その他のヘルパー関数 ---
 async function addSheet(spreadsheetId, title) {
     try {
         const request = {
@@ -844,7 +907,6 @@ async function findOrCreateSheet(spreadsheetId, title) {
             return existingSheetId;
         }
 
-        console.log(`[Helper] Sheet "${title}" not found. Creating...`);
         const newSheetId = await addSheet(spreadsheetId, title);
         return newSheetId;
 
@@ -869,7 +931,6 @@ async function clearSheet(spreadsheetId, range) {
 
 async function writeData(spreadsheetId, range, values, append = false) {
     if (!values || values.length === 0) {
-        console.warn(`[Helper] No data to write for sheet "${range}".`);
         return;
     }
 
@@ -900,3 +961,5 @@ async function writeData(spreadsheetId, range, values, append = false) {
         throw e;
     }
 }
+
+exports.getSpreadsheetIdFromUrl = getSpreadsheetIdFromUrl;
