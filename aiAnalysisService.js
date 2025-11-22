@@ -2,10 +2,10 @@
 
 const openaiService = require('./services/openai');
 const googleSheetsService = require('./services/googleSheets');
-const postalCodeService = require('./services/postalCodeService');
+// const postalCodeService = require('./services/postalCodeService'); // 不要になるためコメントアウト
 // ▼▼▼ [変更] 必要なヘルパーをインポート ▼▼▼
-const { 
-    getSystemPromptForDetailAnalysis, 
+const {
+    getSystemPromptForDetailAnalysis,
     getSystemPromptForRecommendationAnalysis,
     RECOMMENDATION_DISPLAY_NAMES,
     getAnalysisSheetName, // (タブ名取得用)
@@ -100,84 +100,124 @@ exports.runAllAiAnalysesAndSave = async (centralSheetId, clinicName) => {
 
 
 // =================================================================
-// === ▼▼▼ [変更] 市区町村分析 (保存先タブ修正) ▼▼▼ ===
+// === ▼▼▼ [変更] 市区町村分析 (AIによる一括判定版) ▼▼▼ ===
 // =================================================================
 /**
- * [変更] 市区町村レポートを生成し、`_市区町村` タブに保存する
- * @param {string} centralSheetId 
- * @param {string} clinicName 
+ * [変更] 郵便番号APIを使わず、AIに一括で住所判定させて市区町村レポートを生成する
+ * @param {string} centralSheetId
+ * @param {string} clinicName
  * @throws {Error} データが0件の場合、または分析・保存に失敗した場合
  */
 exports.runAndSaveMunicipalityAnalysis = async (centralSheetId, clinicName) => {
-    console.log(`[aiAnalysisService-Muni] Running for ${clinicName}`);
+    console.log(`[aiAnalysisService-Muni] Running for ${clinicName} (Using AI Lookup)`);
 
-    // 1. 集計スプシから郵便番号データを取得 (変更なし)
+    // 1. 集計スプシから郵便番号データを取得
     const reportData = await googleSheetsService.getReportDataForCharts(centralSheetId, clinicName);
     const postalCodeCounts = reportData.postalCodeData.counts;
-    
+
     if (!postalCodeCounts || Object.keys(postalCodeCounts).length === 0) {
         console.log(`[aiAnalysisService-Muni] No postal code data found for ${clinicName}.`);
         throw new Error('分析対象の郵便番号データが0件です。 (Type: MUNICIPALITY)');
     }
 
-    // 2. ▼▼▼ [変更] 郵便番号APIで住所を検索（1件ずつ順番に処理） ▼▼▼
+    // 2. AIへ問い合わせる準備 (一括送信)
     const uniquePostalCodes = Object.keys(postalCodeCounts);
-    console.log(`[aiAnalysisService-Muni] Looking up ${uniquePostalCodes.length} unique postal codes (sequential)...`);
+    console.log(`[aiAnalysisService-Muni] Asking AI to identify ${uniquePostalCodes.length} postal codes...`);
 
+    // AIへのプロンプト定義
+    const systemPrompt = `
+# 役割
+あなたは日本の住所データ処理の専門家です。
+
+# タスク
+提供された「郵便番号のリスト」を元に、それぞれの「都道府県」と「市区町村」を特定してください。
+
+# 出力フォーマット (JSON形式)
+{
+  "results": [
+    { "code": "1234567", "prefecture": "東京都", "municipality": "千代田区" },
+    { "code": "0000000", "prefecture": "不明", "municipality": "不明" }
+  ]
+}
+
+# ルール
+1. **市区町村の粒度**:
+   - 「〇〇市」「〇〇区」「〇〇町」「〇〇村」までを出力してください。
+   - 政令指定都市の場合は「〇〇市〇〇区」まで含めてください（例: 横浜市港北区）。
+   - それ以下の町名や番地は不要です。
+2. **不明な場合**: 郵便番号が存在しない、または特定できない場合は "不明" としてください。
+3. **データ形式**: ハイフンなしの7桁の番号が入力されます。
+`;
+
+    // 郵便番号リストを文字列化（カンマ区切り）
+    // ※数が多すぎるとトークンオーバーする可能性があるため、念のため50件ずつ分割処理
+    const chunkSize = 50;
+    const addressMap = new Map(); // code -> { prefecture, municipality }
+
+    for (let i = 0; i < uniquePostalCodes.length; i += chunkSize) {
+        const chunk = uniquePostalCodes.slice(i, i + chunkSize);
+        const inputText = `以下の郵便番号を変換してください:\n${chunk.join(', ')}`;
+
+        try {
+            console.log(`[aiAnalysisService-Muni] Calling AI for batch ${Math.floor(i / chunkSize) + 1}...`);
+            const responseJson = await openaiService.generateJsonAnalysis(systemPrompt, inputText);
+
+            if (responseJson && Array.isArray(responseJson.results)) {
+                responseJson.results.forEach(item => {
+                    addressMap.set(item.code, {
+                        prefecture: item.prefecture || '不明',
+                        municipality: item.municipality || '不明'
+                    });
+                });
+            }
+        } catch (e) {
+            console.error(`[aiAnalysisService-Muni] AI batch failed: ${e.message}`);
+            // エラー時はこのバッチ分を「不明」として登録
+            chunk.forEach(code => addressMap.set(code, { prefecture: '不明', municipality: '不明' }));
+        }
+    }
+
+    // 3. 集計処理
     const addressAggregates = {}; // { "都道府県-市区町村": count }
     let totalValidCodesCount = 0;
 
-    // Promise.all ではなく、for...of で1件ずつ順番に処理
-    for (const postalCode of uniquePostalCodes) {
-        const count = postalCodeCounts[postalCode];
-        const address = await postalCodeService.lookupPostalCode(postalCode);
+    uniquePostalCodes.forEach(code => {
+        const count = postalCodeCounts[code];
+        const address = addressMap.get(code) || { prefecture: '不明', municipality: '不明' };
 
-        if (address && address.prefecture && address.municipality) {
-            const key = `${address.prefecture}-${address.municipality}`;
-            addressAggregates[key] = (addressAggregates[key] || 0) + count;
-        } else {
-            addressAggregates['不明-不明'] = (addressAggregates['不明-不明'] || 0) + count;
-        }
+        const key = `${address.prefecture}-${address.municipality}`;
+        addressAggregates[key] = (addressAggregates[key] || 0) + count;
         totalValidCodesCount += count;
+    });
 
-        // 各リクエスト間に0.2秒の待機時間を入れる
-        await new Promise(resolve => setTimeout(resolve, 200));
-    }
-    // ▲▲▲ 変更ここまで ▲▲▲
-
-    // 3. 集計
-    
-    if (totalValidCodesCount === 0) {
-        throw new Error('有効な郵便番号データが0件です。 (Type: MUNICIPALITY)');
-    }
-
+    // 4. データ整形 (件数順ソート)
     const finalTableData = Object.entries(addressAggregates).map(([key, count]) => {
         const [prefecture, municipality] = key.split('-');
         return {
             prefecture: prefecture,
             municipality: municipality,
             count: count,
-            percentage: (count / totalValidCodesCount) // 割合 (0.123 形式)
+            percentage: (totalValidCodesCount > 0) ? (count / totalValidCodesCount) : 0
         };
     });
-    
+
     finalTableData.sort((a, b) => b.count - a.count);
 
-    // 4. シート保存用の2D配列に変換 (ヘッダー含む) (変更なし)
+    // 5. シート保存用の形式に変換
     const header = ['都道府県', '市区町村', '件数', '割合'];
     const dataRows = finalTableData.map(row => [
         row.prefecture,
         row.municipality,
         row.count,
-        row.percentage // 0.123 形式 (シート側で%書式設定)
+        row.percentage
     ]);
     const sheetData = [header, ...dataRows];
 
-    // 5. ▼▼▼ [変更] 結果を `_市区町村` タブに保存 ▼▼▼
+    // 6. 保存
     const sheetName = getAnalysisSheetName(clinicName, 'MUNICIPALITY');
     console.log(`[aiAnalysisService-Muni] Saving ${dataRows.length} rows to sheet: "${sheetName}"`);
     await googleSheetsService.saveTableToSheet(centralSheetId, sheetName, sheetData);
-    
+
     console.log(`[aiAnalysisService-Muni] SUCCESS for ${clinicName}`);
 };
 
