@@ -721,6 +721,43 @@ exports.readSingleCell = async (centralSheetId, sheetName, cell) => {
     }
 };
 
+exports.readTableFromSheet = async (centralSheetId, sheetName) => {
+    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
+
+    const clinicName = sheetName.includes('_') ? sheetName.split('_')[0] : sheetName;
+
+    const targetId = await getTargetSpreadsheetId(centralSheetId, sheetName, clinicName);
+
+    console.log(`[googleSheetsService] Reading Table from ID: ${targetId} (Sheet: "${sheetName}")`);
+
+    try {
+        const range = `'${sheetName}'!A:D`;
+        const response = await executeWithRetry(async () => sheets.spreadsheets.values.get({
+            spreadsheetId: targetId,
+            range: range,
+            valueRenderOption: 'UNFORMATTED_VALUE'
+        }), `readTableFromSheet(${sheetName})`);
+
+        const rows = response.data.values;
+
+        if (!rows || rows.length < 2) {
+            console.log(`[googleSheetsService] No data found (rows < 2) in "${sheetName}".`);
+            return null;
+        }
+
+        rows.shift();
+        return rows;
+
+    } catch (e) {
+        if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
+            console.warn(`[googleSheetsService] Sheet "${sheetName}" not found in target file.`);
+            return null;
+        }
+        console.error(`[googleSheetsService] Error reading table data: ${e.message}`, e);
+        throw new Error(`分析テーブル(${sheetName})の読み込みに失敗しました: ${e.message}`);
+    }
+};
+
 // ★ Helper Functions with Retry ★
 
 async function resizeSheetToFitData(spreadsheetId, sheetId, dataRowsCount, dataColsCount) {
