@@ -695,12 +695,12 @@ exports.getSheetRowCounts = async (centralSheetId, clinicName) => {
     try {
         const results = {};
         const overallResponse = await sheets.spreadsheets.values.get({ spreadsheetId: centralSheetId, range: '全体!A:A' });
-        results.overallCount = (overallResponse.data.values?.length || 1) - 1;
+        results.overallCount = (overallResponse.data.values?.length || 0);
         const managementResponse = await sheets.spreadsheets.values.get({ spreadsheetId: centralSheetId, range: '管理!A:A' });
-        results.managementCount = (managementResponse.data.values?.length || 1) - 1;
+        results.managementCount = (managementResponse.data.values?.length || 0);
         const targetId = await getTargetSpreadsheetId(centralSheetId, clinicName, clinicName);
         const clinicResponse = await sheets.spreadsheets.values.get({ spreadsheetId: targetId, range: `${clinicName}!A:A` });
-        results.clinicCount = (clinicResponse.data.values?.length || 1) - 1;
+        results.clinicCount = (clinicResponse.data.values?.length || 0);
         return results;
     } catch (error) { throw error; }
 };
