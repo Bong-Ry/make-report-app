@@ -126,7 +126,6 @@ function setupEventListeners() {
 
 // --- 画面1/2 処理 (変更なし) ---
 
-// ▼▼▼ [ここから変更] ▼▼▼
 function populateDateSelectors() {
   const now = new Date();
   const cy = now.getFullYear();
@@ -163,10 +162,9 @@ function populateDateSelectors() {
   
   sy.value = String(cy); // 開始年 = 現在の年
   sm.value = currentMonth; // 開始月 = 現在の月
-  ey.value = String(cy); // [修正] 終了年 = 現在の年
+  ey.value = String(cy); // 終了年 = 現在の年
   em.value = currentMonth; // 終了月 = 現在の月
 }
-// ▲▲▲ [変更ここまで] ▲▲▲
 
 async function handleNextToClinics() {
   const sy = document.getElementById('start-year').value;
@@ -898,7 +896,7 @@ function showCommentSubNav(reportType) {
 
   if (reportType === 'nps') {
     title = 'アンケート結果　ーNPS推奨度 理由ー';
-    subTitle = 'データ一覧（1列20データずつ）';
+    subTitle = 'データ一覧（1列12データずつ）';
     const groups = [
       { key: 'L_10', label: '10点' },
       { key: 'L_9', label: '9点' },
@@ -997,7 +995,8 @@ async function fetchAndRenderCommentPage(commentKey) {
       throw new Error(`コメント取得APIエラー (${response.status}): ${await response.text()}`);
     }
 
-    const data = await response.json(); // 例: [ ['A列c1', 'A列c2'], ['B列c1'] ]
+    // dataは列ごとの配列 [ [A列データ...], [B列データ...], ... ]
+    const data = await response.json(); 
 
     if (!data || data.length === 0 || (data.length > 0 && data[0].length === 0)) {
       currentCommentData = [];
@@ -1005,23 +1004,14 @@ async function fetchAndRenderCommentPage(commentKey) {
       updateCommentSubtitle(commentKey, 0);
       renderCommentControls();
     } else {
-      // 全コメントを1つの配列に統合
-      const allComments = data.flat();
-
-      // NPSコメントかどうかで分割ルールを変更
-      const isNPS = commentKey === 'promoters' || commentKey === 'passives' || commentKey === 'detractors';
-      const chunkSize = isNPS ? 16 : 12;
-
-      // 指定件数ずつに分割
-      const chunkedData = [];
-      for (let i = 0; i < allComments.length; i += chunkSize) {
-        chunkedData.push(allComments.slice(i, i + chunkSize));
-      }
-      currentCommentData = chunkedData;
-      // 全コメント数をカウント
-      const totalCount = allComments.length;
+      // ▼▼▼ 修正：フラット化せずに、列＝ページとしてそのまま使用する ▼▼▼
+      currentCommentData = data; 
+      
+      // 全コメント数をカウント（サブタイトル用）
+      const totalCount = data.reduce((sum, col) => sum + (col ? col.length : 0), 0);
+      
       updateCommentSubtitle(commentKey, totalCount);
-      renderCommentPage(0); // 最初のページを描画
+      renderCommentPage(0); // 最初のページ（A列）を描画
     }
 
   } catch (e) {
@@ -1042,24 +1032,26 @@ function renderCommentPage(pageIndex) {
   bodyEl.innerHTML = '';
   bodyEl.style.overflowY = window.commentEditMode ? 'auto' : 'hidden'; // 表示モードはスクロール禁止
 
-  if (columnData.length === 0 && currentCommentData.length > 0) {
+  if (columnData.length === 0 && currentCommentData.length > 0 && !window.commentEditMode) {
     bodyEl.innerHTML = '<p class="text-center text-gray-500 py-16">(このページは空です)</p>';
   } else {
     if (!window.commentEditMode) {
       // 表示モード: フォントサイズ自動調整で1ページに収める
       const fragment = document.createDocumentFragment();
       columnData.forEach(comment => {
-        const p = document.createElement('p');
-        p.className = 'comment-display-item';
-        p.textContent = comment;
-        fragment.appendChild(p);
+        if (comment) { // 空文字は表示しない
+            const p = document.createElement('p');
+            p.className = 'comment-display-item';
+            p.textContent = comment;
+            fragment.appendChild(p);
+        }
       });
       bodyEl.appendChild(fragment);
 
       // コメント表示後にフォントサイズを調整
       adjustCommentFontSizes(bodyEl);
     } else {
-      // 編集モード: データ単位で編集可能なテキストエリアを生成
+      // 編集モード: 12個のテキストエリアを生成して、その列のデータを編集可能にする
       const editContainer = document.createElement('div');
       editContainer.className = 'comment-edit-container';
       editContainer.style.display = 'flex';
@@ -1067,7 +1059,10 @@ function renderCommentPage(pageIndex) {
       editContainer.style.gap = '8px';
       editContainer.style.padding = '8px';
 
-      columnData.forEach((comment, index) => {
+      // ▼▼▼ 修正：必ず12個の入力欄を作る（空欄も編集可能にするため） ▼▼▼
+      for (let i = 0; i < 12; i++) {
+        const comment = columnData[i] || ''; // データがなければ空文字
+        
         const itemWrapper = document.createElement('div');
         itemWrapper.className = 'comment-edit-item';
         itemWrapper.style.display = 'flex';
@@ -1075,14 +1070,14 @@ function renderCommentPage(pageIndex) {
         itemWrapper.style.gap = '4px';
 
         const label = document.createElement('label');
-        label.textContent = `コメント ${index + 1}`;
+        label.textContent = `コメント ${i + 1}`;
         label.style.fontSize = '10pt';
         label.style.fontWeight = 'bold';
         label.style.color = '#4b5563';
 
         const textarea = document.createElement('textarea');
         textarea.className = 'comment-item-textarea';
-        textarea.dataset.index = index;
+        textarea.dataset.index = i;
         textarea.value = comment;
         textarea.style.width = '100%';
         textarea.style.minHeight = '60px';
@@ -1096,7 +1091,7 @@ function renderCommentPage(pageIndex) {
         itemWrapper.appendChild(label);
         itemWrapper.appendChild(textarea);
         editContainer.appendChild(itemWrapper);
-      });
+      }
 
       bodyEl.appendChild(editContainer);
     }
@@ -1185,7 +1180,8 @@ async function saveCommentEdit() {
     editedComments.push(textarea.value.trim());
   });
 
-  // データを更新
+  // ローカルデータを更新 (現在のページのみ差し替え)
+  // 元のデータより少ない場合も、12個固定で扱うので配列ごと置き換えてOK
   const oldData = currentCommentData[currentCommentPageIndex] || [];
   currentCommentData[currentCommentPageIndex] = editedComments;
 
@@ -1193,14 +1189,15 @@ async function saveCommentEdit() {
   showLoading(true, 'コメントを保存中...');
 
   try {
-    // 現在のページのインデックスから、スプレッドシートの開始行を計算
-    const startRowIndex = currentCommentPageIndex * 16;
+    // ▼▼▼ 修正：列名を動的に取得（A, B, C...） ▼▼▼
+    const colName = getExcelColumnName(currentCommentPageIndex);
 
-    // 各行をスプレッドシートに保存
+    // 各行をスプレッドシートに保存 (1〜12行目固定)
     const updatePromises = [];
     for (let i = 0; i < editedComments.length; i++) {
-      const rowNumber = startRowIndex + i + 2; // +2: ヘッダー行をスキップ + 1-indexed
-      const cellAddress = `A${rowNumber}`;
+      // ▼▼▼ 修正：ヘッダーなしなので1行目から開始 (i + 1) ▼▼▼
+      const rowNumber = i + 1; 
+      const cellAddress = `${colName}${rowNumber}`;
       const value = editedComments[i] || ''; // 空の場合は空文字列
 
       updatePromises.push(
@@ -1217,25 +1214,8 @@ async function saveCommentEdit() {
       );
     }
 
-    // 元のデータより減った場合、残りのセルをクリア
-    if (oldData.length > editedComments.length) {
-      for (let i = editedComments.length; i < oldData.length; i++) {
-        const rowNumber = startRowIndex + i + 2;
-        const cellAddress = `A${rowNumber}`;
-        updatePromises.push(
-          fetch('/api/updateCommentData', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              centralSheetId: currentCentralSheetId,
-              sheetName: currentCommentSheetName,
-              cell: cellAddress,
-              value: ''
-            })
-          })
-        );
-      }
-    }
+    // 12行目までループしているので、「残りのセルをクリア」する追加処理は不要
+    // (editedCommentsは常に12要素あるため)
 
     await Promise.all(updatePromises);
 
@@ -2372,6 +2352,7 @@ function getDetailedAnalysisTitleBase(analysisType) {
 
 // =================================================================
 // === ▼▼▼ 編集モード切替（バグ修正） ▼▼▼ ===
+// =================================================================
 function toggleEditDetailedAnalysis(isEdit) {
   isEditingDetailedAnalysis = isEdit;
   const editBtn = document.getElementById('edit-detailed-analysis-btn');
