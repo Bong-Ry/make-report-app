@@ -209,26 +209,22 @@ exports.generateMunicipalityReport = async (req, res) => {
     }
 
     try {
-        // ▼▼▼ [変更] 分析ロジックを削除し、読み取り専用にする ▼▼▼
         const sheetName = getAnalysisSheetName(clinicName, 'MUNICIPALITY');
-        console.log(`[/api/generateMunicipalityReport] Reading table from sheet: "${sheetName}"`);
 
-        // (readTableFromSheet はこのファイルにないので、googleSheetsService を呼ぶ)
-        const tableData = await readTableFromSheet(centralSheetId, sheetName);
-        
-        if (!tableData) { // (readTableFromSheet が null を返す)
+        const tableData = await googleSheetsService.readTableFromSheet(centralSheetId, sheetName);
+
+        if (!tableData) {
             console.log(`[/api/generateMunicipalityReport] No data found in "${sheetName}".`);
-            return res.json([]); // データが存在しない
+            return res.json([]);
         }
 
-        // 2. フロントエンドが期待する形式 (割合を 12.3 形式) に変換
         const frontendTable = tableData.map(row => ({
             prefecture: row[0] || '',
             municipality: row[1] || '',
             count: parseFloat(row[2]) || 0,
-            percentage: (parseFloat(row[3]) || 0) * 100 // (シートには 0.123 形式で保存されている)
+            percentage: (parseFloat(row[3]) || 0) * 100
         }));
-        
+
         res.json(frontendTable);
 
     } catch (error) {
@@ -262,31 +258,26 @@ exports.getRecommendationReport = async (req, res) => {
     }
 
     try {
-        // 1. シートから `_おすすめ理由` タブを読み込む
         const sheetName = getAnalysisSheetName(clinicName, 'RECOMMENDATION');
-        console.log(`[/api/getRecommendationReport] Reading table from sheet: "${sheetName}"`);
-        
-        const tableData = await readTableFromSheet(centralSheetId, sheetName);
 
-        if (!tableData) { // (readTableFromSheet が null を返す)
+        const tableData = await googleSheetsService.readTableFromSheet(centralSheetId, sheetName);
+
+        if (!tableData) {
             console.log(`[/api/getRecommendationReport] No data found in "${sheetName}".`);
-            return res.json([['カテゴリ', '件数']]); // 空のヘッダー
+            return res.json([['カテゴリ', '件数']]);
         }
-        
-        // 2. フロントエンドの円グラフが期待する形式 [ [項目, 件数], ... ] に変換
-        const chartData = [['カテゴリ', '件数']]; // ヘッダー
-        
+
+        const chartData = [['カテゴリ', '件数']];
+
         tableData.forEach(row => {
-            const item = row[0] || '不明'; // A列: 項目
-            const count = parseFloat(row[1]) || 0; // B列: 件数
-            // (C列の割合はここでは不要)
-            
-            // (バックグラウンドで0件も保存するようにしたので、ここでフィルタリング)
+            const item = row[0] || '不明';
+            const count = parseFloat(row[1]) || 0;
+
             if (count > 0) {
                 chartData.push([item, count]);
             }
         });
-        
+
         res.json(chartData);
 
     } catch (error) {
@@ -296,43 +287,6 @@ exports.getRecommendationReport = async (req, res) => {
 };
 
 
-// =================================================================
-// === ▼▼▼ [修正] テーブル読み込み専用ヘルパー (googleSheetsService を呼ぶ) ▼▼▼ ===
-// =================================================================
-/**
- * [修正] googleSheetsService を呼び出すラッパー
- */
-async function readTableFromSheet(centralSheetId, sheetName) {
-    const sheets = googleSheetsService.sheets; 
-    
-    if (!sheets) throw new Error('Google Sheets APIクライアントが初期化されていません。');
-    
-    try {
-        const range = `'${sheetName}'!A:D`;
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: centralSheetId,
-            range: range,
-            valueRenderOption: 'UNFORMATTED_VALUE'
-        });
-
-        const rows = response.data.values;
-
-        if (!rows || rows.length < 2) { 
-            return null;
-        }
-
-        rows.shift(); 
-        return rows; 
-
-    } catch (e) {
-        if (e.message && (e.message.includes('not found') || e.message.includes('Unable to parse range'))) {
-            console.warn(`[readTableFromSheet] Sheet "${sheetName}" not found. Returning null.`);
-            return null; 
-        }
-        console.error(`[readTableFromSheet] Error reading table data: ${e.message}`, e);
-        throw new Error(`分析テーブル(${sheetName})の読み込みに失敗しました: ${e.message}`);
-    }
-}
 
 
 // =================================================================
