@@ -693,7 +693,7 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
           <div class="w-full flex justify-center mb-10 mt-30">
             <img src="${npsBoxImageUrl}" alt="NPSアイコン" class="h-32 object-contain" />
           </div>
-          <div id="nps-summary-area" class="flex flex-col justify-center items-center space-y-6 h-full">
+          <div id="nps-summary-area" class="flex flex-col justify-start items-center space-y-6 h-full pt-16">
             <p class="text-gray-500">NPSスコア計算中...</p>
           </div>
         </div>
