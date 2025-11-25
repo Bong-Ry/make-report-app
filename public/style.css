@@ -210,11 +210,6 @@ body{
     white-space: pre-wrap;
     text-align: center !important;
     flex-shrink: 0;
-    height: 3.5em;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    overflow: hidden;
 }
 .report-separator {
     border-top: 1px dashed #9ca3af;
@@ -449,6 +444,18 @@ body{
 /* レスポンシブ補助 */
 @media (max-width: 1024px){
     .chart-grid{ grid-template-columns: 1fr; }
+}
+
+/* グラフ位置固定用のクラス */
+.fixed-chart-layout #slide-content {
+    position: absolute !important;
+    top: 180px;
+    left: 40px;
+    right: 40px;
+    bottom: 20px;
+    height: auto !important;
+    padding-top: 0 !important;
+    display: block !important;
 }
 
 /* 印刷モード用スタイル */

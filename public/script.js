@@ -413,12 +413,26 @@ async function getReportDataForCurrentClinic(sheetName) {
 
 // --- ▼▼▼ レポート表示メイン (Screen 3) ▼▼▼ ---
 async function prepareAndShowReport(reportType) {
-  console.log(`Prepare report: ${reportType}`); 
+  console.log(`Prepare report: ${reportType}`);
   showLoading(true,'レポートデータ集計中...');
-  
+
   showScreen('screen3');
   updateNavActiveState(reportType, null, null);
-  
+
+  // グラフ位置固定クラスの制御
+  const reportBody = document.querySelector('.report-body');
+  const fixedLayoutTypes = [
+    'age', 'children', 'income', 'recommendation',
+    'satisfaction_b', 'satisfaction_c', 'satisfaction_d',
+    'satisfaction_e', 'satisfaction_f', 'satisfaction_g', 'satisfaction_h'
+  ];
+
+  if (fixedLayoutTypes.includes(reportType)) {
+    reportBody.classList.add('fixed-chart-layout');
+  } else {
+    reportBody.classList.remove('fixed-chart-layout');
+  }
+
   // UI初期化
   document.getElementById('report-title').textContent = '';
   document.getElementById('report-subtitle').textContent = '';
