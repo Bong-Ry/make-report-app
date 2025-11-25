@@ -611,17 +611,21 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.textAlign = 'center';
     document.getElementById('report-title').style.marginBottom = '4px';
     document.getElementById('report-subtitle').textContent = '';
+
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center">
+      <div class="flex justify-center items-start h-full pt-8">
+
         <ul class="text-lg font-normal space-y-4 text-left">
           <li>１．アンケート概要</li>
           <li>２．アンケート結果</li>
-          <ul class="pl-8 space-y-4 font-normal">
+
+          <ul class="pl-8 space-y-2 font-normal">
             <li>―１　顧客属性</li>
             <li>―２　病院への満足度（施設・ハード面）</li>
             <li>―３　病院への満足度（質・スタッフ面）</li>
             <li>―４　NPS推奨度・理由</li>
           </ul>
+
           <li>３．アンケート結果からの考察</li>
         </ul>
       </div>
