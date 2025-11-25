@@ -1,4 +1,4 @@
-// public/script.js (ファイル6) — 修正後の完全版
+// public/script.js (修正版・全文)
 
 // --- グローバル変数 ---
 let selectedPeriod = {}; 
@@ -700,6 +700,7 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
       </div>
     `;
   } else {
+    // [修正] グラフの位置を統一（上詰め＋固定パディング）
     htmlContent = `
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full pt-12">
         <div class="flex flex-col items-center">
@@ -728,7 +729,7 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
     tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },
     backgroundColor: '#ffff95',
-    sliceVisibilityThreshold: 0
+    sliceVisibilityThreshold: 0 // [修正] 自動で「その他」にまとめない
   };
   // 右側（全体平均）のグラフは背景色なし
   const overallOpt = {
@@ -738,7 +739,7 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
     legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
     tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },
-    sliceVisibilityThreshold: 0
+    sliceVisibilityThreshold: 0 // [修正] 自動で「その他」にまとめない
   };
   const cdEl = document.getElementById('clinic-pie-chart');
   if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
@@ -1403,7 +1404,8 @@ async function prepareAndShowRecommendationReport() {
       pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
       legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
       tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },
-      backgroundColor: '#ffff95'
+      backgroundColor: '#ffff95',
+      sliceVisibilityThreshold: 0 // [修正] 自動で「その他」にまとめない
     };
     // 右側（全体平均）のグラフは背景色なし
     const overallOpt = {
@@ -1412,7 +1414,8 @@ async function prepareAndShowRecommendationReport() {
       pieSliceText: 'percentage',
       pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
       legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
-      tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' }
+      tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },
+      sliceVisibilityThreshold: 0 // [修正] 自動で「その他」にまとめない
     };
     const clinicChartEl = document.getElementById('clinic-pie-chart');
     if (!clinicChartEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
@@ -1447,7 +1450,10 @@ async function prepareAndShowAnalysis(columnType) {
   updateNavActiveState(null, columnType, null);
   showCopyrightFooter(true); 
   
-  let tl = [], td = 0;
+  let tl = [];
+  
+  // ▼▼▼ [追加] 正しいデータ数を格納する変数 ▼▼▼
+  let clinicTotalCount = 0;
   
   document.getElementById('report-title').textContent = getAnalysisTitle(columnType, 0); 
   document.getElementById('report-subtitle').textContent =
@@ -1465,23 +1471,34 @@ async function prepareAndShowAnalysis(columnType) {
   slideBody.style.overflowY = 'hidden';
   
   try {
-    const cd = await getReportDataForCurrentClinic(currentClinicForModal);
+    // ▼▼▼ [修正] データ数(getSheetRowCounts)も並行して取得する ▼▼▼
+    const [cd, rowCounts] = await Promise.all([
+      getReportDataForCurrentClinic(currentClinicForModal),
+      fetch('/api/getSheetRowCounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          centralSheetId: currentCentralSheetId,
+          clinicName: currentClinicForModal
+        })
+      }).then(r => r.json())
+    ]);
+
+    // ▼▼▼ [追加] 取得した件数をセット ▼▼▼
+    clinicTotalCount = rowCounts.clinicCount || 0;
+
     switch (columnType) {
       case 'L':
         tl = cd.npsData.rawText || [];
-        td = cd.npsData.totalCount || 0;
         break;
       case 'I':
         tl = cd.feedbackData.i_column.results || [];
-        td = cd.feedbackData.i_column.totalCount || 0;
         break;
       case 'J':
         tl = cd.feedbackData.j_column.results || [];
-        td = cd.feedbackData.j_column.totalCount || 0;
         break;
       case 'M':
         tl = cd.feedbackData.m_column.results || [];
-        td = cd.feedbackData.m_column.totalCount || 0;
         break;
       default:
         console.error("Invalid column:", columnType);
@@ -1495,7 +1512,8 @@ async function prepareAndShowAnalysis(columnType) {
     return;
   }
   
-  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, td);
+  // ▼▼▼ [修正] タイトルに clinicTotalCount を使用 ▼▼▼
+  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, clinicTotalCount);
   
   if (tl.length === 0) {
     slideBody.innerHTML = `<p class="text-center text-red-500 py-16">分析対象テキストなし</p>`;
@@ -1544,10 +1562,10 @@ async function prepareAndShowAnalysis(columnType) {
       throw new Error(`分析APIエラー(${r.status}): ${et}`);
     }
     const ad = await r.json();
-    // キャッシュに保存（PDF出力用）
+    // ▼▼▼ [修正] キャッシュ保存時にも clinicTotalCount を使う ▼▼▼
     wcAnalysisCache[columnType] = {
       analysisResults: ad.results,
-      title: getAnalysisTitle(columnType, td),
+      title: getAnalysisTitle(columnType, clinicTotalCount),
       subtitle: '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。'
     };
     // レイアウト計算を確実に待つため、requestAnimationFrameとsetTimeoutを併用
@@ -1571,7 +1589,9 @@ async function prepareAndShowAnalysisForPrint(columnType) {
   updateNavActiveState(null, columnType, null);
   showCopyrightFooter(true);
 
-  let tl = [], td = 0;
+  let tl = [];
+  // ▼▼▼ [追加] 正しいデータ数を格納する変数 ▼▼▼
+  let clinicTotalCount = 0;
 
   document.getElementById('report-title').textContent = getAnalysisTitle(columnType, 0);
   document.getElementById('report-subtitle').textContent =
@@ -1589,23 +1609,33 @@ async function prepareAndShowAnalysisForPrint(columnType) {
   slideBody.style.overflowY = 'hidden';
 
   try {
-    const cd = await getReportDataForCurrentClinic(currentClinicForModal);
+    // ▼▼▼ [修正] データ数(getSheetRowCounts)も並行して取得する ▼▼▼
+    const [cd, rowCounts] = await Promise.all([
+      getReportDataForCurrentClinic(currentClinicForModal),
+      fetch('/api/getSheetRowCounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          centralSheetId: currentCentralSheetId,
+          clinicName: currentClinicForModal
+        })
+      }).then(r => r.json())
+    ]);
+
+    clinicTotalCount = rowCounts.clinicCount || 0;
+
     switch (columnType) {
       case 'L':
         tl = cd.npsData.rawText || [];
-        td = cd.npsData.totalCount || 0;
         break;
       case 'I':
         tl = cd.feedbackData.i_column.results || [];
-        td = cd.feedbackData.i_column.totalCount || 0;
         break;
       case 'J':
         tl = cd.feedbackData.j_column.results || [];
-        td = cd.feedbackData.j_column.totalCount || 0;
         break;
       case 'M':
         tl = cd.feedbackData.m_column.results || [];
-        td = cd.feedbackData.m_column.totalCount || 0;
         break;
       default:
         console.error("Invalid column:", columnType);
@@ -1617,8 +1647,9 @@ async function prepareAndShowAnalysisForPrint(columnType) {
     return;
   }
 
-  console.log(`[PDF WC] Text count: ${tl.length}, Total: ${td}`);
-  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, td);
+  console.log(`[PDF WC] Text count: ${tl.length}, Total: ${clinicTotalCount}`);
+  // ▼▼▼ [修正] タイトルに clinicTotalCount を使用 ▼▼▼
+  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, clinicTotalCount);
 
   if (tl.length === 0) {
     slideBody.innerHTML = `<p class="text-center text-red-500 py-16">分析対象テキストなし</p>`;
@@ -1715,7 +1746,7 @@ async function prepareAndShowAnalysisForPrint(columnType) {
 
     wcAnalysisCache[columnType] = {
       analysisResults: ad.results,
-      title: getAnalysisTitle(columnType, td),
+      title: getAnalysisTitle(columnType, clinicTotalCount), // [修正]
       subtitle: '章中に出現する単語の頻出度を表にしています。単語ごとに表示されている「スコア」の大きさは、その単語がどれだけ特徴的であるかを表しています。\n通常はその単語の出現回数が多いほどスコアが高くなるが、「言う」や「思う」など、どの文書にもよく現れる単語についてはスコアが低めになります。'
     };
 
@@ -3355,3 +3386,5 @@ function getTabLabel(tabId) {
   setupEventListeners();
   console.log('Listeners setup.');
 })();
+
+}
