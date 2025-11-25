@@ -627,7 +627,7 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-subtitle').textContent = '';
 
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center items-start h-full pt-8">
+      <div class="flex justify-center items-start h-full pt-0">
 
         <ul class="text-lg font-normal space-y-4 text-left">
           <li>１．アンケート概要</li>
