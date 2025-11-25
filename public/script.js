@@ -629,16 +629,18 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('slide-body').innerHTML = `
       <div class="flex justify-center items-start h-full pt-0">
 
-        <ul class="text-lg font-normal space-y-1 text-left">
+        <ul class="text-lg font-normal space-y-2 text-left">
           <li>１．アンケート概要</li>
-          <li>２．アンケート結果</li>
 
-          <ul class="pl-8 space-y-0 font-normal">
-            <li>―１　顧客属性</li>
-            <li>―２　病院への満足度（施設・ハード面）</li>
-            <li>―３　病院への満足度（質・スタッフ面）</li>
-            <li>―４　NPS推奨度・理由</li>
-          </ul>
+          <li>
+            ２．アンケート結果
+            <ul class="pl-8 space-y-0 font-normal mt-1">
+              <li>―１　顧客属性</li>
+              <li>―２　病院への満足度（施設・ハード面）</li>
+              <li>―３　病院への満足度（質・スタッフ面）</li>
+              <li>―４　NPS推奨度・理由</li>
+            </ul>
+          </li>
 
           <li>３．アンケート結果からの考察</li>
         </ul>
