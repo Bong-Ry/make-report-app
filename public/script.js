@@ -701,7 +701,7 @@ function prepareChartPage(title, subtitle, type, isBar = false) {
     `;
   } else {
     htmlContent = `
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full pt-12">
         <div class="flex flex-col items-center">
           <h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
           <div id="clinic-${cid}" class="w-full ${chartHeightClass} clinic-graph-bg-yellow"></div>
