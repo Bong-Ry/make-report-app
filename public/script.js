@@ -3387,4 +3387,3 @@ function getTabLabel(tabId) {
   console.log('Listeners setup.');
 })();
 
-}
