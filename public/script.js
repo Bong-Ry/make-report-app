@@ -504,7 +504,7 @@ async function prepareAndShowReport(reportType) {
     prepareChartPage('アンケート結果　ー費用ー','ご出産された産婦人科医院への費用について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満','satisfaction_e');
     isChart = true;
   } else if (reportType === 'satisfaction_f') {
-    prepareChartPage('アンケート結果 ー病院の雰囲気ー','ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満','satisfaction_f');
+    prepareChartPage('アンケート結果　ー病院の雰囲気ー','ご出産された産婦人科医院への病院の雰囲気について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満','satisfaction_f');
     isChart = true;
   } else if (reportType === 'satisfaction_g') {
     prepareChartPage('アンケート結果　ースタッフの対応ー','ご出産された産婦人科医院へのスタッフの対応について、教えてください。\n＜5段階評価＞ 5:非常に満足〜 1:非常に不満','satisfaction_g');
