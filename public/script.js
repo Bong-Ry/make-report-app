@@ -727,7 +727,8 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
     legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
     tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },
-    backgroundColor: '#ffff95'
+    backgroundColor: '#ffff95',
+    sliceVisibilityThreshold: 0
   };
   // 右側（全体平均）のグラフは背景色なし
   const overallOpt = {
@@ -736,7 +737,8 @@ function drawSatisfactionCharts(clinicChartData, overallChartData) {
     pieSliceText: 'percentage',
     pieSliceTextStyle: { color: 'black', fontSize: 12, bold: true },
     legend: { position: 'labeled', textStyle: { color: 'black', fontSize: 12 } },
-    tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' }
+    tooltip: { showColorCode: true, textStyle: { fontSize: 12 }, trigger: 'focus' },
+    sliceVisibilityThreshold: 0
   };
   const cdEl = document.getElementById('clinic-pie-chart');
   if (!cdEl) throw new Error('グラフ描画エリア(clinic-pie-chart)が見つかりません。');
@@ -1337,7 +1339,7 @@ async function prepareAndShowRecommendationReport() {
   slideBody.style.whiteSpace = 'normal';
   slideBody.classList.remove('flex', 'items-center', 'justify-center', 'items-start', 'justify-start');
   slideBody.innerHTML = `
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start h-full pt-12">
       <div class="flex flex-col items-center">
         <h3 class="font-bold text-lg mb-4 text-center">貴院の結果</h3>
         <div id="clinic-pie-chart" class="w-full h-[320px] clinic-graph-bg-yellow"></div>
