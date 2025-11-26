@@ -626,26 +626,40 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-title').style.marginBottom = '4px';
     document.getElementById('report-subtitle').textContent = '';
 
+    // ▼▼▼ 修正箇所ここから ▼▼▼
+
+    // 1. 強制的に white-space を normal に戻し、コード上の改行が空白にならないようにする
+    document.getElementById('slide-body').style.whiteSpace = 'normal';
+
     document.getElementById('slide-body').innerHTML = `
-      <div class="flex justify-center items-start h-full pt-0">
+      <div class="w-full h-full flex flex-col items-center justify-start pt-8">
 
-        <ul class="text-lg font-normal space-y-2 text-left">
-          <li>１．アンケート概要</li>
+        <div class="w-full max-w-3xl text-left flex flex-col gap-6 px-8">
 
-          <li>
-            ２．アンケート結果
-            <ul class="pl-8 space-y-0 font-normal mt-1">
-              <li>―１　顧客属性</li>
-              <li>―２　病院への満足度（施設・ハード面）</li>
-              <li>―３　病院への満足度（質・スタッフ面）</li>
-              <li>―４　NPS推奨度・理由</li>
-            </ul>
-          </li>
+          <div class="text-xl font-medium text-gray-800">
+            １．アンケート概要
+          </div>
 
-          <li>３．アンケート結果からの考察</li>
-        </ul>
+          <div class="flex flex-col gap-2">
+            <div class="text-xl font-medium text-gray-800">
+              ２．アンケート結果
+            </div>
+            <div class="pl-8 flex flex-col gap-1 text-lg text-gray-600">
+              <div>―１　顧客属性</div>
+              <div>―２　病院への満足度（施設・ハード面）</div>
+              <div>―３　病院への満足度（質・スタッフ面）</div>
+              <div>―４　NPS推奨度・理由</div>
+            </div>
+          </div>
+
+          <div class="text-xl font-medium text-gray-800">
+            ３．アンケート結果からの考察
+          </div>
+
+        </div>
       </div>
     `;
+    // ▲▲▲ 修正箇所ここまで ▲▲▲
   } else if (reportType === 'summary') {
     let overallCount = 0, clinicCount = 0, clinicListCount = 0;
     try {
