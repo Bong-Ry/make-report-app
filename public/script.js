@@ -627,12 +627,11 @@ async function prepareAndShowIntroPages(reportType) {
     document.getElementById('report-subtitle').textContent = '';
 
     // ▼▼▼ 修正箇所ここから ▼▼▼
-
-    // 1. 強制的に white-space を normal に戻し、コード上の改行が空白にならないようにする
+    // white-spaceのリセット
     document.getElementById('slide-body').style.whiteSpace = 'normal';
 
     document.getElementById('slide-body').innerHTML = `
-      <div class="w-full h-full flex flex-col items-center justify-start pt-8">
+      <div class="w-full h-full flex flex-col items-center justify-start pt-20">
 
         <div class="w-full max-w-3xl text-left flex flex-col gap-6 px-8">
 
