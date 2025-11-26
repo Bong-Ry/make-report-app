@@ -34,12 +34,24 @@ exports.generateJsonAnalysis = async (systemPrompt, inputText) => {
         });
 
         console.log("[openaiService] OpenAI API response received.");
-        const content = completion.choices[0]?.message?.content;
+        let content = completion.choices[0]?.message?.content;
 
         if (!content) {
             console.error("[openaiService] OpenAI response content is empty.");
             throw new Error('AIからの応答が空でした。');
         }
+
+        // ▼▼▼ AI応答のクリーニング処理 ▼▼▼
+        // 1. Markdown記法 (```json ... ```) が含まれていた場合に除去
+        content = content.replace(/```json/g, '').replace(/```/g, '');
+
+        // 2. 最初の中括弧 { から 最後の中括弧 } までを切り出す（前後の余計な空白や文章を削除）
+        const firstBrace = content.indexOf('{');
+        const lastBrace = content.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1) {
+            content = content.substring(firstBrace, lastBrace + 1);
+        }
+        // ▲▲▲ ここまで ▲▲▲
 
         try {
             const analysisJson = JSON.parse(content);
