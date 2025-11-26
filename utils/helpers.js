@@ -124,7 +124,7 @@ exports.getSystemPromptForDetailAnalysis = (clinicName, columnType) => {
   },
   "overall": {
     "title": "（ここに「総評」のタイトル）",
-    "summary": "(全体を総括する詳細なレポート。約400～600文字程度で、改行(\\n)を含めて読みやすく記述してください)"
+    "summary": "(全体を総括する詳細なレポート。約600字程度で、改行(\\n)を含めて読みやすく記述してください)"
   }
 }
 
