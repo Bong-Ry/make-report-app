@@ -1,19 +1,21 @@
 // public/script.js (修正版・全文)
 
 // --- グローバル変数 ---
-let selectedPeriod = {}; 
+let selectedPeriod = {};
 let currentClinicForModal = '';
-let currentAnalysisTarget = 'L'; 
-let currentDetailedAnalysisType = 'L'; 
-let isEditingDetailedAnalysis = false; 
-let currentCentralSheetId = null; 
-let currentPeriodText = ""; 
+let currentAnalysisTarget = 'L';
+let currentDetailedAnalysisType = 'L';
+let isEditingDetailedAnalysis = false;
+let currentCentralSheetId = null;
+let currentPeriodText = "";
 let currentAiCompletionStatus = {};
 let overallDataCache = null;
 let clinicDataCache = null;
 // WCグラフとAI分析のキャッシュ（PDF出力用）
 let wcAnalysisCache = {}; // { 'L': { html, analysisResults }, 'I': {...}, ... }
-let aiAnalysisCache = {}; // { 'L': { analysis: '...', suggestions: '...', overall: '...' }, ... } 
+let aiAnalysisCache = {}; // { 'L': { analysis: '...', suggestions: '...', overall: '...' }, ... }
+// 履歴管理用フラグ
+let isNavigatingBack = false; 
 
 /** @type {string | null} 'nps' | 'feedback_i' | 'feedback_j' | 'feedback_m' */
 let currentCommentType = null;
@@ -30,6 +32,70 @@ const googleChartsLoaded = new Promise(resolve => {
   google.charts.load('current', { packages: ['corechart', 'bar'] });
   google.charts.setOnLoadCallback(resolve);
 });
+
+// --- 履歴管理機能 ---
+function setupHistoryHandling() {
+  // 初回ロード時の状態を保存
+  history.replaceState({ screen: 'screen1' }, null, '');
+
+  // ブラウザの「戻る/進む」が押されたときの処理
+  window.addEventListener('popstate', async (event) => {
+    const state = event.state;
+    if (!state) return;
+
+    console.log('[History] Popstate:', state);
+    isNavigatingBack = true; // フラグON（プッシュしないため）
+
+    try {
+      // 共通: クリニック名などのコンテキストを復元
+      if (state.clinic) currentClinicForModal = state.clinic;
+      if (state.centralSheetId) currentCentralSheetId = state.centralSheetId;
+      if (state.periodText) currentPeriodText = state.periodText;
+
+      // 画面ごとの復元処理
+      if (state.screen === 'screen1') {
+        showScreen('screen1');
+      }
+      else if (state.screen === 'screen2') {
+        showScreen('screen2');
+        // リストが空なら再読み込み（キャッシュがあれば速い）
+        if (document.getElementById('issued-list-container').children.length === 0) {
+           await loadClinics();
+        }
+      }
+      else if (state.screen === 'screen3') {
+        showScreen('screen3');
+        if (state.reportType) {
+          await prepareAndShowReport(state.reportType);
+        } else if (state.analysisType) {
+          await prepareAndShowAnalysis(state.analysisType);
+        }
+      }
+      else if (state.screen === 'screen5') {
+        showScreen('screen5');
+        if (state.detailedAnalysisType) {
+          await prepareAndShowDetailedAnalysis(state.detailedAnalysisType);
+        }
+      }
+    } catch (e) {
+      console.error('[History] Restore failed:', e);
+    } finally {
+      isNavigatingBack = false; // フラグOFF
+    }
+  });
+}
+
+// 履歴に追加するヘルパー関数
+function pushAppHistory(state) {
+  if (isNavigatingBack) return; // 「戻る」処理中は履歴を追加しない
+
+  // 現在の状態と同じなら追加しない（重複防止）
+  const current = history.state;
+  if (current && JSON.stringify(current) === JSON.stringify(state)) return;
+
+  console.log('[History] Push:', state);
+  history.pushState(state, null, '');
+}
 
 // --- ▼▼▼ [修正] イベントリスナー設定 (新UI対応) ▼▼▼ ---
 function setupEventListeners() {
@@ -198,10 +264,18 @@ async function handleNextToClinics() {
     }
       
     const data = await response.json();
-    currentCentralSheetId = data.centralSheetId; 
-      
+    currentCentralSheetId = data.centralSheetId;
+
     document.getElementById('period-display').textContent = `集計期間：${displayPeriod}`;
     showScreen('screen2');
+
+    // 履歴追加: Screen 2
+    pushAppHistory({
+      screen: 'screen2',
+      centralSheetId: currentCentralSheetId,
+      periodText: currentPeriodText
+    });
+
     loadClinics();
   } catch (err) {
     console.error('!!! Find/Create Sheet failed:', err);
@@ -414,6 +488,15 @@ async function getReportDataForCurrentClinic(sheetName) {
 // --- ▼▼▼ レポート表示メイン (Screen 3) ▼▼▼ ---
 async function prepareAndShowReport(reportType) {
   console.log(`Prepare report: ${reportType}`);
+
+  // 履歴追加
+  pushAppHistory({
+    screen: 'screen3',
+    reportType: reportType,
+    clinic: currentClinicForModal,
+    centralSheetId: currentCentralSheetId
+  });
+
   showLoading(true,'レポートデータ集計中...');
 
   showScreen('screen3');
@@ -1477,6 +1560,14 @@ async function prepareAndShowRecommendationReport() {
 
 // ▼▼▼ Word Cloud表示 (Screen 3) ▼▼▼
 async function prepareAndShowAnalysis(columnType) {
+  // 履歴追加
+  pushAppHistory({
+    screen: 'screen3',
+    analysisType: columnType,
+    clinic: currentClinicForModal,
+    centralSheetId: currentCentralSheetId
+  });
+
   showLoading(true, `テキスト分析中(${getColumnName(columnType)})...`);
   showScreen('screen3');
   clearAnalysisCharts();
@@ -2082,12 +2173,21 @@ async function prepareAndShowAIAnalysisForPrint(analysisType, tabId) {
 // === ▼▼▼ [置き換え 1/2] prepareAndShowDetailedAnalysis ▼▼▼ ===
 async function prepareAndShowDetailedAnalysis(analysisType) {
   console.log(`Prepare detailed analysis: ${analysisType}`);
+
+  // 履歴追加
+  pushAppHistory({
+    screen: 'screen5',
+    detailedAnalysisType: analysisType,
+    clinic: currentClinicForModal,
+    centralSheetId: currentCentralSheetId
+  });
+
   const clinicName = currentClinicForModal;
-  
+
   // 1. 画面表示 (ローディングは switchTab が行う)
   showScreen('screen5');
   updateNavActiveState(null, null, analysisType);
-  toggleEditDetailedAnalysis(false); 
+  toggleEditDetailedAnalysis(false);
   showCopyrightFooter(true, 'screen5'); 
   
   // 2. エラー表示をリセット
@@ -3425,6 +3525,7 @@ function getTabLabel(tabId) {
 // --- 初期化 ---
 (async () => {
   console.log('DOM Loaded (assumed).');
+  setupHistoryHandling(); // 履歴管理を初期化
   populateDateSelectors();
   try {
     await googleChartsLoaded;
