@@ -2536,6 +2536,27 @@ function showScreen(screenId) {
 }
 let isPdfGenerating = false; // PDF生成中フラグ
 
+// 印刷モードを安全に終了する関数
+function exitPrintMode() {
+  // 印刷用スタイルを解除
+  document.body.classList.remove('print-mode-active');
+
+  // ポップアップを閉じる
+  const popup = document.getElementById('print-ready-popup');
+  if (popup) popup.classList.add('hidden');
+
+  // アプリ画面の透明度を戻す
+  const appFrame = document.getElementById('app-frame');
+  if (appFrame) appFrame.style.opacity = '1';
+
+  // 印刷用の中身をクリア（メモリ解放と次回用）
+  const printContainer = document.getElementById('print-container');
+  if (printContainer) printContainer.innerHTML = '';
+
+  isPdfGenerating = false;
+  showLoading(false);
+}
+
 function showLoading(isLoading, message = '') {
   const o = document.getElementById('loading-overlay');
   const m = document.getElementById('loading-message');
@@ -2790,6 +2811,9 @@ async function handlePdfExport() {
     // 印刷モードに切り替え
     document.body.classList.add('print-mode-active');
     console.log('[PDF Export] 印刷モード切り替え完了');
+
+    // 履歴に「印刷モード」という状態を追加
+    history.pushState({ mode: 'print' }, null, '#print');
 
     // ポップアップ表示
     setTimeout(() => {
@@ -3436,4 +3460,10 @@ function getTabLabel(tabId) {
   setupEventListeners();
   console.log('Listeners setup.');
 })();
+
+// ブラウザの「戻る」ボタン検知
+window.addEventListener('popstate', (event) => {
+  // 履歴が変動したら、強制的に印刷モードを解除して元の画面を見せる
+  exitPrintMode();
+});
 
