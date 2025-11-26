@@ -41,6 +41,10 @@ function setupHistoryHandling() {
   // ブラウザの「戻る/進む」が押されたときの処理
   window.addEventListener('popstate', async (event) => {
     const state = event.state;
+
+    // ★追加: 戻る操作時は、まず印刷モードを強制解除する
+    exitPrintMode();
+
     if (!state) return;
 
     console.log('[History] Popstate:', state);
@@ -77,6 +81,8 @@ function setupHistoryHandling() {
           await prepareAndShowDetailedAnalysis(state.detailedAnalysisType);
         }
       }
+      // ★ PDFモードの履歴だった場合は何もしない（exitPrintModeで解除済みのため、自動的に直前の画面が見えるはず）
+
     } catch (e) {
       console.error('[History] Restore failed:', e);
     } finally {
@@ -2673,6 +2679,36 @@ function showCopyrightFooter(show, screenId = 'screen3') {
   if (footer) footer.style.display = show ? 'block' : 'none';
 }
 
+// 印刷モードを解除して通常画面に戻すヘルパー関数
+function exitPrintMode() {
+  console.log('[UI] Exiting print mode...');
+
+  // 印刷モード用クラスの削除
+  document.body.classList.remove('print-mode-active');
+
+  // ポップアップを隠す
+  const popup = document.getElementById('print-ready-popup');
+  if (popup) popup.classList.add('hidden');
+
+  // 印刷用コンテナの中身をクリア（メモリ解放）
+  const printContainer = document.getElementById('print-container');
+  if (printContainer) printContainer.innerHTML = '';
+
+  // アプリフレームを表示に戻す
+  const appFrame = document.getElementById('app-frame');
+  if (appFrame) {
+    appFrame.style.opacity = '1';
+    appFrame.style.pointerEvents = 'auto';
+    appFrame.style.display = ''; // display:none されている場合に備えて
+  }
+
+  // フラグのリセット
+  isPdfGenerating = false;
+
+  // ローディングが出ていれば消す
+  showLoading(false);
+}
+
 // --- PDF出力機能 ---
 async function handlePdfExport() {
   console.log('[PDF Export] 開始');
@@ -2890,6 +2926,14 @@ async function handlePdfExport() {
     // 印刷モードに切り替え
     document.body.classList.add('print-mode-active');
     console.log('[PDF Export] 印刷モード切り替え完了');
+
+    // ★追加: PDFモードに入ったことを履歴に追加
+    // これにより「戻る」ボタンを押すと、この履歴が破棄され、popstateイベントで前の画面が復元される
+    pushAppHistory({
+      screen: 'pdf_mode', // 専用の識別子
+      clinic: currentClinicForModal,
+      centralSheetId: currentCentralSheetId
+    });
 
     // ポップアップ表示
     setTimeout(() => {
