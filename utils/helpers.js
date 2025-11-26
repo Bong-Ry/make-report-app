@@ -111,15 +111,15 @@ exports.getSystemPromptForDetailAnalysis = (clinicName, columnType) => {
   "analysis": {
     "title": "（ここに「分析と考察」のタイトル）",
     "themes": [
-      {"title": "(抽出したテーマ1)", "summary": "(テーマ1の具体的な分析内容。100～150字程度)"},
-      {"title": "(抽出したテーマ2)", "summary": "(テーマ2の具体的な分析内容。100～150字程度)"}
+      {"title": "(抽出したテーマ1)", "summary": "(テーマ1の具体的な分析内容。約300字程度)"},
+      {"title": "(抽出したテーマ2)", "summary": "(テーマ2の具体的な分析内容。約300字程度)"}
     ]
   },
   "suggestions": {
     "title": "（ここに「改善提案」のタイトル）",
     "items": [
-      {"themeTitle": "(テーマ1に対応)", "suggestion": "(テーマ1への具体的な改善提案。100～150字程度)"},
-      {"themeTitle": "(テーマ2に対応)", "suggestion": "(テーマ2への具体的な改善提案。100～150字程度)"}
+      {"themeTitle": "(テーマ1に対応)", "suggestion": "(テーマ1への具体的な改善提案。約300字程度)"},
+      {"themeTitle": "(テーマ2に対応)", "suggestion": "(テーマ2への具体的な改善提案。約300字程度)"}
     ]
   },
   "overall": {
