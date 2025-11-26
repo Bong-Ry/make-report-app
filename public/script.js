@@ -1544,9 +1544,10 @@ async function prepareAndShowAnalysis(columnType) {
     showLoading(false);
     return;
   }
-  
-  // ▼▼▼ [修正] タイトルに clinicTotalCount を使用 ▼▼▼
-  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, clinicTotalCount);
+
+  // ▼▼▼ [修正] NPS(L)は全回答数、それ以外はコメント数を表示 ▼▼▼
+  const displayCount = (columnType === 'L') ? clinicTotalCount : tl.length;
+  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, displayCount);
   
   if (tl.length === 0) {
     slideBody.innerHTML = `<p class="text-center text-red-500 py-16">分析対象テキストなし</p>`;
@@ -1681,8 +1682,9 @@ async function prepareAndShowAnalysisForPrint(columnType) {
   }
 
   console.log(`[PDF WC] Text count: ${tl.length}, Total: ${clinicTotalCount}`);
-  // ▼▼▼ [修正] タイトルに clinicTotalCount を使用 ▼▼▼
-  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, clinicTotalCount);
+  // ▼▼▼ [修正] NPS(L)は全回答数、それ以外はコメント数を表示 ▼▼▼
+  const displayCount = (columnType === 'L') ? clinicTotalCount : tl.length;
+  document.getElementById('report-title').textContent = getAnalysisTitle(columnType, displayCount);
 
   if (tl.length === 0) {
     slideBody.innerHTML = `<p class="text-center text-red-500 py-16">分析対象テキストなし</p>`;
@@ -1973,7 +1975,7 @@ function clearAnalysisCharts() {
 
 function getAnalysisTitle(columnType, count) {
   const bt = `アンケート結果　ー${getColumnName(columnType)}ー`;
-  return `${bt}　※全回答数${count}件ー`;
+  return `${bt}　※全回答数${count}件`;
 }
 function getColumnName(columnType) { 
   switch (columnType) {
@@ -2944,23 +2946,38 @@ async function generateWordCloudPageForPrint(columnType) {
     // データ取得
     let tl = [], td = 0;
     try {
-      const cd = await getReportDataForCurrentClinic(currentClinicForModal);
+      // 並行してデータと全回答数を取得
+      const [cd, rowCounts] = await Promise.all([
+        getReportDataForCurrentClinic(currentClinicForModal),
+        // NPSの場合に備えて全数も取得しておく
+        fetch('/api/getSheetRowCounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            centralSheetId: currentCentralSheetId,
+            clinicName: currentClinicForModal
+          })
+        }).then(r => r.json()).catch(() => ({}))
+      ]);
+
+      const clinicTotalCount = rowCounts.clinicCount || 0;
+
       switch (columnType) {
         case 'L':
           tl = cd.npsData.rawText || [];
-          td = cd.npsData.totalCount || 0;
+          td = clinicTotalCount; // NPSは全回答数
           break;
         case 'I':
           tl = cd.feedbackData.i_column.results || [];
-          td = cd.feedbackData.i_column.totalCount || 0;
+          td = tl.length; // それ以外はコメント数
           break;
         case 'J':
           tl = cd.feedbackData.j_column.results || [];
-          td = cd.feedbackData.j_column.totalCount || 0;
+          td = tl.length; // それ以外はコメント数
           break;
         case 'M':
           tl = cd.feedbackData.m_column.results || [];
-          td = cd.feedbackData.m_column.totalCount || 0;
+          td = tl.length; // それ以外はコメント数
           break;
         default:
           console.error("Invalid column:", columnType);
