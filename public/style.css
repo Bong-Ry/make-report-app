@@ -554,6 +554,13 @@ body{
         object-fit: cover !important; /* 比率を保ちつつ隙間なく埋める */
     }
 
+    /* 五角形の枠だけ強制印刷する設定 */
+    .ai-analysis-shape {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
     .print-page:last-child {
         page-break-after: auto;
     }
