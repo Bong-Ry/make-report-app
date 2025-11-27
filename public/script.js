@@ -1580,6 +1580,7 @@ async function prepareAndShowAnalysis(columnType) {
         <div id="word-cloud-container" class="border border-gray-200" style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; background: #ffffff;">
           <canvas id="word-cloud-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
         </div>
+        <p class="text-red-600 font-bold text-left leading-tight" style="font-size: 12px; margin-top: 0;">データ数によって全体の大きさが変動する場合があります。</p>
         <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
       </div>
     </div>
@@ -1716,6 +1717,7 @@ async function prepareAndShowAnalysisForPrint(columnType) {
         <div id="word-cloud-container" class="border border-gray-200" style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; background: #ffffff;">
           <canvas id="word-cloud-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
         </div>
+        <p class="text-red-600 font-bold text-left leading-tight" style="font-size: 12px; margin-top: 0;">データ数によって全体の大きさが変動する場合があります。</p>
         <div id="analysis-error" class="text-red-500 text-sm text-center hidden"></div>
       </div>
     </div>
@@ -3098,6 +3100,7 @@ async function generateWordCloudPageForPrint(columnType) {
         <div id="word-cloud-container-${uniqueId}" class="border border-gray-200" style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; background: #ffffff;">
           <canvas id="word-cloud-canvas-${uniqueId}" style="width: 100%; height: 100%; display: block;"></canvas>
         </div>
+        <p class="text-red-600 font-bold text-left leading-tight" style="font-size: 12px; margin-top: 0;">データ数によって全体の大きさが変動する場合があります。</p>
       </div>
     </div>
   `;
